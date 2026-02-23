@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <title>Recensement de la formation continue</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            margin: 0px;
+            background: #f0f4f8;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        hr {
+            border-top: 1px dotted #576066;
+            margin: 0 50px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #34495e;
+            margin-left: 20px;
+            margin-right: 20px;
+            margin-top: auto;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        h2:first-child {
+            margin-top: 0;
+        }
+
+        .form-group {
+            margin: 1rem;
+        }
+
+        .form-group_small {
+            margin: 1rem;
+            max-width: 35%;
+        }
+
+        .form-group_2 {
+            margin: 0 1rem;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        .required::after {
+            content: " *";
+            color: red;
+        }
+
+        input[type="number"],
+        select,
+        .search-input {
+            background: #e8f4fd !important;
+            color: black !important;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        input[type="checkbox"],
+        input[type="radio"] {
+            background: white;
+            border: 1px solid #ddd;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #2980b9;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        input[type="radio"]:checked {
+            background: #2980b9;
+        }
+
+        input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            appearance: none;
+            background: white !important;
+            color: black !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        input[type="number"]:focus,
+        select:focus,
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .search-result-item:hover {
+            background: #f5f5ff;
+        }
+
+        .search-result-item.active {
+            background: #f5f5ff;
+            font-weight: 600;
+        }
+
+        .selected-schools {
+            margin-top: 10px;
+        }
+
+        .school-tag {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #2980b9;
+            padding-top: 15px;
+            margin: 4px;
+            border-radius: 16px;
+            font-size: 13px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .school-tag button {
+            background: none;
+            border: none;
+            color: #2980b9;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 16px;
+            margin-top: 15px;
+        }
+
+        .school-tag button:hover {
+            color: #ff0000;
+            font-weight: bolder;
+        }
+
+        .enseignants-container {
+            margin-top: 20px;
+        }
+
+        .no-enseignants {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .enseignant-item {
+            background: #fafafa;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .enseignant-header {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .enseignant-header input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .enseignant-name {
+            font-weight: 600;
+            color: #2c3e50;
+            flex-grow: 1;
+        }
+
+        .enseignant-school {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-left: 10px;
+        }
+
+        .niveaux-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+            padding-left: 28px;
+        }
+
+        .niveau-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .niveau-checkbox input {
+            cursor: pointer;
+        }
+
+        .niveau-checkbox label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+
+        button {
+            background: #2980b9;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #21618c;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        #btnValider {
+            display: flex;
+        }
+
+        .btnValider {
+            background: #27ae60;
+            width: 150px;
+            transition: all 0.1s ease;
+            margin: auto;
+        }
+
+        .btnValider:hover {
+            background: #1e8449;
+            transform: scale(1.01);
+            box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .error {
+            color: #d32f2f;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .checkbox-group,
+        .radio-group {
+            background: #e8f4fd;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .checkbox-group label,
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f0f4f8;
+            border-radius: 4px;
+        }
+
+        .filter-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0;
+            font-weight: normal;
+        }
+
+        [data-quantity] {
+            position: relative;
+            width: 100%;
+            max-width: 11rem;
+            padding: 0;
+            margin: 0;
+            border: 0;
+        }
+
+        [data-quantity] legend {
+            display: none;
+        }
+
+        [data-quantity] input {
+            font-size: 14px;
+            height: 40px;
+            padding: 0 50px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: #e8f4fd !important;
+            color: #222 !important;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            font-weight: normal;
+        }
+
+        [data-quantity] input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+
+        [data-quantity] input[type=number]::-webkit-inner-spin-button,
+        [data-quantity] input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        [data-quantity] input[type=number] {
+            appearance: none;
+            -moz-appearance: textfield;
+        }
+
+        [data-quantity] button {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            top: 0;
+            display: block;
+            padding: 0;
+            margin: 0;
+            border: 1px solid #ddd;
+            background: #e8f4fd url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><path d="M17 25h16M67 25h16M75 17v16" fill="none" stroke="darkblue" stroke-width="1.5px" stroke-linecap="round" stroke-linejoin="round" /></svg>') no-repeat 0 0;
+            background-size: 80px 40px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-indent: 100%;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            opacity: 0.5;
+        }
+
+        [data-quantity] button:active {
+            background-position-y: 1px;
+            box-shadow: inset 0 2px 12px -4px #c5d1d9;
+        }
+
+        [data-quantity] button:focus {
+            outline: none;
+        }
+
+        [data-quantity] button:hover {
+            opacity: 1;
+        }
+
+        [data-quantity] button.sub {
+            left: 0;
+        }
+
+        [data-quantity] button.add {
+            right: 0;
+            background-position-x: -40px;
+        }
+
+        .formateur-field {
+            margin-bottom: 10px;
+        }
+
+        #formateursInputsContainer {
+            margin-bottom: 10px;
+        }
+
+        .formateur-field-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .formateur-field-wrapper .search-container {
+            position: relative;
+            margin-bottom: 0;
+        }
+
+        .formateur-field-wrapper .delete-formateur-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            color: #999;
+            border: none;
+            border-radius: 100%;
+            padding: 0;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+            padding-bottom: .1em;
+        }
+
+        .formateur-field-wrapper .delete-formateur-btn:hover {
+            color: #ff6b6b;
+            background-color: #505050;
+            box-shadow: 1px 1px 4px gray;
+        }
+
+        /* Onglets */
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 30px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: #f0f4f8;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.2s;
+            margin: 0;
+            width: auto;
+        }
+
+        .tab-button:hover {
+            background: #e8f0f5;
+            color: #34495e;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #2980b9;
+            border-bottom-color: #2980b9;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Filtres de recherche */
+        .filter-badge {
+            display: inline-block;
+            background: #e8f4fd;
+            color: #2980b9;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .filter-badge button {
+            background: none;
+            border: none;
+            color: #2980b9;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 5px;
+            width: auto;
+            font-size: 14px;
+        }
+
+        .filter-badge button:hover {
+            color: #ff0000;
+        }
+
+        .record-list {
+            margin-top: 20px;
+        }
+
+        .record-item {
+            background: #fafafa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .record-item:hover {
+            background: #f0f8ff;
+            border-color: #3498db;
+            transform: translateX(5px);
+        }
+
+        .record-item.selected {
+            background: #e3f2fd;
+            border-color: #2980b9;
+            border-width: 2px;
+        }
+
+        .record-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .record-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 15px;
+        }
+
+        .record-details {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+
+        .no-records {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .edit-form {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 2px solid #3498db;
+        }
+
+        .edit-form h3 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 16px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .gaia-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Recensement de la formation continue</h1>
+
+        <!-- Onglets -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('create')">Créer une fiche</button>
+            <button class="tab-button" onclick="switchTab('edit')">Modifier une fiche</button>
+        </div>
+
+        <!-- Contenu onglet Créer -->
+        <div id="createTab" class="tab-content active">
+
+            <h2>Année scolaire</h2>
+            <div class="form-group_small">
+                <label for="anneeScolaire" class="required">Sélectionnez l'année scolaire</label>
+                <select id="anneeScolaire">
+                    <option value="">-- Choisissez une année --</option>
+                    <option value="2026-2027">2026-2027</option>
+                    <option value="2027-2028">2027-2028</option>
+                    <option value="2028-2029">2028-2029</option>
+                    <option value="2029-2030">2029-2030</option>
+                </select>
+                <div class="error" id="anneeError">Veuillez sélectionner une année scolaire</div>
+            </div>
+
+            <h2>1. Nombre d'écoles</h2>
+            <div class="form-group">
+                <label for="nombreEcoles" class="required">Nombre d'écoles concernées</label>
+                <fieldset id="nombreEcoles" data-quantity>
+                    <legend>Change quantity</legend>
+                </fieldset>
+            </div>
+
+            <h2>2. Sélection des écoles</h2>
+            <div class="form-group">
+                <label for="searchEcole" class="required">Rechercher et sélectionner les écoles</label>
+                <div class="search-container">
+                    <input type="text" class="search-input" id="searchEcole"
+                        placeholder="Tapez pour rechercher une école..." onkeyup="searchEcoles(event)">
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+                <div class="selected-schools" id="selectedSchools"></div>
+                <div class="error" id="ecolesError">Veuillez sélectionner le nombre d'écoles requis</div>
+            </div>
+
+            <h2>3. Sélection des enseignants</h2>
+            <div id="enseignantsContainer" class="enseignants-container">
+                <div class="no-enseignants">Sélectionnez d'abord les écoles</div>
+            </div>
+
+            <h2>4. Informations du groupe</h2>
+            <div class="form-group">
+                <label for="numeroGroupe">Numéro de groupe (facultatif)</label>
+                <fieldset id="numeroGroupe" data-quantity>
+                    <legend>Change quantity</legend>
+                </fieldset>
+            </div>
+
+            <h2>5. Paramètres de formation</h2>
+            <div class="form-group">
+                <label for="modaliteConstitution" class="required">Modalité de constitution du groupe</label>
+                <div id="modaliteConstitution" class="checkbox-group">
+                    <label><input type="checkbox" value="de secteur"> de secteur</label>
+                    <label><input type="checkbox" value="d'école"> d'école</label>
+                    <label><input type="checkbox" value="de niveau"> de niveau</label>
+                    <label><input type="checkbox" value="de cycles"> de cycles</label>
+                    <label><input type="checkbox" value="intercycles"> intercycles</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="typeFormation" class="required">Type de formation</label>
+                <div id="typeFormation" class="radio-group">
+                    <label><input type="radio" name="typeFormation" value="Constellation"> Constellation</label>
+                    <label><input type="radio" name="typeFormation" value="Résidence pédagogique"> Résidence
+                        pédagogique</label>
+                    <label><input type="radio" name="typeFormation" value="Animations pédagogiques"> Animations
+                        pédagogiques</label>
+                    <label><input type="radio" name="typeFormation" value="Accompagnement de proximité"> Accompagnement
+                        de proximité</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="dureeFormation" class="required">Durée de la formation</label>
+                <select id="dureeFormation">
+                    <option value="">-- Choisissez une durée --</option>
+                    <option value="6h">6h</option>
+                    <option value="12h">12h</option>
+                    <option value="18h">18h</option>
+                    <option value="24h">24h</option>
+                    <option value="30h">30h</option>
+                </select>
+                <div class="error" id="dureeError">Veuillez sélectionner une durée de formation</div>
+            </div>
+
+            <div class="form-group">
+                <label for="modalitesFormation" class="required">Modalités de formation</label>
+                <div id="modalitesFormation" class="radio-group">
+                    <label><input type="checkbox" name="modalitesFormation" value="Présentiel"> Présentiel</label>
+                    <label><input type="checkbox" name="modalitesFormation" value="Distanciel synchrone"> Distanciel
+                        synchrone</label>
+                    <label><input type="checkbox" name="modalitesFormation" value="Distanciel asynchrone"> Distanciel
+                        asynchrone</label>
+                    <label><input type="checkbox" name="modalitesFormation" value="Hybride"> Hybride</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="objetsTransversaux" class="required">Objets transversaux traités en parallèle</label>
+                <div id="objetsTransversaux" class="checkbox-group">
+                    <label><input type="checkbox" value="Fonctions cognitives transversales"> Fonctions cognitives
+                        transversales</label>
+                    <label><input type="checkbox" value="Compétences psycho-sociales"> Compétences
+                        psycho-sociales</label>
+                    <label><input type="checkbox" value="Besoins et développement"> Besoins et développement</label>
+                    <label><input type="checkbox" value="Métacognition"> Métacognition</label>
+                    <label><input type="checkbox" value="Modalités d'apprentissage"> Modalités d'apprentissage</label>
+                    <label><input type="checkbox" value="Observation active"> Observation active</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="themesFormation" class="required">Thème(s) traité(s) en formation</label>
+                <div class="filter-group">
+                    <span><b>Filtres :</b></span>
+                    <label><input type="checkbox" id="filterFrancais" checked> Français (F)</label>
+                    <label><input type="checkbox" id="filterMathematiques" checked> Mathématiques (M)</label>
+                    <label><input type="checkbox" id="filterCycle1" checked> Cycle 1</label>
+                    <label><input type="checkbox" id="filterCycle2" checked> Cycle 2</label>
+                    <label><input type="checkbox" id="filterCycle3" checked> Cycle 3</label>
+                </div>
+                <div id="themesFormation" class="checkbox-group">
+                    <label><input type="checkbox" value="F-Lecture"> F-Lecture</label>
+                    <label><input type="checkbox" value="F-Vocabulaire"> F-Vocabulaire</label>
+                    <label><input type="checkbox" value="F-Langage oral"> F-Langage oral</label>
+                    <label><input type="checkbox" value="F-S'éveiller à la diversité linguistique"> F-S'éveiller à la
+                        diversité linguistique</label>
+                    <label><input type="checkbox" value="F-Ecriture"> F-Ecriture</label>
+                    <label><input type="checkbox" value="F-Grammaire et orthographe"> F-Grammaire et orthographe</label>
+                    <label><input type="checkbox"
+                            value="M(C1)-Découvrir les nombres : exprimer une quantité par un nombre">
+                        M(C1)-Découvrir les nombres : exprimer une quantité par un nombre</label>
+                    <label><input type="checkbox"
+                            value="M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre">
+                        M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre</label>
+                    <label><input type="checkbox" value="M(C1)-Utiliser les nombres pour résoudre des problèmes">
+                        M(C1)-Utiliser les nombres pour résoudre des problèmes</label>
+                    <label><input type="checkbox" value="M(C1)-Explorer les solides et formes planes"> M(C1)-Explorer
+                        les
+                        solides et formes planes</label>
+                    <label><input type="checkbox" value="M(C1)-Explorer les grandeurs : longueur et masse">
+                        M(C1)-Explorer
+                        les grandeurs : longueur et masse</label>
+                    <label><input type="checkbox" value="M(C1)-Se familiariser avec les motifs organisés"> M(C1)-Se
+                        familiariser avec les motifs organisés</label>
+                    <label><input type="checkbox" value="M(C2-C3)-Nombres, calcul et résolution de problèmes">
+                        M(C2-C3)-Nombres, calcul et résolution de problèmes</label>
+                    <label><input type="checkbox" value="M(C2-C3)-Grandeurs et mesures"> M(C2-C3)-Grandeurs et
+                        mesures</label>
+                    <label><input type="checkbox" value="M(C2-C3)-Espace et géométrie"> M(C2-C3)-Espace et
+                        géométrie</label>
+                    <label><input type="checkbox" value="M(C2)-Organisation et gestion de données"> M(C2)-Organisation
+                        et
+                        gestion de données</label>
+                    <label><input type="checkbox" value="M(C3)-Organisation et gestion de données et probabilités">
+                        M(C3)-Organisation et gestion de données et probabilités</label>
+                    <label><input type="checkbox" value="M(C3)-La proportionnalité"> M(C3)-La proportionnalité</label>
+                    <label><input type="checkbox" value="M(C3)-Initiation à la pensée informatique"> M(C3)-Initiation à
+                        la
+                        pensée informatique</label>
+                </div>
+            </div>
+
+            <h2>6. Informations GAIA</h2>
+            <div class="gaia-fields">
+                <div class="form-group">
+                    <label for="dispositifGAIA">Dispositif GAIA</label>
+                    <input type="text" id="dispositifGAIA" maxlength="10" placeholder="10 caractères alphanumériques">
+                    <div class="error" id="dispositifError">Le dispositif GAIA doit contenir exactement 10 caractères
+                        alphanumériques</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="moduleGAIA">Module GAIA</label>
+                    <input type="text" id="moduleGAIA" maxlength="5" placeholder="5 chiffres">
+                    <div class="error" id="moduleError">Le module GAIA doit contenir exactement 5 chiffres</div>
+                </div>
+            </div>
+
+            <h2>7. Formateur(s)</h2>
+            <div class="form-group">
+                <label for="formateursInputsContainer">Formateur(s)</label>
+                <div id="formateursInputsContainer"></div>
+                <button type="button" onclick="addFormateurField()"
+                    style="width: auto; padding: 8px 20px; margin-top: 10px; background: #16a085;">Ajouter un
+                    formateur</button>
+            </div>
+
+            <div id="btnValider"><button class="btnValider" onclick="validerFormulaire()">Valider</button></div>
+        </div>
+
+        <!-- Contenu onglet Modifier -->
+        <div id="editTab" class="tab-content">
+            <h2>Rechercher une fiche</h2>
+            <p style="color: #7f8c8d; font-size: 14px;">Utilisez les filtres ci-dessous pour trouver la fiche à
+                modifier. L'auto-complétion se met à jour en fonction de vos sélections.</p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group_2">
+                    <label for="filterFormateur">Formateur</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterFormateur"
+                            placeholder="Rechercher un formateur..." onkeyup="searchFilterFormateur(event)">
+                        <div class="search-results" id="filterFormateurResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterAnnee">Année scolaire</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterAnnee" placeholder="Rechercher une année..."
+                            onkeyup="searchFilterAnnee(event)">
+                        <div class="search-results" id="filterAnneeResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterEcole">École</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterEcole" placeholder="Rechercher une école..."
+                            onkeyup="searchFilterEcole(event)">
+                        <div class="search-results" id="filterEcoleResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterTypeFormation">Type de formation</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterTypeFormation"
+                            placeholder="Rechercher un type..." onkeyup="searchFilterTypeFormation(event)">
+                        <div class="search-results" id="filterTypeFormationResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterDispositif">Dispositif GAIA</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterDispositif"
+                            placeholder="Rechercher un dispositif..." onkeyup="searchFilterDispositif(event)">
+                        <div class="search-results" id="filterDispositifResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterModule">Module GAIA</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterModule" placeholder="Rechercher un module..."
+                            onkeyup="searchFilterModule(event)">
+                        <div class="search-results" id="filterModuleResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="selectedFilters" style="margin-top: 15px;"></div>
+
+            <div id="recordsList" class="record-list"></div>
+
+            <div id="editFormContainer"></div>
+        </div>
+    </div>
+
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <script src="script.js"></script>
+
+</body>
+
+</html>
