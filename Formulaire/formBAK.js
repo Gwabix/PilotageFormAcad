@@ -676,6 +676,28 @@ function getFormateurs() {
     return formateurs;
 }
 
+function filterThemes() {
+    const francaisEl = document.getElementById('filterFrancais');
+    const francais = francaisEl ? francaisEl.checked : false;
+    const mathematiquesEl = document.getElementById('filterMathematiques');
+    const mathematiques = mathematiquesEl ? mathematiquesEl.checked : false;
+
+    const labels = document.querySelectorAll('#themesFormation label');
+
+    labels.forEach(label => {
+        const value = label.querySelector('input').value;
+        let show = false;
+
+        if (value.startsWith('FRA') && francais) {
+            show = true;
+        } else if (value.startsWith('MA') && mathematiques) {
+            show = true;
+        }
+
+        label.style.display = show ? 'flex' : 'none';
+    });
+}
+
 function validateForm() {
     const errors = [];
 
@@ -946,12 +968,8 @@ function resetForm() {
     if (filterFrancaisEl) filterFrancaisEl.checked = true;
     const filterMathematiquesEl = document.getElementById('filterMathematiques');
     if (filterMathematiquesEl) filterMathematiquesEl.checked = true;
-    const filterCycle1El = document.getElementById('filterCycle1');
-    if (filterCycle1El) filterCycle1El.checked = true;
-    const filterCycle2El = document.getElementById('filterCycle2');
-    if (filterCycle2El) filterCycle2El.checked = true;
-    const filterCycle3El = document.getElementById('filterCycle3');
-    if (filterCycle3El) filterCycle3El.checked = true;
+
+    filterThemes();
 
     // Reset GAIA fields
     const dispositifGAIAEl = document.getElementById('dispositifGAIA');
@@ -1001,7 +1019,12 @@ document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
     radio.addEventListener('change', updateDureeFormation);
 });
 
+// Ajouter les écouteurs pour les filtres de thèmes
+document.getElementById('filterFrancais').addEventListener('change', filterThemes);
+document.getElementById('filterMathematiques').addEventListener('change', filterThemes);
+
 loadData();
+filterThemes();
 addFormateurField();
 
 // ===== FONCTIONS POUR L'ONGLET MODIFICATION =====
