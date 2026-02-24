@@ -676,39 +676,6 @@ function getFormateurs() {
     return formateurs;
 }
 
-function filterThemes() {
-    const francaisEl = document.getElementById('filterFrancais');
-    const francais = francaisEl ? francaisEl.checked : false;
-    const mathematiquesEl = document.getElementById('filterMathematiques');
-    const mathematiques = mathematiquesEl ? mathematiquesEl.checked : false;
-    const cycle1El = document.getElementById('filterCycle1');
-    const cycle1 = cycle1El ? cycle1El.checked : false;
-    const cycle2El = document.getElementById('filterCycle2');
-    const cycle2 = cycle2El ? cycle2El.checked : false;
-    const cycle3El = document.getElementById('filterCycle3');
-    const cycle3 = cycle3El ? cycle3El.checked : false;
-
-    const labels = document.querySelectorAll('#themesFormation label');
-
-    labels.forEach(label => {
-        const value = label.querySelector('input').value;
-        let show = false;
-
-        if (value.startsWith('F-') && francais) {
-            show = true;
-        } else if (value.startsWith('M(') && mathematiques) {
-            if ((value.includes('(C1)') && cycle1) ||
-                (value.includes('(C2)') && cycle2) ||
-                (value.includes('(C3)') && cycle3) ||
-                (value.includes('(C2-C3)') && (cycle2 || cycle3))) {
-                show = true;
-            }
-        }
-
-        label.style.display = show ? 'flex' : 'none';
-    });
-}
-
 function validateForm() {
     const errors = [];
 
@@ -986,8 +953,6 @@ function resetForm() {
     const filterCycle3El = document.getElementById('filterCycle3');
     if (filterCycle3El) filterCycle3El.checked = true;
 
-    filterThemes();
-
     // Reset GAIA fields
     const dispositifGAIAEl = document.getElementById('dispositifGAIA');
     if (dispositifGAIAEl) dispositifGAIAEl.value = '';
@@ -1031,19 +996,12 @@ document.addEventListener('click', function (event) {
     }
 });
 
-document.getElementById('filterFrancais').addEventListener('change', filterThemes);
-document.getElementById('filterMathematiques').addEventListener('change', filterThemes);
-document.getElementById('filterCycle1').addEventListener('change', filterThemes);
-document.getElementById('filterCycle2').addEventListener('change', filterThemes);
-document.getElementById('filterCycle3').addEventListener('change', filterThemes);
-
 // Ajouter les écouteurs pour les radios de type de formation
 document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
     radio.addEventListener('change', updateDureeFormation);
 });
 
 loadData();
-filterThemes();
 addFormateurField();
 
 // ===== FONCTIONS POUR L'ONGLET MODIFICATION =====
@@ -1556,25 +1514,22 @@ function displayEditForm(ficheRecords) {
             <div class="form-group">
                 <label>Thème(s) traité(s) en formation *</label>
                 <div class="checkbox-group" id="editThemesFormation">
-                    <label><input type="checkbox" class="edit-themes" value="F-Lecture" ${(firstRecord.themes || []).includes('F-Lecture') ? 'checked' : ''}> F-Lecture</label>
-                    <label><input type="checkbox" class="edit-themes" value="F-Vocabulaire" ${(firstRecord.themes || []).includes('F-Vocabulaire') ? 'checked' : ''}> F-Vocabulaire</label>
-                    <label><input type="checkbox" class="edit-themes" value="F-Langage oral" ${(firstRecord.themes || []).includes('F-Langage oral') ? 'checked' : ''}> F-Langage oral</label>
-                    <label><input type="checkbox" class="edit-themes" value="F-S'éveiller à la diversité linguistique" ${(firstRecord.themes || []).includes("F-S'éveiller à la diversité linguistique") ? 'checked' : ''}> F-S'éveiller à la diversité linguistique</label>
-                    <label><input type="checkbox" class="edit-themes" value="F-Ecriture" ${(firstRecord.themes || []).includes('F-Ecriture') ? 'checked' : ''}> F-Ecriture</label>
-                    <label><input type="checkbox" class="edit-themes" value="F-Grammaire et orthographe" ${(firstRecord.themes || []).includes('F-Grammaire et orthographe') ? 'checked' : ''}> F-Grammaire et orthographe</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C1)-Découvrir les nombres : exprimer une quantité par un nombre" ${(firstRecord.themes || []).includes('M(C1)-Découvrir les nombres : exprimer une quantité par un nombre') ? 'checked' : ''}> M(C1)-Découvrir les nombres : exprimer une quantité par un nombre</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre" ${(firstRecord.themes || []).includes('M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre') ? 'checked' : ''}> M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C1)-Utiliser les nombres pour résoudre des problèmes" ${(firstRecord.themes || []).includes('M(C1)-Utiliser les nombres pour résoudre des problèmes') ? 'checked' : ''}> M(C1)-Utiliser les nombres pour résoudre des problèmes</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C1)-Explorer les solides et formes planes" ${(firstRecord.themes || []).includes('M(C1)-Explorer les solides et formes planes') ? 'checked' : ''}> M(C1)-Explorer les solides et formes planes</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C1)-Explorer les grandeurs : longueur et masse" ${(firstRecord.themes || []).includes('M(C1)-Explorer les grandeurs : longueur et masse') ? 'checked' : ''}> M(C1)-Explorer les grandeurs : longueur et masse</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C1)-Se familiariser avec les motifs organisés" ${(firstRecord.themes || []).includes('M(C1)-Se familiariser avec les motifs organisés') ? 'checked' : ''}> M(C1)-Se familiariser avec les motifs organisés</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C2-C3)-Nombres, calcul et résolution de problèmes" ${(firstRecord.themes || []).includes('M(C2-C3)-Nombres, calcul et résolution de problèmes') ? 'checked' : ''}> M(C2-C3)-Nombres, calcul et résolution de problèmes</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C2-C3)-Grandeurs et mesures" ${(firstRecord.themes || []).includes('M(C2-C3)-Grandeurs et mesures') ? 'checked' : ''}> M(C2-C3)-Grandeurs et mesures</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C2-C3)-Espace et géométrie" ${(firstRecord.themes || []).includes('M(C2-C3)-Espace et géométrie') ? 'checked' : ''}> M(C2-C3)-Espace et géométrie</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C2)-Organisation et gestion de données" ${(firstRecord.themes || []).includes('M(C2)-Organisation et gestion de données') ? 'checked' : ''}> M(C2)-Organisation et gestion de données</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C3)-Organisation et gestion de données et probabilités" ${(firstRecord.themes || []).includes('M(C3)-Organisation et gestion de données et probabilités') ? 'checked' : ''}> M(C3)-Organisation et gestion de données et probabilités</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C3)-La proportionnalité" ${(firstRecord.themes || []).includes('M(C3)-La proportionnalité') ? 'checked' : ''}> M(C3)-La proportionnalité</label>
-                    <label><input type="checkbox" class="edit-themes" value="M(C3)-Initiation à la pensée informatique" ${(firstRecord.themes || []).includes('M(C3)-Initiation à la pensée informatique') ? 'checked' : ''}> M(C3)-Initiation à la pensée informatique</label>
+                    <label><input type="checkbox" class="edit-themes" value="FRA - Lecture" ${(firstRecord.themes || []).includes('FRA - Lecture') ? 'checked' : ''}> FRA - Lecture</label>
+                    <label><input type="checkbox" class="edit-themes" value="FRA - Vocabulaire" ${(firstRecord.themes || []).includes('FRA - Vocabulaire') ? 'checked' : ''}> FRA - Vocabulaire</label>
+                    <label><input type="checkbox" class="edit-themes" value="FRA - Langage Oral" ${(firstRecord.themes || []).includes('FRA - Langage Oral') ? 'checked' : ''}> FRA - Langage Oral</label>
+                    <label><input type="checkbox" class="edit-themes" value="FRA - S'éveiller à la diversité linguistique" ${(firstRecord.themes || []).includes("FRA - S'éveiller à la diversité linguistique") ? 'checked' : ''}> FRA - S'éveiller à la diversité linguistique</label>
+                    <label><input type="checkbox" class="edit-themes" value="FRA - Écriture" ${(firstRecord.themes || []).includes('FRA - Écriture') ? 'checked' : ''}> FRA - Écriture</label>
+                    <label><input type="checkbox" class="edit-themes" value="FRA - Grammaire et orthographe" ${(firstRecord.themes || []).includes('FRA - Grammaire et orthographe') ? 'checked' : ''}> FRA - Grammaire et orthographe</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Algèbre et pré-algèbre (motifs organisés)" ${(firstRecord.themes || []).includes('MA - Algèbre et pré-algèbre (motifs organisés)') ? 'checked' : ''}> MA - Algèbre et pré-algèbre (motifs organisés)</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Calcul" ${(firstRecord.themes || []).includes('MA - Calcul') ? 'checked' : ''}> MA - Calcul</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Espace et géométrie" ${(firstRecord.themes || []).includes('MA - Espace et géométrie') ? 'checked' : ''}> MA - Espace et géométrie</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Faits numériques / automatisation" ${(firstRecord.themes || []).includes('MA - Faits numériques / automatisation') ? 'checked' : ''}> MA - Faits numériques / automatisation</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Grandeurs et mesures" ${(firstRecord.themes || []).includes('MA - Grandeurs et mesures') ? 'checked' : ''}> MA - Grandeurs et mesures</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Nombres" ${(firstRecord.themes || []).includes('MA - Nombres') ? 'checked' : ''}> MA - Nombres</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Organisation et gestion des données" ${(firstRecord.themes || []).includes('MA - Organisation et gestion des données') ? 'checked' : ''}> MA - Organisation et gestion des données</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Résolution de problèmes" ${(firstRecord.themes || []).includes('MA - Résolution de problèmes') ? 'checked' : ''}> MA - Résolution de problèmes</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Probabilités" ${(firstRecord.themes || []).includes('MA - Probabilités') ? 'checked' : ''}> MA - Probabilités</label>
+                    <label><input type="checkbox" class="edit-themes" value="MA - Proportionnalité" ${(firstRecord.themes || []).includes('MA - Proportionnalité') ? 'checked' : ''}> MA - Proportionnalité</label>
                 </div>
             </div>
             

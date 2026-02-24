@@ -500,25 +500,22 @@ function selectEnseignant(ensId) {
 function createAggregatedThematicMatrix(formations) {
     // Liste prédéfinie de tous les thèmes possibles (référentiel complet)
     const themesArray = [
-        "F-Lecture",
-        "F-Vocabulaire",
-        "F-Langage oral",
-        "F-S'éveiller à la diversité linguistique",
-        "F-Écriture",
-        "F-Grammaire et orthographe",
-        "M(C1)-Découvrir les nombres : exprimer une quantité par un nombre",
-        "M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre",
-        "M(C1)-Utiliser les nombres pour résoudre des problèmes",
-        "M(C1)-Explorer les solides et formes planes",
-        "M(C1)-Explorer les grandeurs : longueur et masse",
-        "M(C1)-Se familiariser avec les motifs organisés",
-        "M(C2-C3)-Nombres, calcul et résolution de problèmes",
-        "M(C2-C3)-Grandeurs et mesures",
-        "M(C2-C3)-Espace et géométrie",
-        "M(C2)-Organisation et gestion de données",
-        "M(C3)-Organisation et gestion de données et probabilités",
-        "M(C3)-La proportionnalité",
-        "M(C3)-Initiation à la pensée informatique"
+        "FRA - Lecture",
+        "FRA - Vocabulaire",
+        "FRA - Langage Oral",
+        "FRA - S'éveiller à la diversité linguistique",
+        "FRA - Écriture",
+        "FRA - Grammaire et orthographe",
+        "MA - Algèbre et pré-algèbre (motifs organisés)",
+        "MA - Calcul",
+        "MA - Espace et géométrie",
+        "MA - Faits numériques / automatisation",
+        "MA - Grandeurs et mesures",
+        "MA - Nombres",
+        "MA - Organisation et gestion des données",
+        "MA - Résolution de problèmes",
+        "MA - Probabilités",
+        "MA - Proportionnalité"
     ].sort();
 
     // Liste prédéfinie de tous les objets transversaux possibles (référentiel complet)
@@ -735,25 +732,22 @@ function createAggregatedThematicMatrix(formations) {
 function createThematicMatrix(formations) {
     // Liste prédéfinie de tous les thèmes possibles (référentiel complet)
     const themesArray = [
-        "F-Lecture",
-        "F-Vocabulaire",
-        "F-Langage oral",
-        "F-S'éveiller à la diversité linguistique",
-        "F-Écriture",
-        "F-Grammaire et orthographe",
-        "M(C1)-Découvrir les nombres : exprimer une quantité par un nombre",
-        "M(C1)-Découvrir les nombres : exprimer un rang ou une position par un nombre",
-        "M(C1)-Utiliser les nombres pour résoudre des problèmes",
-        "M(C1)-Explorer les solides et formes planes",
-        "M(C1)-Explorer les grandeurs : longueur et masse",
-        "M(C1)-Se familiariser avec les motifs organisés",
-        "M(C2-C3)-Nombres, calcul et résolution de problèmes",
-        "M(C2-C3)-Grandeurs et mesures",
-        "M(C2-C3)-Espace et géométrie",
-        "M(C2)-Organisation et gestion de données",
-        "M(C3)-Organisation et gestion de données et probabilités",
-        "M(C3)-La proportionnalité",
-        "M(C3)-Initiation à la pensée informatique"
+        "FRA - Lecture",
+        "FRA - Vocabulaire",
+        "FRA - Langage Oral",
+        "FRA - S'éveiller à la diversité linguistique",
+        "FRA - Écriture",
+        "FRA - Grammaire et orthographe",
+        "MA - Algèbre et pré-algèbre (motifs organisés)",
+        "MA - Calcul",
+        "MA - Espace et géométrie",
+        "MA - Faits numériques / automatisation",
+        "MA - Grandeurs et mesures",
+        "MA - Nombres",
+        "MA - Organisation et gestion des données",
+        "MA - Résolution de problèmes",
+        "MA - Probabilités",
+        "MA - Proportionnalité"
     ].sort();
 
     // Liste prédéfinie de tous les objets transversaux possibles (référentiel complet)
@@ -1073,7 +1067,7 @@ function createGraphs(formations, countMode = 'enseignants') {
 
     // Contrôles des graphiques
     html += '<div class="matrix-controls">';
-    
+
     // Filtres par année à gauche
     if (yearsArray.length > 0) {
         html += '<div class="year-filters">';
@@ -1086,7 +1080,7 @@ function createGraphs(formations, countMode = 'enseignants') {
         });
         html += '</div>';
     }
-    
+
     // Toggle comptage à droite
     html += '<div class="toggle-container">';
     html += `<span class="toggle-label" id="count-label-${graphsId}">Compter : Enseignants</span>`;
@@ -1095,7 +1089,7 @@ function createGraphs(formations, countMode = 'enseignants') {
     html += '<span class="toggle-slider"></span>';
     html += '</label>';
     html += '</div>';
-    
+
     html += '</div>';
 
     // Stocker les données brutes dans un objet global pour le recalcul dynamique
@@ -1518,20 +1512,20 @@ function toggleGraphsCountMode(graphsId) {
     const checkbox = document.getElementById(`count-mode-${graphsId}`);
     const label = document.getElementById(`count-label-${graphsId}`);
     const graphsData = graphsDataStore[graphsId];
-    
+
     if (!graphsData) return;
-    
+
     // Basculer le mode
     const newMode = checkbox.checked ? 'formations' : 'enseignants';
     graphsData.countMode = newMode;
-    
+
     // Mettre à jour le label
     label.textContent = checkbox.checked ? 'Compter : Formations' : 'Compter : Enseignants';
-    
+
     // Recalculer les graphiques avec le nouveau mode
     const graphsContainer = document.getElementById(graphsId);
     if (!graphsContainer) return;
-    
+
     // Recréer les données avec le nouveau mode de comptage
     const countItems = (items, countMode) => {
         if (countMode === 'formations') {
@@ -1541,9 +1535,9 @@ function toggleGraphsCountMode(graphsId) {
             return items.length;
         }
     };
-    
+
     const formations = graphsData.formations;
-    
+
     // Recalculer objets
     const objetsFormations = {};
     formations.forEach(f => {
@@ -1566,7 +1560,7 @@ function toggleGraphsCountMode(graphsId) {
             objetsCount[objet][annee] = countItems(objetsFormations[objet][annee], newMode);
         });
     });
-    
+
     // Recalculer thèmes
     const themesFormations = {};
     formations.forEach(f => {
@@ -1589,7 +1583,7 @@ function toggleGraphsCountMode(graphsId) {
             themesCount[theme][annee] = countItems(themesFormations[theme][annee], newMode);
         });
     });
-    
+
     // Recalculer modalités
     const modalitesFormations = {};
     formations.forEach(f => {
@@ -1606,12 +1600,12 @@ function toggleGraphsCountMode(graphsId) {
             modalitesCount[type][annee] = countItems(modalitesFormations[type][annee], newMode);
         });
     });
-    
+
     // Mettre à jour le store
     graphsData.objetsCount = objetsCount;
     graphsData.themesCount = themesCount;
     graphsData.modalitesCount = modalitesCount;
-    
+
     // Redessiner les graphiques
     filterGraphsByYear(graphsId);
 }
@@ -1623,7 +1617,7 @@ function filterGraphsByYear(graphsId) {
     // Récupérer les données brutes depuis le stockage global
     const graphsData = graphsDataStore[graphsId];
     if (!graphsData) return;
-    
+
     const { objetsCount, themesCount, modalitesCount, years } = graphsData;
 
     // Récupérer les années cochées
@@ -1660,11 +1654,11 @@ function filterGraphsByYear(graphsId) {
     if (objetsGraph) {
         objetsGraph.outerHTML = createBarChart(filteredObjetsCount, 'Objets transversaux', 'graph-objets', filteredYears);
     }
-    
+
     if (themesGraph) {
         themesGraph.outerHTML = createBarChart(filteredThemesCount, 'Thèmes de formation', 'graph-themes', filteredYears);
     }
-    
+
     if (modalitesGraph) {
         modalitesGraph.outerHTML = createPieChart(filteredModalitesCount, 'Modalités de formation', 'graph-modalites', filteredYears);
     }
