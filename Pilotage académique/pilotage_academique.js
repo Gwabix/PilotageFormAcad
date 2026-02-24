@@ -103,6 +103,9 @@ async function loadData() {
             formations: tableauBordData.length
         });
 
+        // Initialiser les boutons radio des départements
+        initDepartementsRadio();
+
         // Initialiser l'onglet académie
         displayAcademie();
 
@@ -283,6 +286,60 @@ function toggleCollapse(element) {
     }
 }
 
+function initDepartementsRadio() {
+    // Récupérer tous les départements uniques depuis ecolesData
+    const departements = [...new Set(ecolesData.map(e => e.departement).filter(d => d))].sort();
+
+    const container = document.getElementById('radioDepartementsContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (departements.length === 0) {
+        container.innerHTML = '<div class="no-results">Aucun département disponible.</div>';
+        return;
+    }
+
+    // Créer les boutons radio
+    departements.forEach((dept, index) => {
+        const radioOption = document.createElement('div');
+        radioOption.className = 'radio-option';
+
+        const radioId = `radio-dept-${index}`;
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'departement';
+        radio.id = radioId;
+        radio.value = dept;
+
+        const label = document.createElement('label');
+        label.className = 'radio-label';
+        label.htmlFor = radioId;
+        label.textContent = escapeHtml(dept);
+
+        // Attacher l'événement de sélection
+        radio.addEventListener('change', function () {
+            if (this.checked) {
+                selectDepartement(dept);
+            }
+        });
+
+        radioOption.appendChild(radio);
+        radioOption.appendChild(label);
+        container.appendChild(radioOption);
+    });
+
+    // Si un seul département, le sélectionner automatiquement
+    if (departements.length === 1) {
+        const firstRadio = container.querySelector('input[type="radio"]');
+        if (firstRadio) {
+            firstRadio.checked = true;
+            selectDepartement(departements[0]);
+        }
+    }
+}
+
+/* Anciennes fonctions de recherche - désormais obsolètes avec les boutons radio
 function clearSearch(type) {
     if (type === 'departement') {
         document.getElementById('searchDepartement').value = '';
@@ -369,12 +426,10 @@ function updateHighlightDepartement() {
         }
     });
 }
+*/
 
 function selectDepartement(departement) {
-    document.getElementById('searchResultsDepartement').style.display = 'none';
     currentSelection = { type: 'departement', id: departement };
-
-    document.getElementById('searchDepartement').value = departement;
 
     // Récupérer les circonscriptions du département
     const circonscriptionsDept = [...new Set(
@@ -1535,6 +1590,8 @@ document.getElementById('tabAcademie').addEventListener('click', function (e) {
     switchTab('academie', e.target);
 });
 
+// Anciens event listeners de recherche - désormais obsolètes avec les boutons radio
+/*
 // Bouton de clear search
 document.getElementById('clearSearchDepartement').addEventListener('click', function () {
     clearSearch('departement');
@@ -1543,6 +1600,7 @@ document.getElementById('clearSearchDepartement').addEventListener('click', func
 // Recherche de département
 document.getElementById('searchDepartement').addEventListener('input', searchDepartements);
 document.getElementById('searchDepartement').addEventListener('keydown', searchDepartements);
+*/
 
 document.addEventListener('click', function (event) {
     const searchResults = document.querySelectorAll('.search-results');
