@@ -1604,7 +1604,7 @@ function displayEditForm(ficheRecords) {
     // Event listener pour le bouton d'ajout de formateur
     const addFormateurBtn = document.getElementById('addEditFormateurBtn');
     if (addFormateurBtn) {
-        addFormateurBtn.addEventListener('click', addEditFormateurField);
+        addFormateurBtn.addEventListener('click', addFormateurField);
     }
 
     // Event listener pour le bouton de mise à jour
