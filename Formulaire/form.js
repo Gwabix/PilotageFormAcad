@@ -2016,7 +2016,7 @@ function displayModalSelectedEcoles() {
 
     container.innerHTML = modalSelectedEcoles.map(ecole => `
         <div class="selected-school-item">
-            <button type="button" class="remove-school" onclick="removeModalEcole(${ecole.id})">&times;</button>
+            <button type="button" class="remove-school" title="Supprimer l'école" onclick="removeModalEcole(${ecole.id})">&times;</button>
             <div>
                 <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
                 <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
