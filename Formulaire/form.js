@@ -1358,7 +1358,12 @@ function updateFilteredRecords() {
         const firstRecord = ficheRecords[0];
         const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
         const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)?.commune_complement).filter(n => n);
-        const ecolesText = ecoles.length > 1 ? `${ecoles.length} écoles` : ecoles[0] || 'N/A';
+
+        // Afficher les noms des écoles avec bullet points
+        const ecolesText = ecoles.length === 0
+            ? 'N/A'
+            : `${ecoles.length} école${ecoles.length > 1 ? 's' : ''} :<br>` +
+            ecoles.map(e => `• ${escapeHtml(e)}`).join('<br>');
 
         // Filtrer le 'L' de Grist dans les tableaux
         const modalites = (firstRecord.modaliteConstitution || []).filter(v => v !== 'L').map(v => escapeHtml(v)).join(', ') || 'N/A';
@@ -1367,7 +1372,7 @@ function updateFilteredRecords() {
         return `
             <div class="record-item" data-fiche-id="${escapeHtmlAttribute(firstRecord.idFiche)}">
                 <div class="record-info">
-                    <div class="record-title">${escapeHtml(ecolesText)}</div>
+                    <div class="record-title">${ecolesText}</div>
                     <div class="record-details">
                         ${escapeHtml(firstRecord.annee)} | ${modalites}<br>
                         ${escapeHtml(firstRecord.typeFormation)} | ${escapeHtml(firstRecord.tempsFormation)}h | ${modalitesForm}
@@ -1428,64 +1433,16 @@ function displayEditForm(ficheRecords) {
                 </select>
             </div>
             
-            <div class="form-group_small">
-                <label>Nombre d'écoles *</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="number" id="editNbEcoles" value="${escapeHtmlAttribute(firstRecord.nbEcoles)}" min="1" disabled style="background: #f0f0f0; flex: 1;">
-                    <button type="button" id="btnModifierEcoles" style="padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; white-space: nowrap;">Modifier les écoles</button>
-                </div>
-            </div>
             <div class="form-group">
-                <label style="margin-bottom: 8px; display: block; font-weight: 600; color: #2c3e50;">Écoles de cette fiche</label>
-                <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6;">
-                    ${(() => {
-            if (ecoles.length === 0) {
-                return '<div style="color: #7f8c8d; font-style: italic;">Aucune école</div>';
-            }
-
-            const visibleEcoles = ecoles.slice(0, 2);
-            const hiddenEcoles = ecoles.slice(2);
-
-            let html = visibleEcoles.map(e => `
-                            <div style="padding: 6px 0; color: #2c3e50; border-bottom: 1px solid #e9ecef;">
-                                <span style="display: inline-block; width: 8px; height: 8px; background: #3498db; border-radius: 50%; margin-right: 8px;"></span>
-                                ${escapeHtml(e.commune_complement)}
-                            </div>
-                        `).join('');
-
-            if (hiddenEcoles.length > 0) {
-                html += `
-                                <div id="hiddenEcolesContainer" style="display: none;">
-                                    ${hiddenEcoles.map(e => `
-                                        <div style="padding: 6px 0; color: #2c3e50; border-bottom: 1px solid #e9ecef;">
-                                            <span style="display: inline-block; width: 8px; height: 8px; background: #3498db; border-radius: 50%; margin-right: 8px;"></span>
-                                            ${escapeHtml(e.commune_complement)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                <button type="button" id="toggleEcolesBtn" onclick="toggleEcolesDisplay()" style="
-                                    margin-top: 10px;
-                                    padding: 6px 12px;
-                                    background: none;
-                                    border: none;
-                                    color: #3498db;
-                                    cursor: pointer;
-                                    font-size: 14px;
-                                    font-weight: 500;
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 5px;
-                                    transition: all 0.3s ease;
-                                ">
-                                    <span id="toggleEcolesIcon" style="font-size: 18px;">▼</span>
-                                    <span id="toggleEcolesText">Voir ${hiddenEcoles.length} école${hiddenEcoles.length > 1 ? 's' : ''} supplémentaire${hiddenEcoles.length > 1 ? 's' : ''}</span>
-                                </button>
-                            `;
-            }
-
-            return html;
-        })()}
+                <label style="margin-bottom: 8px; display: block; font-weight: 600; color: #2c3e50;">
+                    ${ecoles.length} école${ecoles.length > 1 ? 's' : ''} :
+                </label>
+                <div style="margin-bottom: 12px; color: #2c3e50; line-height: 1.6;">
+                    ${ecoles.length === 0
+            ? '<div style="color: #7f8c8d; font-style: italic;">Aucune école</div>'
+            : ecoles.map(e => `• ${escapeHtml(e.commune_complement)}`).join('<br>')}
                 </div>
+                <button type="button" id="btnModifierEcoles" style="padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Modifier les écoles</button>
             </div>
             
             <div class="form-group">
@@ -1674,33 +1631,6 @@ function toggleEditEnseignant(index) {
     } else {
         enseignantItem.style.opacity = '0.5';
         niveauxDiv.style.display = 'none';
-    }
-}
-
-function toggleEcolesDisplay() {
-    const container = document.getElementById('hiddenEcolesContainer');
-    const btn = document.getElementById('toggleEcolesBtn');
-    const icon = document.getElementById('toggleEcolesIcon');
-    const text = document.getElementById('toggleEcolesText');
-
-    if (!container || !btn || !icon || !text) return;
-
-    const isHidden = container.style.display === 'none';
-
-    if (isHidden) {
-        // Afficher les écoles cachées
-        container.style.display = 'block';
-        icon.textContent = '▲';
-        text.textContent = 'Voir moins';
-        btn.style.color = '#95a5a6';
-    } else {
-        // Masquer les écoles
-        container.style.display = 'none';
-        icon.textContent = '▼';
-        // Récupérer le nombre d'écoles masquées
-        const hiddenCount = container.querySelectorAll('div').length;
-        text.textContent = `Voir ${hiddenCount} école${hiddenCount > 1 ? 's' : ''} supplémentaire${hiddenCount > 1 ? 's' : ''}`;
-        btn.style.color = '#3498db';
     }
 }
 
