@@ -186,10 +186,16 @@ async function loadData() {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
+            uai: sanitizeGristData(ecolesTable.UAI[index]),
+            nom: sanitizeGristData(ecolesTable.Nom[index]),
+            complement: sanitizeGristData(ecolesTable.Complement[index]),
+            commune: sanitizeGristData(ecolesTable.Commune[index]),
             commune_complement: sanitizeGristData(ecolesTable.Commune_Complement_Nom[index]),
+            nom_complement_commune: sanitizeGristData(ecolesTable.Nom_Complement_Commune[index]),
+            code_postal: ecolesTable.Code_postal[index],
             departement: sanitizeGristData(ecolesTable.Departement[index]),
             circonscription: sanitizeGristData(ecolesTable.Circonscription[index])
-        })).filter(e => e.commune_complement);
+        })).filter(e => e.commune_complement || e.nom);
 
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
@@ -302,8 +308,11 @@ function searchEcoles(event) {
     }
 
     filteredResults = ecolesData.filter(e =>
-        e.commune_complement.toLowerCase().includes(searchTerm) &&
-        !selectedEcoles.find(se => se.id === e.id)
+        !selectedEcoles.find(se => se.id === e.id) &&
+        (e.nom?.toLowerCase().includes(searchTerm) ||
+            e.commune?.toLowerCase().includes(searchTerm) ||
+            e.commune_complement?.toLowerCase().includes(searchTerm) ||
+            e.uai?.toLowerCase().includes(searchTerm))
     ).slice(0, 10);
 
     if (filteredResults.length === 0) {
@@ -320,7 +329,8 @@ function searchEcoles(event) {
         `<div class="search-result-item ${index === 0 ? 'active' : ''}" 
               data-ecole-id="${escapeHtmlAttribute(ecole.id)}"
               data-index="${index}">
-          ${escapeHtml(ecole.commune_complement)}
+          <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+          <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
         </div>`
     ).join('');
 
@@ -376,10 +386,10 @@ function selectEcole(ecoleId) {
 function displaySelectedEcoles() {
     const container = document.getElementById('selectedSchools');
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-    // SÉCURITÉ : ecole.commune_complement est échappé via escapeHtml()
+    // SÉCURITÉ : Toutes les données sont échappées via escapeHtml()
     container.innerHTML = selectedEcoles.map(ecole =>
         `<span class="school-tag">
-          ${escapeHtml(ecole.commune_complement)}
+          ${escapeHtml(ecole.nom || ecole.commune_complement)} ${ecole.uai ? '- ' + escapeHtml(ecole.uai) : ''}
           <button data-ecole-id="${escapeHtmlAttribute(ecole.id)}">×</button>
         </span>`
     ).join('');
@@ -456,7 +466,7 @@ function updateEnseignantsList() {
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
                      checked>
               <span class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</span>
-              <span class="enseignant-school">${ecole ? escapeHtml(ecole.commune_complement) : ''}</span>
+              <span class="enseignant-school">${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : ''}</span>
             </div>
             <div class="niveaux-checkboxes" id="niveaux_${escapeHtmlAttribute(ens.id)}">
               ${niveauxHTML}
@@ -1440,9 +1450,9 @@ function displayEditForm(ficheRecords) {
                 <div style="margin-bottom: 12px; color: #2c3e50; line-height: 1.6;">
                     ${ecoles.length === 0
             ? '<div style="color: #7f8c8d; font-style: italic;">Aucune école</div>'
-            : ecoles.map(e => `• ${escapeHtml(e.commune_complement)}`).join('<br>')}
+            : ecoles.map(e => `• ${escapeHtml(e.nom || e.commune_complement)} ${e.uai ? '(' + escapeHtml(e.uai) + ')' : ''}`).join('<br>')}
                 </div>
-                <button type="button" id="btnModifierEcoles" style="padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Modifier les écoles</button>
+                <button type="button" id="btnModifierEcoles" style="width: 200px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Modifier les écoles</button>
             </div>
             
             <div class="form-group">
@@ -1466,7 +1476,7 @@ function displayEditForm(ficheRecords) {
                 <div class="enseignant-edit-item" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; opacity: ${opacity};">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-idx="${idx}" ${isSelected ? 'checked' : ''}>
-                        <div style="font-weight: 600; color: #333;">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.commune_complement) : 'N/A'}</div>
+                        <div style="font-weight: 600; color: #333;">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
                     </div>
                     <div id="editNiveaux_${idx}" style="margin-top: 5px; display: ${niveauxDisplay};">
                         <label style="font-size: 14px; color: #555;">Niveaux de classe :</label>
@@ -1903,9 +1913,11 @@ function searchEcolesModal(event) {
     // Filtrer les résultats
     modalFilteredResults = ecolesData.filter(e =>
         !modalSelectedEcoles.find(se => se.id === e.id) &&
-        (e.nom_complement_commune.toLowerCase().includes(searchTerm) ||
-            e.commune.toLowerCase().includes(searchTerm) ||
-            e.uai.toLowerCase().includes(searchTerm))
+        (e.nom?.toLowerCase().includes(searchTerm) ||
+            e.commune?.toLowerCase().includes(searchTerm) ||
+            e.commune_complement?.toLowerCase().includes(searchTerm) ||
+            e.nom_complement_commune?.toLowerCase().includes(searchTerm) ||
+            e.uai?.toLowerCase().includes(searchTerm))
     ).slice(0, 10);
 
     modalActiveResultIndex = 0;
@@ -1922,8 +1934,8 @@ function searchEcolesModal(event) {
         const div = document.createElement('div');
         div.className = 'search-result-item' + (index === modalActiveResultIndex ? ' active' : '');
         div.innerHTML = `
-            <strong>${escapeHtml(ecole.nom)}</strong><br>
-            <small>${escapeHtml(ecole.commune_complement)} - UAI: ${escapeHtml(ecole.uai)}</small>
+            <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+            <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
         `;
         div.addEventListener('click', () => selectModalEcole(ecole.id));
         resultsDiv.appendChild(div);
@@ -2004,11 +2016,11 @@ function displayModalSelectedEcoles() {
 
     container.innerHTML = modalSelectedEcoles.map(ecole => `
         <div class="selected-school-item">
-            <div>
-                <strong>${escapeHtml(ecole.nom)}</strong><br>
-                <small>${escapeHtml(ecole.commune_complement)} - UAI: ${escapeHtml(ecole.uai)}</small>
-            </div>
             <button type="button" class="remove-school" onclick="removeModalEcole(${ecole.id})">&times;</button>
+            <div>
+                <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+                <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
+            </div>
         </div>
     `).join('');
 }
