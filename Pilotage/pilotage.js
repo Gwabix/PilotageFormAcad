@@ -629,8 +629,8 @@ function createAggregatedThematicMatrix(formations) {
     html += '</tr></thead><tbody>';
 
     // Séparer les thèmes en catégories
-    const frenchThemes = themesArray.filter(t => t.startsWith('F-'));
-    const mathThemes = themesArray.filter(t => t.startsWith('M('));
+    const frenchThemes = themesArray.filter(t => t.startsWith('FRA'));
+    const mathThemes = themesArray.filter(t => t.startsWith('MA'));
 
     // Catégorie Français
     if (frenchThemes.length > 0) {
@@ -873,8 +873,8 @@ function createThematicMatrix(formations) {
     html += '</tr></thead><tbody>';
 
     // Séparer les thèmes en catégories
-    const frenchThemes = themesArray.filter(t => t.startsWith('F-'));
-    const mathThemes = themesArray.filter(t => t.startsWith('M('));
+    const frenchThemes = themesArray.filter(t => t.startsWith('FRA'));
+    const mathThemes = themesArray.filter(t => t.startsWith('MA'));
 
     // Catégorie Français
     if (frenchThemes.length > 0) {
