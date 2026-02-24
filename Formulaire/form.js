@@ -215,6 +215,7 @@ async function loadData() {
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
         tableauDeBordData = tableauTable.id.map((id, index) => ({
             id: id,
+            idPE: tableauTable.ID_PE[index],
             idFiche: sanitizeGristData(tableauTable.ID_fiche[index]),
             departement: sanitizeGristData(tableauTable.Departement[index]),
             circonscription: sanitizeGristData(tableauTable.Circonscription[index]) || [],
@@ -234,6 +235,7 @@ async function loadData() {
             numeroGroupe: tableauTable.Numero_de_groupe[index],
             dispositifGAIA: sanitizeGristData(tableauTable.Dispositif_GAIA[index]),
             moduleGAIA: sanitizeGristData(tableauTable.Module_GAIA[index]),
+            intituleFormation: sanitizeGristData(tableauTable.Intitule[index]),
             formateurs: sanitizeGristData(tableauTable.Formateur_s_[index]) || []
         }));
 
@@ -330,7 +332,7 @@ function searchEcoles(event) {
               data-ecole-id="${escapeHtmlAttribute(ecole.id)}"
               data-index="${index}">
           <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
-          <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
+          <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
         </div>`
     ).join('');
 
@@ -829,6 +831,8 @@ async function validerFormulaire() {
     const dispositifGAIA = validateInput((dispositifGAIAEl?.value || '').trim(), 10);
     const moduleGAIAEl = document.getElementById('moduleGAIA');
     const moduleGAIA = validateInput((moduleGAIAEl?.value || '').trim(), 5);
+    const intituleFormationEl = document.getElementById('intituleFormation');
+    const intituleFormation = validateInput((intituleFormationEl?.value || '').trim(), 200);
     const formateurs = getFormateurs();
 
     const selectedEnseignants = Array.from(enseignantsMap.entries())
@@ -877,26 +881,18 @@ async function validerFormulaire() {
 
     const records = [];
 
-    for (const [ensId, ensData] of selectedEnseignants) {
+    for (const [ensId] of selectedEnseignants) {
         const enseignant = enseignantsData.find(e => e.id === ensId);
         if (!enseignant) continue;
 
-        const ecole = selectedEcoles.find(e => e.id === enseignant.ecole);
-        if (!ecole) continue;
-
         const record = {
+            ID_PE: ensId,
             ID_fiche: ficheId,
-            Departement: ecole.departement,
-            Circonscription: ['L', ecole.circonscription],
-            Ecole: ecole.id,
             Nb_ecoles: nbEcoles,
             Nb_PE: nbPE,
-            Nom_PE: ensId,
-            Prenom_PE: ensId,
-            Niveau_classe: ['L', ...ensData.niveaux],
             Modalite_de_constitution_du_groupe: ['L', ...modaliteConstitution],
             Type_de_formation: typeFormation,
-            Temps_de_formation: parseInt(dureeFormation),
+            Temps_de_formation: Number.parseInt(dureeFormation),
             Modalites_de_formation: ['L', ...modalitesFormation],
             Objets_transversaux_traites_en_parallele: ['L', ...objetsTransversaux],
             Theme_s_traite_s_en_formation: ['L', ...themesFormation],
@@ -913,6 +909,10 @@ async function validerFormulaire() {
 
         if (moduleGAIA) {
             record.Module_GAIA = moduleGAIA;
+        }
+
+        if (intituleFormation) {
+            record.Intitule = intituleFormation;
         }
 
         if (formateurIds.length > 0) {
@@ -1036,6 +1036,24 @@ document.getElementById('filterMathematiques').addEventListener('change', filter
 loadData();
 filterThemes();
 addFormateurField();
+
+// ===== GESTION DU BOUTON RETOUR EN HAUT =====
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Afficher/masquer le bouton selon la position de scroll
+window.addEventListener('scroll', () => {
+    const scrollTopBtn = document.getElementById('scrollTopBtn');
+    if (scrollTopBtn) {
+        if (window.pageYOffset > 300) {
+            scrollTopBtn.classList.add('show');
+        } else {
+            scrollTopBtn.classList.remove('show');
+        }
+    }
+});
 
 // ===== FONCTIONS POUR L'ONGLET MODIFICATION =====
 
@@ -1586,6 +1604,11 @@ function displayEditForm(ficheRecords) {
             </div>
             
             <div class="form-group">
+                <label>Intitulé de la formation (facultatif)</label>
+                <input type="text" id="editIntitule" value="${escapeHtmlAttribute(firstRecord.intituleFormation || '')}" maxlength="200">
+            </div>
+            
+            <div class="form-group">
                 <label>Formateur(s)</label>
                 <div id="editFormateursContainer">
                     ${formateurNoms.length > 0 ? formateurNoms.map((nom, index) => `
@@ -1628,6 +1651,11 @@ function displayEditForm(ficheRecords) {
     if (btnModifierEcoles) {
         btnModifierEcoles.addEventListener('click', () => openEcolesModal(ficheRecords));
     }
+
+    // Scroll vers le formulaire d'édition
+    setTimeout(() => {
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
 }
 
 function toggleEditEnseignant(index) {
@@ -1935,7 +1963,7 @@ function searchEcolesModal(event) {
         div.className = 'search-result-item' + (index === modalActiveResultIndex ? ' active' : '');
         div.innerHTML = `
             <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
-            <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
+            <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
         `;
         div.addEventListener('click', () => selectModalEcole(ecole.id));
         resultsDiv.appendChild(div);
@@ -2019,7 +2047,7 @@ function displayModalSelectedEcoles() {
             <button type="button" class="remove-school" title="Supprimer l'école" onclick="removeModalEcole(${ecole.id})">&times;</button>
             <div>
                 <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
-                <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI: ' + escapeHtml(ecole.uai) : ''}</small>
+                <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
             </div>
         </div>
     `).join('');
@@ -2180,19 +2208,11 @@ async function updateFiche() {
             const ens = enseignantsData.find(e => e.id === ensData.ensId);
             if (!ens) return;
 
-            const ecole = ecolesData.find(e => e.id === ens.ecole);
-            if (!ecole) return;
-
             const record = {
+                ID_PE: ensData.ensId,
                 ID_fiche: idFiche,
-                Departement: ecole.departement,
-                Circonscription: ['L', ecole.circonscription],
-                Ecole: ecole.id,
                 Nb_ecoles: ecoleIds.length,
                 Nb_PE: selectedEnseignantsData.length,
-                Nom_PE: ensData.ensId,
-                Prenom_PE: ensData.ensId,
-                Niveau_classe: ['L', ...ensData.niveaux],
                 Modalite_de_constitution_du_groupe: ['L', ...modaliteConstitution],
                 Type_de_formation: typeFormation,
                 Temps_de_formation: tempsFormation,
@@ -2212,6 +2232,10 @@ async function updateFiche() {
 
             if (moduleGAIA) {
                 record.Module_GAIA = moduleGAIA;
+            }
+
+            if (intituleFormation) {
+                record.Intitule = intituleFormation;
             }
 
             if (formateurIds.length > 0) {

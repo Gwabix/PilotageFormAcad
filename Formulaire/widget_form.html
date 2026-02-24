@@ -203,12 +203,45 @@
             color: white;
             border: none;
             border-radius: 50%;
-            padding: unset;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
         }
 
         .remove-school:hover {
             background: black;
             color: red;
+        }
+
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: #cd34db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+
+        .scroll-top-btn:hover {
+            background: #641d85;
+            transform: scale(1.1);
+        }
+
+        .scroll-top-btn.show {
+            display: block;
         }
 
         .school-tag {
@@ -842,6 +875,11 @@
                     <input type="text" id="moduleGAIA" maxlength="5" placeholder="5 chiffres">
                     <div class="error" id="moduleError">Le module GAIA doit contenir exactement 5 chiffres</div>
                 </div>
+
+                <div class="form-group">
+                    <label for="intituleFormation">Intitulé de la formation (facultatif)</label>
+                    <input type="text" id="intituleFormation" maxlength="200" placeholder="Intitulé de la formation">
+                </div>
             </div>
 
             <h2>7. Formateur(s)</h2>
@@ -925,6 +963,11 @@
             <div id="editFormContainer"></div>
         </div>
     </div>
+
+    <!-- Bouton retour en haut -->
+    <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()" title="Retour en haut">
+        ▲
+    </button>
 
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
     <script src="form.js"></script>
