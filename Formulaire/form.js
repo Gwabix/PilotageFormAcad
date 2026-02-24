@@ -1430,10 +1430,62 @@ function displayEditForm(ficheRecords) {
             
             <div class="form-group_small">
                 <label>Nombre d'écoles *</label>
-                <input type="number" id="editNbEcoles" value="${escapeHtmlAttribute(firstRecord.nbEcoles)}" min="1" disabled style="background: #f0f0f0;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="editNbEcoles" value="${escapeHtmlAttribute(firstRecord.nbEcoles)}" min="1" disabled style="background: #f0f0f0; flex: 1;">
+                    <button type="button" id="btnModifierEcoles" style="padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; white-space: nowrap;">Modifier les écoles</button>
+                </div>
             </div>
             <div class="form-group">
-                <small style="color: black;"><b>Les écoles de cette fiche : </b>${ecoles.map(e => escapeHtml(e.commune_complement)).join(', ')}</small>
+                <label style="margin-bottom: 8px; display: block; font-weight: 600; color: #2c3e50;">Écoles de cette fiche</label>
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6;">
+                    ${(() => {
+            if (ecoles.length === 0) {
+                return '<div style="color: #7f8c8d; font-style: italic;">Aucune école</div>';
+            }
+
+            const visibleEcoles = ecoles.slice(0, 2);
+            const hiddenEcoles = ecoles.slice(2);
+
+            let html = visibleEcoles.map(e => `
+                            <div style="padding: 6px 0; color: #2c3e50; border-bottom: 1px solid #e9ecef;">
+                                <span style="display: inline-block; width: 8px; height: 8px; background: #3498db; border-radius: 50%; margin-right: 8px;"></span>
+                                ${escapeHtml(e.commune_complement)}
+                            </div>
+                        `).join('');
+
+            if (hiddenEcoles.length > 0) {
+                html += `
+                                <div id="hiddenEcolesContainer" style="display: none;">
+                                    ${hiddenEcoles.map(e => `
+                                        <div style="padding: 6px 0; color: #2c3e50; border-bottom: 1px solid #e9ecef;">
+                                            <span style="display: inline-block; width: 8px; height: 8px; background: #3498db; border-radius: 50%; margin-right: 8px;"></span>
+                                            ${escapeHtml(e.commune_complement)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <button type="button" id="toggleEcolesBtn" onclick="toggleEcolesDisplay()" style="
+                                    margin-top: 10px;
+                                    padding: 6px 12px;
+                                    background: none;
+                                    border: none;
+                                    color: #3498db;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 5px;
+                                    transition: all 0.3s ease;
+                                ">
+                                    <span id="toggleEcolesIcon" style="font-size: 18px;">▼</span>
+                                    <span id="toggleEcolesText">Voir ${hiddenEcoles.length} école${hiddenEcoles.length > 1 ? 's' : ''} supplémentaire${hiddenEcoles.length > 1 ? 's' : ''}</span>
+                                </button>
+                            `;
+            }
+
+            return html;
+        })()}
+                </div>
             </div>
             
             <div class="form-group">
@@ -1603,6 +1655,12 @@ function displayEditForm(ficheRecords) {
     if (updateBtn) {
         updateBtn.addEventListener('click', updateFiche);
     }
+
+    // Event listener pour le bouton de modification des écoles
+    const btnModifierEcoles = document.getElementById('btnModifierEcoles');
+    if (btnModifierEcoles) {
+        btnModifierEcoles.addEventListener('click', () => openEcolesModal(ficheRecords));
+    }
 }
 
 function toggleEditEnseignant(index) {
@@ -1619,31 +1677,446 @@ function toggleEditEnseignant(index) {
     }
 }
 
-function addEditFormateurField() {
-    const container = document.getElementById('editFormateursContainer');
-    const fieldDiv = document.createElement('div');
-    fieldDiv.className = 'formateur-field';
-    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-    // SÉCURITÉ : Template statique sans données dynamiques
-    fieldDiv.innerHTML = '<input type="text" class="search-input edit-formateur-input" placeholder="Formateur...">';
-    container.appendChild(fieldDiv);
+function toggleEcolesDisplay() {
+    const container = document.getElementById('hiddenEcolesContainer');
+    const btn = document.getElementById('toggleEcolesBtn');
+    const icon = document.getElementById('toggleEcolesIcon');
+    const text = document.getElementById('toggleEcolesText');
+
+    if (!container || !btn || !icon || !text) return;
+
+    const isHidden = container.style.display === 'none';
+
+    if (isHidden) {
+        // Afficher les écoles cachées
+        container.style.display = 'block';
+        icon.textContent = '▲';
+        text.textContent = 'Voir moins';
+        btn.style.color = '#95a5a6';
+    } else {
+        // Masquer les écoles
+        container.style.display = 'none';
+        icon.textContent = '▼';
+        // Récupérer le nombre d'écoles masquées
+        const hiddenCount = container.querySelectorAll('div').length;
+        text.textContent = `Voir ${hiddenCount} école${hiddenCount > 1 ? 's' : ''} supplémentaire${hiddenCount > 1 ? 's' : ''}`;
+        btn.style.color = '#3498db';
+    }
 }
 
-async function updateFiche() {
-    const idFiche = validateInput(document.getElementById('editFicheId').value, 50);
-    if (!idFiche || !originalRecordData || originalRecordData.length === 0) {
-        alert('Erreur: Aucune fiche sélectionnée');
+// Variables globales pour le modal de modification des écoles
+let modalSelectedEcoles = [];
+let modalActiveResultIndex = -1;
+let modalFilteredResults = [];
+let currentFicheRecords = null;
+
+function openEcolesModal(ficheRecords) {
+    currentFicheRecords = ficheRecords;
+
+    // Récupérer les écoles actuelles de la fiche
+    const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
+    modalSelectedEcoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+
+    // Créer le modal s'il n'existe pas
+    let modal = document.getElementById('ecolesModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'ecolesModal';
+        modal.innerHTML = `
+            <style>
+                #ecolesModal {
+                    display: none;
+                    position: fixed;
+                    z-index: 10000;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    animation: fadeIn 0.3s ease;
+                }
+                
+                #ecolesModal.show {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .modal-content {
+                    background: white;
+                    padding: 30px;
+                    border-radius: 8px;
+                    max-width: 700px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                    animation: slideIn 0.3s ease;
+                }
+                
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                
+                @keyframes slideIn {
+                    from { transform: translateY(-50px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    padding-bottom: 15px;
+                    border-bottom: 2px solid #e0e0e0;
+                }
+                
+                .modal-header h2 {
+                    margin: 0;
+                    color: #2c3e50;
+                }
+                
+                .modal-close {
+                    background: none;
+                    border: none;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #7f8c8d;
+                    padding: 0;
+                    width: 30px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    transition: all 0.3s ease;
+                }
+                
+                .modal-close:hover {
+                    background: #e74c3c;
+                    color: white;
+                }
+                
+                .modal-section {
+                    margin-bottom: 25px;
+                }
+                
+                .modal-section h3 {
+                    color: #2c3e50;
+                    margin-bottom: 10px;
+                    font-size: 18px;
+                }
+                
+                .modal-buttons {
+                    display: flex;
+                    gap: 10px;
+                    justify-content: flex-end;
+                    margin-top: 25px;
+                    padding-top: 15px;
+                    border-top: 2px solid #e0e0e0;
+                }
+                
+                .modal-buttons button {
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                }
+                
+                .modal-buttons .btn-cancel {
+                    background: #95a5a6;
+                    color: white;
+                }
+                
+                .modal-buttons .btn-cancel:hover {
+                    background: #7f8c8d;
+                }
+                
+                .modal-buttons .btn-validate {
+                    background: #27ae60;
+                    color: white;
+                }
+                
+                .modal-buttons .btn-validate:hover {
+                    background: #229954;
+                }
+            </style>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Modifier les écoles</h2>
+                    <button class="modal-close" onclick="closeEcolesModal()">&times;</button>
+                </div>
+                
+                <div class="modal-section">
+                    <h3>1. Nombre d'écoles</h3>
+                    <div class="form-group">
+                        <label for="modalNombreEcoles" class="required">Nombre d'écoles concernées</label>
+                        <fieldset id="modalNombreEcoles" data-quantity>
+                            <legend>Change quantity</legend>
+                        </fieldset>
+                    </div>
+                </div>
+                
+                <div class="modal-section">
+                    <h3>2. Sélection des écoles</h3>
+                    <div class="form-group">
+                        <label for="modalSearchEcole" class="required">Rechercher et sélectionner les écoles</label>
+                        <div class="search-container">
+                            <input type="text" class="search-input" id="modalSearchEcole"
+                                placeholder="Tapez pour rechercher une école..." onkeyup="searchEcolesModal(event)">
+                            <div class="search-results" id="modalSearchResults"></div>
+                        </div>
+                        <div class="selected-schools" id="modalSelectedSchools"></div>
+                        <div class="error" id="modalEcolesError" style="display: none; color: #e74c3c; margin-top: 10px;">Veuillez sélectionner le nombre d'écoles requis</div>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="btn-cancel" onclick="closeEcolesModal()">Annuler</button>
+                    <button class="btn-validate" onclick="validateEcolesModal()">Valider</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Initialiser le widget de quantité pour le modal
+        setTimeout(() => {
+            const modalQuantity = document.querySelector('#modalNombreEcoles');
+            if (modalQuantity && !modalQuantity.quantity) {
+                modalQuantity.quantity = new QuantityInput(modalQuantity, {
+                    decreaseText: 'Diminuer',
+                    increaseText: 'Augmenter',
+                    value: modalSelectedEcoles.length || 1,
+                    min: 1,
+                    id: 'modalNbEcoles',
+                    onChange: updateModalEcolesSelection
+                });
+            }
+        }, 100);
+    }
+
+    // Afficher le modal
+    modal.classList.add('show');
+
+    // Mettre à jour l'affichage des écoles sélectionnées
+    displayModalSelectedEcoles();
+}
+
+function closeEcolesModal() {
+    const modal = document.getElementById('ecolesModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    // Réinitialiser les variables
+    modalActiveResultIndex = -1;
+    modalFilteredResults = [];
+}
+
+function updateModalEcolesSelection() {
+    const modalQuantityEl = document.getElementById('modalNbEcoles');
+    const nbRequired = safeParseInt(modalQuantityEl?.value || '1', 1, 1);
+
+    if (modalSelectedEcoles.length > nbRequired) {
+        modalSelectedEcoles = modalSelectedEcoles.slice(0, nbRequired);
+        displayModalSelectedEcoles();
+    }
+
+    // Cacher l'erreur si elle était affichée
+    const errorDiv = document.getElementById('modalEcolesError');
+    if (errorDiv) {
+        errorDiv.style.display = modalSelectedEcoles.length === nbRequired ? 'none' : 'block';
+    }
+}
+
+function searchEcolesModal(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    const resultsDiv = document.getElementById('modalSearchResults');
+
+    if (searchTerm.length < 2) {
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
+        modalActiveResultIndex = -1;
         return;
     }
 
-    // Récupérer les écoles uniques de la fiche
-    const ecoleIds = [...new Set(originalRecordData.map(r => r.ecole))];
+    // Navigation avec les flèches
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (modalFilteredResults.length > 0) {
+            modalActiveResultIndex = Math.min(modalActiveResultIndex + 1, modalFilteredResults.length - 1);
+            updateModalActiveResult();
+        }
+        return;
+    }
 
-    // Récupérer toutes les valeurs du formulaire
-    const annee = validateInput(document.getElementById('editAnnee').value, 50);
-    const numeroGroupeRaw = validateInput(document.getElementById('editNumeroGroupe').value.trim(), 10);
-    const numeroGroupe = numeroGroupeRaw ? safeParseInt(numeroGroupeRaw, 0, 1) : 0;
-    const modaliteConstitution = Array.from(document.querySelectorAll('.edit-modalite:checked')).map(cb => cb.value);
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (modalFilteredResults.length > 0) {
+            modalActiveResultIndex = Math.max(modalActiveResultIndex - 1, 0);
+            updateModalActiveResult();
+        }
+        return;
+    }
+
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        if (modalFilteredResults.length > 0 && modalActiveResultIndex >= 0) {
+            selectModalEcole(modalFilteredResults[modalActiveResultIndex].id);
+        }
+        return;
+    }
+
+    // Filtrer les résultats
+    modalFilteredResults = ecolesData.filter(e =>
+        !modalSelectedEcoles.find(se => se.id === e.id) &&
+        (e.nom_complement_commune.toLowerCase().includes(searchTerm) ||
+            e.commune.toLowerCase().includes(searchTerm) ||
+            e.uai.toLowerCase().includes(searchTerm))
+    ).slice(0, 10);
+
+    modalActiveResultIndex = 0;
+
+    if (modalFilteredResults.length === 0) {
+        resultsDiv.innerHTML = '<div class="search-result-item">Aucun résultat trouvé</div>';
+        resultsDiv.style.display = 'block';
+        return;
+    }
+
+    resultsDiv.innerHTML = '';
+
+    modalFilteredResults.forEach((ecole, index) => {
+        const div = document.createElement('div');
+        div.className = 'search-result-item' + (index === modalActiveResultIndex ? ' active' : '');
+        div.innerHTML = `
+            <strong>${escapeHtml(ecole.nom)}</strong><br>
+            <small>${escapeHtml(ecole.commune_complement)} - UAI: ${escapeHtml(ecole.uai)}</small>
+        `;
+        div.addEventListener('click', () => selectModalEcole(ecole.id));
+        resultsDiv.appendChild(div);
+    });
+
+    resultsDiv.style.display = 'block';
+}
+
+function updateModalActiveResult() {
+    const resultsDiv = document.getElementById('modalSearchResults');
+    const items = resultsDiv.querySelectorAll('.search-result-item');
+    items.forEach((item, index) => {
+        if (index === modalActiveResultIndex) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+function selectModalEcole(ecoleId) {
+    const modalQuantityEl = document.getElementById('modalNbEcoles');
+    const nbRequired = safeParseInt(modalQuantityEl?.value || '1', 1, 1);
+
+    if (modalSelectedEcoles.length >= nbRequired) {
+        alert(`Vous ne pouvez sélectionner que ${nbRequired} école${nbRequired > 1 ? 's' : ''}.`);
+        return;
+    }
+
+    const ecole = ecolesData.find(e => e.id === ecoleId);
+    if (ecole && !modalSelectedEcoles.find(se => se.id === ecoleId)) {
+        modalSelectedEcoles.push(ecole);
+        displayModalSelectedEcoles();
+
+        // Effacer le champ de recherche
+        const searchInput = document.getElementById('modalSearchEcole');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        // Cacher les résultats
+        const resultsDiv = document.getElementById('modalSearchResults');
+        if (resultsDiv) {
+            resultsDiv.innerHTML = '';
+            resultsDiv.style.display = 'none';
+        }
+
+        // Cacher l'erreur si le nombre requis est atteint
+        const errorDiv = document.getElementById('modalEcolesError');
+        if (errorDiv) {
+            errorDiv.style.display = modalSelectedEcoles.length === nbRequired ? 'none' : 'block';
+        }
+    }
+}
+
+function removeModalEcole(ecoleId) {
+    modalSelectedEcoles = modalSelectedEcoles.filter(e => e.id !== ecoleId);
+    displayModalSelectedEcoles();
+
+    // Réafficher l'erreur si nécessaire
+    const modalQuantityEl = document.getElementById('modalNbEcoles');
+    const nbRequired = safeParseInt(modalQuantityEl?.value || '1', 1, 1);
+    const errorDiv = document.getElementById('modalEcolesError');
+    if (errorDiv) {
+        errorDiv.style.display = modalSelectedEcoles.length === nbRequired ? 'none' : 'block';
+    }
+}
+
+function displayModalSelectedEcoles() {
+    const container = document.getElementById('modalSelectedSchools');
+    if (!container) return;
+
+    if (modalSelectedEcoles.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = modalSelectedEcoles.map(ecole => `
+        <div class="selected-school-item">
+            <div>
+                <strong>${escapeHtml(ecole.nom)}</strong><br>
+                <small>${escapeHtml(ecole.commune_complement)} - UAI: ${escapeHtml(ecole.uai)}</small>
+            </div>
+            <button type="button" class="remove-school" onclick="removeModalEcole(${ecole.id})">&times;</button>
+        </div>
+    `).join('');
+}
+
+function validateEcolesModal() {
+    const modalQuantityEl = document.getElementById('modalNbEcoles');
+    const nbRequired = safeParseInt(modalQuantityEl?.value || '1', 1, 1);
+
+    // Vérifier que le bon nombre d'écoles est sélectionné
+    if (modalSelectedEcoles.length !== nbRequired) {
+        const errorDiv = document.getElementById('modalEcolesError');
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+        }
+        return;
+    }
+
+    // Mettre à jour les écoles dans le formulaire d'édition
+    // On ne modifie que selectedEcoles pour l'instant, la mise à jour réelle se fera lors de l'enregistrement
+    selectedEcoles = [...modalSelectedEcoles];
+
+    // Mettre à jour l'affichage du nombre d'écoles
+    const editNbEcolesInput = document.getElementById('editNbEcoles');
+    if (editNbEcolesInput) {
+        editNbEcolesInput.value = nbRequired;
+    }
+
+    // Rafraîchir l'affichage du formulaire avec les nouvelles écoles
+    displayEditForm(currentFicheRecords);
+
+    // Fermer le modal
+    closeEcolesModal();
+
+    // Message de confirmation
+    alert(`Les écoles ont été mises à jour. N'oubliez pas de cliquer sur "Mettre à jour la fiche" pour enregistrer les modifications.`);
+}
+
+async function updateFiche() {
     const typeFormation = document.querySelector('input[name="editTypeFormation"]:checked')?.value || '';
     const tempsFormation = safeParseInt(document.getElementById('editDuree').value, 0, 0);
     const modalitesFormation = Array.from(document.querySelectorAll('.edit-Modalites:checked')).map(cb => cb.value);
