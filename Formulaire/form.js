@@ -2696,7 +2696,7 @@ function renderTechniqueModalContent(firstRecord) {
     if (techniqueMissingFields && typeof techniqueMissingFields === 'object') {
         if (techniqueMissingFields.intitule) {
             html += '<div class="form-group">';
-            html += '<label class="required">Intitulé de la formation</label>';
+            html += '<label>Intitulé de la formation (facultatif)</label>';
             html += `<input type="text" class="search-input" id="intituleTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.intituleFormation || '') : ''}"
                            placeholder="Intitulé de la formation">`;
@@ -2705,7 +2705,7 @@ function renderTechniqueModalContent(firstRecord) {
 
         if (techniqueMissingFields.dispositif) {
             html += '<div class="form-group">';
-            html += '<label class="required">Dispositif GAIA</label>';
+            html += '<label>Dispositif GAIA (facultatif)</label>';
             html += `<input type="text" class="search-input" id="dispositifTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.dispositifGAIA || '') : ''}"
                            placeholder="Dispositif GAIA">`;
@@ -2714,38 +2714,12 @@ function renderTechniqueModalContent(firstRecord) {
 
         if (techniqueMissingFields.module) {
             html += '<div class="form-group">';
-            html += '<label class="required">Module GAIA</label>';
+            html += '<label>Module GAIA (facultatif)</label>';
             html += `<input type="text" class="search-input" id="moduleTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
                            placeholder="Module GAIA (5 chiffres)">`;
             html += '</div>';
         }
-    }
-
-    // Afficher la liste des enseignants
-    if (Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
-        html += '<h3>Enseignants inscrits</h3>';
-        html += '<div class="enseignants-list">';
-
-        currentTechniqueFiche.forEach(record => {
-            const ecole = ecolesData.find(e => e.id === record.ecole);
-            const enseignant = enseignantsData.find(e => e.id === record.idPE);
-
-            html += '<div class="enseignant-info-item">';
-            html += `<strong>${escapeHtml(record.nomPE || 'N/A')} ${escapeHtml(record.prenomPE || 'N/A')}</strong>`;
-            html += `<div>École : ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement || 'N/A') : 'N/A'}</div>`;
-            html += `<div>Circonscription : ${escapeHtml(record.circonscription || 'N/A')}</div>`;
-            html += `<div>Niveau : ${escapeHtml(record.niveau || 'N/A')}</div>`;
-            if (record.niveauClasse && Array.isArray(record.niveauClasse) && record.niveauClasse.length > 0) {
-                html += `<div>Niveaux de classe : ${record.niveauClasse.map(n => escapeHtml(n)).join(', ')}</div>`;
-            }
-            if (record.decharge) {
-                html += `<div>Décharge : ${escapeHtml(record.decharge)}</div>`;
-            }
-            html += '</div>';
-        });
-
-        html += '</div>';
     }
 
     html += '<h3>Lieux de formation</h3>';
@@ -2859,12 +2833,14 @@ function renderTechniqueModalContent(firstRecord) {
 
     techniqueFormateurs.forEach((formateur, index) => {
         html += `
+        <div class="formateur-checkbox-item">
             <div class="formateur-item">
                 <input type="checkbox" id="formateur${index}" 
                        ${formateur.checked ? 'checked' : ''}
                        onchange="updateFormateur(${index}, this.checked)">
                 <label for="formateur${index}">${escapeHtml(formateur.nom)}</label>
             </div>
+        </div>
             ${formateur.checked ? `
                 <input type="text" class="fonction-input" 
                        placeholder="Fonction" 
@@ -2888,6 +2864,33 @@ function renderTechniqueModalContent(firstRecord) {
     </div>`;
 
     modalBody.innerHTML = html;
+
+    // Afficher la liste des enseignants
+    if (Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
+        html += '<h3>Enseignants inscrits</h3>';
+        html += '<div class="enseignants-list">';
+
+        currentTechniqueFiche.forEach(record => {
+            const ecole = ecolesData.find(e => e.id === record.ecole);
+            const enseignant = enseignantsData.find(e => e.id === record.idPE);
+
+            html += '<div class="enseignant-info-item">';
+            html += `<strong>${escapeHtml(record.nomPE || 'N/A')} ${escapeHtml(record.prenomPE || 'N/A')}</strong>`;
+            html += `<div>École : ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement || 'N/A') : 'N/A'}</div>`;
+            html += `<div>Circonscription : ${escapeHtml(record.circonscription || 'N/A')}</div>`;
+            html += `<div>Niveau : ${escapeHtml(record.niveau || 'N/A')}</div>`;
+            if (record.niveauClasse && Array.isArray(record.niveauClasse) && record.niveauClasse.length > 0) {
+                html += `<div>Niveaux de classe : ${record.niveauClasse.map(n => escapeHtml(n)).join(', ')}</div>`;
+            }
+            if (record.decharge) {
+                html += `<div>Décharge : ${escapeHtml(record.decharge)}</div>`;
+            }
+            html += '</div>';
+        });
+
+        html += '</div>';
+    }
+
 }
 
 function addLieu() {
@@ -3246,11 +3249,23 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
         y += 10;
 
         pdf.setFontSize(14);
-        pdf.text(`Intitulé de la formation : ${record.intituleFormation || 'N/A'}`, 20, y);
-        y += 8;
 
-        pdf.text(`Identifiant : ${record.dispositifGAIA || 'N/A'} - ${record.moduleGAIA || 'N/A'}`, 20, y);
-        y += 10;
+        // Afficher l'intitulé seulement s'il est renseigné
+        if (record.intituleFormation && record.intituleFormation.trim() !== '') {
+            pdf.text(`Intitulé de la formation : ${record.intituleFormation}`, 20, y);
+            y += 8;
+        }
+
+        // Afficher l'identifiant seulement si au moins un des deux est renseigné
+        if ((record.dispositifGAIA && record.dispositifGAIA.trim() !== '') ||
+            (record.moduleGAIA && record.moduleGAIA.trim() !== '')) {
+            const dispositif = record.dispositifGAIA && record.dispositifGAIA.trim() !== '' ? record.dispositifGAIA : 'N/A';
+            const module = record.moduleGAIA && record.moduleGAIA.trim() !== '' ? record.moduleGAIA : 'N/A';
+            pdf.text(`Identifiant : ${dispositif} - ${module}`, 20, y);
+            y += 8;
+        }
+
+        y += 2;
 
         pdf.setFontSize(12);
         pdf.text(`Lieu : ${lieu.value}`, 20, y);

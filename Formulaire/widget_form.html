@@ -885,10 +885,16 @@
         }
 
         .formateur-checkbox-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 10px;
             margin-top: 10px;
+        }
+
+        .formateur-checkbox-item {
+            display: flex;
+            gap: 25px;
+            margin: 0 50px;
         }
 
         .formateur-item {
@@ -925,8 +931,8 @@
         }
 
         .time-input {
-            width: 100%;
-            padding: 8px;
+            width: fit-content;
+            padding: 5px 15px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
@@ -973,7 +979,10 @@
         }
 
         .date-checkbox-wrapper {
-            padding-top: 20px;
+            display: flex;
+            gap: 10px;
+            padding: 20px 0 0 20px;
+            color: #34495e;
         }
 
         .creneau-item {
@@ -997,6 +1006,12 @@
 
         .formateur-search-wrapper {
             margin-top: 15px;
+            position: relative;
+            z-index: 1050;
+        }
+
+        .formateur-search-wrapper .search-results {
+            z-index: 1100;
         }
 
         /* Classes pour l'édition de fiches */
