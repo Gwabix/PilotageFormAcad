@@ -244,7 +244,7 @@ async function loadData() {
             nomPE: tableauTable.Nom_PE[index],
             prenomPE: tableauTable.Prenom_PE[index],
             niveau: tableauTable.Niveau_x_ ? sanitizeGristData(tableauTable.Niveau_x_[index]) : '',
-            niveauClasse: sanitizeGristData(tableauTable.Niveau_classe[index]) || [],
+            niveauClasse: tableauTable.Niveau_x_ ? (sanitizeGristData(tableauTable.Niveau_x_[index]) || []) : [],
             decharge: tableauTable.Decharge ? sanitizeGristData(tableauTable.Decharge[index]) : '',
             modaliteConstitution: sanitizeGristData(tableauTable.Modalite_de_constitution_du_groupe[index]) || [],
             typeFormation: sanitizeGristData(tableauTable.Type_de_formation[index]),
