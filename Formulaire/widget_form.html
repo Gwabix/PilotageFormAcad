@@ -884,40 +884,149 @@
             background-color: #2980b9;
         }
 
-        .formateur-checkbox-group {
+        /* Tableaux formateurs - Layout horizontal */
+        .formateurs-table-horizontal {
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+
+        .formateurs-creneaux-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border: 1px solid #ddd;
+        }
+
+        .formateurs-creneaux-table th,
+        .formateurs-creneaux-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .formateurs-creneaux-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .formateurs-creneaux-table .col-nom {
+            min-width: 150px;
+            font-weight: 500;
+        }
+
+        .formateurs-creneaux-table .col-fonction {
+            min-width: 180px;
+        }
+
+        .formateurs-creneaux-table .col-creneau {
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .formateurs-creneaux-table .col-creneau-checkbox {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .formateurs-creneaux-table .col-creneau-checkbox input[type="checkbox"] {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        .creneau-header {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .creneau-heure {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Tableaux formateurs - Layout vertical */
+        .formateurs-table-vertical {
+            margin-top: 15px;
             display: flex;
             flex-direction: column;
+            gap: 20px;
+        }
+
+        .formateur-vertical-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: white;
+        }
+
+        .formateur-info-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .formateur-nom-cell {
+            font-weight: 600;
+            font-size: 16px;
+            align-self: center;
+        }
+
+        .formateur-fonction-cell {
+            align-self: center;
+        }
+
+        .formateur-creneaux-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 10px;
-            margin-top: 10px;
         }
 
-        .formateur-checkbox-item {
+        .creneau-vertical-item {
             display: flex;
-            gap: 25px;
-            margin: 0 50px;
-        }
-
-        .formateur-item {
-            display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 8px;
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background: #fafafa;
         }
 
-        .formateur-item input[type="checkbox"] {
-            margin: 0;
-        }
-
-        .formateur-item label {
-            margin: 0;
-            font-weight: normal;
+        .creneau-vertical-item input[type="checkbox"] {
+            margin-top: 3px;
             cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .creneau-vertical-item label {
+            cursor: pointer;
+            flex: 1;
+            margin: 0;
+        }
+
+        .creneau-date {
+            font-weight: 500;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .creneau-heure {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .no-formateurs {
+            color: #666;
+            font-style: italic;
+            margin: 10px 0;
         }
 
         .fonction-input {
-            display: block;
             width: 100%;
-            margin-top: 5px;
-            padding: 5px;
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 12px;

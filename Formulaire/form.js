@@ -2659,14 +2659,16 @@ function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
     techniqueLieux = [{ value: '' }];
     techniqueDates = [{ lieu: 0, date: '', debut: '', fin: '', editable: true }];
 
-    const formateurIdsInFiche = Array.isArray(firstRecord.formateurs) ? firstRecord.formateurs : [];
+    const formateurIdsInFiche = Array.isArray(firstRecord.formateurs)
+        ? firstRecord.formateurs.filter(id => typeof id === 'number')
+        : [];
     techniqueFormateurs = formateursData
         .filter(f => formateurIdsInFiche.includes(f.id))
         .map(f => ({
             id: f.id,
             nom: f.nom,
-            checked: true,
-            fonction: ''
+            fonction: '',
+            creneaux: []
         }));
 
     renderTechniqueModalContent(firstRecord);
@@ -2833,33 +2835,99 @@ function renderTechniqueModalContent(firstRecord) {
     });
 
     html += '<h3>Formateurs</h3>';
-    html += '<div class="formateur-checkbox-group">';
 
-    techniqueFormateurs.forEach((formateur, index) => {
-        html += `
-        <div class="formateur-checkbox-item">
-            <div class="formateur-item">
-                <input type="checkbox" id="formateur${index}" 
-                       ${formateur.checked ? 'checked' : ''}
-                       onchange="updateFormateur(${index}, this.checked)">
-                <label for="formateur${index}">${escapeHtml(formateur.nom)}</label>
-            </div>
-            ${formateur.checked ? `
-                <input type="text" class="fonction-input" 
-                       placeholder="Fonction" 
-                       value="${escapeHtmlAttribute(formateur.fonction)}"
-                       onchange="updateFormateurFonction(${index}, this.value)">
-            ` : ''}
-        </div>
-        `;
-    });
+    // Construire la liste des créneaux pour l'affichage
+    const allCreneaux = techniqueDates.map((creneau, idx) => ({
+        index: idx,
+        dateStr: creneau.date || 'Non défini',
+        heureStr: creneau.debut && creneau.fin ? `${creneau.debut}-${creneau.fin}` : 'Heures non définies'
+    }));
 
-    html += '</div>';
+    const nombreCreneaux = allCreneaux.length;
+    const layoutHorizontal = nombreCreneaux <= 4;
+
+    if (techniqueFormateurs.length > 0) {
+        if (layoutHorizontal) {
+            // Layout horizontal (≤4 créneaux)
+            html += '<div class="formateurs-table-horizontal">';
+            html += '<table class="formateurs-creneaux-table">';
+            html += '<thead><tr>';
+            html += '<th class="col-nom">Nom</th>';
+            html += '<th class="col-fonction">Fonction</th>';
+            allCreneaux.forEach(creneau => {
+                html += `<th class="col-creneau">
+                    <div class="creneau-header">${escapeHtml(creneau.dateStr)}</div>
+                    <div class="creneau-heure">${escapeHtml(creneau.heureStr)}</div>
+                </th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            techniqueFormateurs.forEach((formateur, formateurIdx) => {
+                html += '<tr>';
+                html += `<td class="col-nom">${escapeHtml(formateur.nom)}</td>`;
+                html += `<td class="col-fonction">
+                    <input type="text" class="fonction-input" 
+                           placeholder="Fonction" 
+                           value="${escapeHtmlAttribute(formateur.fonction)}"
+                           onchange="updateFormateurFonction(${formateurIdx}, this.value)">
+                </td>`;
+                allCreneaux.forEach(creneau => {
+                    const isChecked = formateur.creneaux.includes(creneau.index);
+                    html += `<td class="col-creneau-checkbox">
+                        <input type="checkbox" 
+                               ${isChecked ? 'checked' : ''}
+                               onchange="toggleFormateurCreneau(${formateurIdx}, ${creneau.index}, this.checked)">
+                    </td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            html += '</div>';
+        } else {
+            // Layout vertical (>4 créneaux)
+            html += '<div class="formateurs-table-vertical">';
+
+            techniqueFormateurs.forEach((formateur, formateurIdx) => {
+                html += '<div class="formateur-vertical-card">';
+                html += '<div class="formateur-info-row">';
+                html += `<div class="formateur-nom-cell">${escapeHtml(formateur.nom)}</div>`;
+                html += `<div class="formateur-fonction-cell">
+                    <input type="text" class="fonction-input" 
+                           placeholder="Fonction" 
+                           value="${escapeHtmlAttribute(formateur.fonction)}"
+                           onchange="updateFormateurFonction(${formateurIdx}, this.value)">
+                </div>`;
+                html += '</div>';
+
+                html += '<div class="formateur-creneaux-grid">';
+                allCreneaux.forEach(creneau => {
+                    const isChecked = formateur.creneaux.includes(creneau.index);
+                    html += `<div class="creneau-vertical-item">
+                        <input type="checkbox" 
+                               id="formateur${formateurIdx}_creneau${creneau.index}"
+                               ${isChecked ? 'checked' : ''}
+                               onchange="toggleFormateurCreneau(${formateurIdx}, ${creneau.index}, this.checked)">
+                        <label for="formateur${formateurIdx}_creneau${creneau.index}">
+                            <div class="creneau-date">${escapeHtml(creneau.dateStr)}</div>
+                            <div class="creneau-heure">${escapeHtml(creneau.heureStr)}</div>
+                        </label>
+                    </div>`;
+                });
+                html += '</div>';
+
+                html += '</div>';
+            });
+
+            html += '</div>';
+        }
+    } else {
+        html += '<p class="no-formateurs">Aucun formateur pré-chargé</p>';
+    }
 
     html += '<div class="formateur-search-wrapper">';
     html += '<input type="text" class="search-input" id="searchFormateurTechnique" placeholder="Rechercher un formateur..." onkeyup="searchFormateurTechnique(event)">';
     html += '<div class="search-results" id="searchFormateurTechniqueResults"></div>';
-    html += '</div>';
     html += '</div>';
 
     html += '<h3>Commentaire</h3>';
@@ -2982,13 +3050,21 @@ function updateEditableForAllCreneaux(lieuIndex, dateValue, checked) {
     });
 }
 
-function updateFormateur(index, checked) {
-    techniqueFormateurs[index].checked = checked;
-    renderTechniqueModalContent();
-}
-
 function updateFormateurFonction(index, fonction) {
     techniqueFormateurs[index].fonction = validateInput(fonction, 100);
+}
+
+function toggleFormateurCreneau(formateurIndex, creneauIndex, checked) {
+    if (!techniqueFormateurs[formateurIndex]) return;
+
+    const creneaux = techniqueFormateurs[formateurIndex].creneaux;
+    const idx = creneaux.indexOf(creneauIndex);
+
+    if (checked && idx === -1) {
+        creneaux.push(creneauIndex);
+    } else if (!checked && idx !== -1) {
+        creneaux.splice(idx, 1);
+    }
 }
 
 function searchFormateurTechnique(event) {
@@ -3089,8 +3165,8 @@ function selectFormateurTechnique(nom) {
         techniqueFormateurs.push({
             id: formateur.id,
             nom: formateur.nom,
-            checked: true,
-            fonction: ''
+            fonction: '',
+            creneaux: []
         });
         renderTechniqueModalContent();
     }
@@ -3115,8 +3191,8 @@ async function addNewFormateurTechnique(nom) {
             techniqueFormateurs.push({
                 id: newFormateur.id,
                 nom: newFormateur.nom,
-                checked: true,
-                fonction: fonctionClean
+                fonction: fonctionClean,
+                creneaux: []
             });
 
             const firstRecord = currentTechniqueFiche[0];
@@ -3202,7 +3278,7 @@ async function generateFichesPDF() {
             }
         });
 
-        const selectedFormateurs = techniqueFormateurs.filter(f => f.checked);
+        const selectedFormateurs = techniqueFormateurs.filter(f => f.creneaux && f.creneaux.length > 0);
         if (selectedFormateurs.length > 0) {
             updates.Formateur_s_ = ['L', ...selectedFormateurs.map(f => f.id)];
         }
