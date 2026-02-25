@@ -577,7 +577,7 @@ function addFormateurField() {
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : Template statique sans données dynamiques
     fieldDiv.innerHTML = `
-        <div class="search-container" style="position: relative;">
+        <div class="search-container">
             <input type="text" 
                    class="search-input formateur-input" 
                    id="formateurInput_${index}"
@@ -1345,7 +1345,7 @@ function updateFilterDisplay() {
 
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : f.label, f.value et f.type sont échappés via escapeHtml() et escapeHtmlAttribute()
-    container.innerHTML = '<p style="font-weight: 600; margin-bottom: 10px;">Filtres actifs :</p>' +
+    container.innerHTML = '<div class="filters-active-header">Filtres actifs :</div>' +
         filters.map(f =>
             `<span class="filter-badge">${escapeHtml(f.label)}: ${escapeHtml(f.value)}<button data-filter-type="${escapeHtmlAttribute(f.type)}">×</button></span>`
         ).join('');
@@ -1484,15 +1484,15 @@ function displayEditForm(ficheRecords) {
             </div>
             
             <div class="form-group">
-                <label style="margin-bottom: 8px; display: block; font-weight: 600; color: #2c3e50;">
+                <label class="edit-section-label">
                     ${ecoles.length} école${ecoles.length > 1 ? 's' : ''} :
                 </label>
-                <div style="margin-bottom: 12px; color: #2c3e50; line-height: 1.6;">
+                <div class="edit-info-block">
                     ${ecoles.length === 0
-            ? '<div style="color: #7f8c8d; font-style: italic;">Aucune école</div>'
+            ? '<div class="no-data-placeholder">Aucune école</div>'
             : ecoles.map(e => `• ${escapeHtml(e.nom || e.commune_complement)} ${e.uai ? '(' + escapeHtml(e.uai) + ')' : ''}`).join('<br>')}
                 </div>
-                <button type="button" id="btnModifierEcoles" style="width: 200px; padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">Modifier les écoles</button>
+                <button type="button" class="btnValider edit-btn-modifier" id="btnModifierEcoles">Modifier les écoles</button>
             </div>
             
             <div class="form-group">
@@ -1513,16 +1513,16 @@ function displayEditForm(ficheRecords) {
                 const niveauxDisplay = isSelected ? 'block' : 'none';
 
                 return `
-                <div class="enseignant-edit-item" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; opacity: ${opacity};">
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="enseignant-edit-item" style="opacity: ${opacity};">
+                    <div class="enseignant-edit-header">
                         <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-idx="${idx}" ${isSelected ? 'checked' : ''}>
-                        <div style="font-weight: 600; color: #333;">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
+                        <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
                     </div>
-                    <div id="editNiveaux_${idx}" style="margin-top: 5px; display: ${niveauxDisplay};">
-                        <label style="font-size: 14px; color: #555;">Niveaux de classe :</label>
-                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+                    <div class="enseignant-niveaux-section" id="editNiveaux_${idx}" style="display: ${niveauxDisplay};">
+                        <label class="enseignant-niveaux-label">Niveaux de classe :</label>
+                        <div class="enseignant-niveaux-grid">
                             ${NIVEAUX_POSSIBLES.map(niveau => `
-                                <label style="display: flex; align-items: center; gap: 5px; color: #333;"><input type="checkbox" class="edit-niveau-${idx}" value="${escapeHtmlAttribute(niveau)}" ${niveauxActuels.includes(niveau) ? 'checked' : ''}> ${escapeHtml(niveau)}</label>
+                                <label class="enseignant-niveau-item"><input type="checkbox" class="edit-niveau-${idx}" value="${escapeHtmlAttribute(niveau)}" ${niveauxActuels.includes(niveau) ? 'checked' : ''}> ${escapeHtml(niveau)}</label>
                             `).join('')}
                         </div>
                     </div>
@@ -1639,10 +1639,10 @@ function displayEditForm(ficheRecords) {
                         </div>
                     `).join('') : '<div class="formateur-field"><input type="text" class="search-input edit-formateur-input" placeholder="Formateur..."></div>'}
                 </div>
-                <button type="button" id="addEditFormateurBtn" style="width: auto; padding: 8px 20px; margin-top: 10px; background: #16a085;">+ Ajouter un formateur</button>
+                <button type="button" class="btnValider btn-add-formateur" id="addEditFormateurBtn">+ Ajouter un formateur</button>
             </div>
             
-            <button class="btnValider" id="updateFicheBtn" style="width: 100%; background: #e67e22;">Mettre à jour la fiche</button>
+            <button class="btnValider btn-update-fiche" id="updateFicheBtn">Mettre à jour la fiche</button>
         </div>
     `;
 
@@ -1861,10 +1861,7 @@ function openEcolesModal(ficheRecords) {
                             <div class="search-results" id="modalSearchResults"></div>
                         </div>
                         <div class="selected-schools" id="modalSelectedSchools"></div>
-                        <div class="error" id="modalEcolesError" style="display: none; color: #e74c3c; margin-top: 10px;">Veuillez sélectionner le nombre d'écoles requis</div>
-                    </div>
-                </div>
-                
+                    <div class="error" id="modalEcolesError">Veuillez sélectionner le nombre d'écoles requis</div>
                 <div class="modal-buttons">
                     <button class="btn-cancel" onclick="closeEcolesModal()">Annuler</button>
                     <button class="btn-validate" onclick="validateEcolesModal()">Valider</button>
@@ -2457,7 +2454,7 @@ function updateFilterDisplayTechnique() {
         module: 'Module'
     };
 
-    container.innerHTML = '<div style="margin-bottom: 10px; font-weight: 600; color: #2c3e50;">Filtres actifs :</div>' +
+    container.innerHTML = '<div class="filters-active-header">Filtres actifs :</div>' +
         activeFilters.map(([key, value]) =>
             `<span class="filter-badge">
                 ${escapeHtml(filterLabels[key])}: ${escapeHtml(value)}
@@ -2702,46 +2699,55 @@ function renderTechniqueModalContent() {
         });
 
         Array.from(dateGroups.entries()).forEach(([dateKey, creneaux], groupIndex) => {
-            html += `<div class="date-section" style="margin-bottom: 15px; padding: 15px; padding-top: 40px; background: #f9f9f9; border-radius: 4px; position: relative; border: 1px solid #e0e0e0;">`;
+            html += `<div class="date-group-section">`;
 
-            creneaux.forEach((creneau, creneauIndex) => {
-                const globalIndex = techniqueDates.indexOf(creneau);
+            if (creneaux.length > 0) {
+                const firstCreneau = creneaux[0];
+                const firstGlobalIndex = techniqueDates.indexOf(firstCreneau);
+
                 html += `
-                    <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px; position: relative;">
-                        ${creneauIndex > 0 ? `<button class="remove-btn" style="position: absolute; top: 5px; right: 5px;" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
-                        <div class="date-time-group">
-                            <div>
-                                <label class="required">Date</label>
-                                <input type="date" class="time-input" 
-                                       value="${escapeHtmlAttribute(creneau.date)}"
-                                       onchange="updateDate(${globalIndex}, 'date', this.value)">
-                            </div>
-                            <div>
-                                <label class="required">Heure début</label>
-                                <input type="time" class="time-input" 
-                                       value="${escapeHtmlAttribute(creneau.debut)}"
-                                       onchange="updateDate(${globalIndex}, 'debut', this.value)">
-                            </div>
-                            <div>
-                                <label class="required">Heure fin</label>
-                                <input type="time" class="time-input" 
-                                       value="${escapeHtmlAttribute(creneau.fin)}"
-                                       onchange="updateDate(${globalIndex}, 'fin', this.value)">
-                            </div>
+                    <div class="date-header-row">
+                        <div>
+                            <label class="required">Date</label>
+                            <input type="date" class="time-input"
+                                   value="${escapeHtmlAttribute(firstCreneau.date)}"
+                                   onchange="updateDateForAllCreneaux(${lieuIndex}, '${escapeHtmlAttribute(firstCreneau.date)}', this.value)">
                         </div>
-                        <div style="margin-top: 10px;">
-                            <label>
-                                <input type="checkbox" ${creneau.editable ? 'checked' : ''}
-                                       onchange="updateDate(${globalIndex}, 'editable', this.checked)">
+                        <div class="date-checkbox-wrapper">
+                                <input type="checkbox" ${firstCreneau.editable ? 'checked' : ''}
+                                       onchange="updateEditableForAllCreneaux(${lieuIndex}, '${escapeHtmlAttribute(firstCreneau.date)}', this.checked)">
                                 Éditer la fiche pour cette formation
                             </label>
                         </div>
                     </div>
                 `;
-            });
+
+                creneaux.forEach((creneau, creneauIndex) => {
+                    const globalIndex = techniqueDates.indexOf(creneau);
+                    html += `
+                        <div class="creneau-item">
+                            ${creneauIndex > 0 ? `<button class="remove-btn" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
+                            <div class="creneau-horaires">
+                                <div>
+                                    <label class="required">Heure début</label>
+                                    <input type="time" class="time-input" 
+                                           value="${escapeHtmlAttribute(creneau.debut)}"
+                                           onchange="updateDate(${globalIndex}, 'debut', this.value)">
+                                </div>
+                                <div>
+                                    <label class="required">Heure fin</label>
+                                    <input type="time" class="time-input" 
+                                           value="${escapeHtmlAttribute(creneau.fin)}"
+                                           onchange="updateDate(${globalIndex}, 'fin', this.value)">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
 
             const dateValue = creneaux.length > 0 && creneaux[0].date ? creneaux[0].date : '';
-            html += `<div style="margin-top: 10px;">`;
+            html += `<div class="btn-actions-wrapper">`;
             html += `<button class="add-btn" onclick="addCreneauToDate(${lieuIndex}, '${escapeHtmlAttribute(dateValue)}')">+ Ajouter un créneau</button>`;
             html += `</div>`;
             html += `</div>`;
@@ -2774,9 +2780,7 @@ function renderTechniqueModalContent() {
 
     html += '</div>';
 
-    html += '<div style="margin-top: 15px;">';
-    html += '<label>Ajouter un formateur</label>';
-    html += '<div class="search-container">';
+    html += '<div class="formateur-search-wrapper">';
     html += '<input type="text" class="search-input" id="searchFormateurTechnique" placeholder="Rechercher un formateur..." onkeyup="searchFormateurTechnique(event)">';
     html += '<div class="search-results" id="searchFormateurTechniqueResults"></div>';
     html += '</div>';
@@ -2851,6 +2855,23 @@ function updateDate(index, field, value) {
     }
 }
 
+function updateDateForAllCreneaux(lieuIndex, oldDate, newDate) {
+    techniqueDates.forEach((creneau, index) => {
+        if (creneau.lieu === lieuIndex && creneau.date === oldDate) {
+            techniqueDates[index].date = newDate;
+        }
+    });
+    renderTechniqueModalContent();
+}
+
+function updateEditableForAllCreneaux(lieuIndex, dateValue, checked) {
+    techniqueDates.forEach((creneau, index) => {
+        if (creneau.lieu === lieuIndex && creneau.date === dateValue) {
+            techniqueDates[index].editable = checked;
+        }
+    });
+}
+
 function updateFormateur(index, checked) {
     techniqueFormateurs[index].checked = checked;
     renderTechniqueModalContent();
@@ -2911,7 +2932,7 @@ function searchFormateurTechnique(event) {
         .slice(0, 10);
 
     if (techniqueFormateurSearchResults.length === 0) {
-        resultsDiv.innerHTML = `<div class="search-result-item" style="cursor: pointer;" onclick="addNewFormateurTechnique('${escapeHtmlAttribute(searchTerm)}')">
+        resultsDiv.innerHTML = `<div class="search-result-item" onclick="addNewFormateurTechnique('${escapeHtmlAttribute(searchTerm)}')">
             <strong>+ Créer "${escapeHtml(searchTerm)}"</strong>
         </div>`;
         resultsDiv.style.display = 'block';
