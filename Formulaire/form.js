@@ -1629,7 +1629,7 @@ function displayEditForm(ficheRecords) {
             </div>
             
             <div class="form-group">
-                <label>Intitulé de la formation</label>
+                <label>Intitulé de la formation (facultatif</label>
                 <input type="text" id="editIntitule" value="${escapeHtmlAttribute(firstRecord.intituleFormation || '')}" maxlength="200">
             </div>
             
@@ -2267,7 +2267,7 @@ async function updateFiche() {
             newRecords.push(record);
         });
 
-        // Ajouter les nouvelles lignes en bulk
+        // Ajouter les nouvelles lk
         if (newRecords.length > 0) {
             actions.push(['BulkAddRecord', 'Tableau_de_bord', newRecords.map(() => null), newRecords.reduce((acc, record) => {
                 Object.keys(record).forEach(key => {
@@ -2696,7 +2696,7 @@ function renderTechniqueModalContent(firstRecord) {
     if (techniqueMissingFields && typeof techniqueMissingFields === 'object') {
         if (techniqueMissingFields.intitule) {
             html += '<div class="form-group">';
-            html += '<label>Intitulé de la formation</label>';
+            html += '<label>Intitulé de la formation (facultatif)</label>';
             html += `<input type="text" class="search-input" id="intituleTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.intituleFormation || '') : ''}"
                            placeholder="Intitulé de la formation">`;
@@ -2705,7 +2705,7 @@ function renderTechniqueModalContent(firstRecord) {
 
         if (techniqueMissingFields.dispositif) {
             html += '<div class="form-group">';
-            html += '<label>Dispositif GAIA</label>';
+            html += '<label>Dispositif GAIA (facultatif)</label>';
             html += `<input type="text" class="search-input" id="dispositifTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.dispositifGAIA || '') : ''}"
                            placeholder="Dispositif GAIA">`;
@@ -2714,7 +2714,7 @@ function renderTechniqueModalContent(firstRecord) {
 
         if (techniqueMissingFields.module) {
             html += '<div class="form-group">';
-            html += '<label>Module GAIA</label>';
+            html += '<label>Module GAIA (facultatif)</label>';
             html += `<input type="text" class="search-input" id="moduleTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
                            placeholder="Module GAIA (5 chiffres)">`;
@@ -2810,10 +2810,6 @@ function renderTechniqueModalContent(firstRecord) {
                                            value="${escapeHtmlAttribute(creneau.fin)}"
                                            onchange="updateDate(${globalIndex}, 'fin', this.value)">
                                 </div>
-                                <div class="quick-time-buttons">
-                                    <button type="button" class="btn-quick-time" onclick="setCreneauHoraires(${globalIndex}, '09:00', '12:00')">9h-12h</button>
-                                    <button type="button" class="btn-quick-time" onclick="setCreneauHoraires(${globalIndex}, '13:30', '16:30')">13h30-16h30</button>
-                                </div>
                             </div>
                         </div>
                     `;
@@ -2844,13 +2840,13 @@ function renderTechniqueModalContent(firstRecord) {
                        onchange="updateFormateur(${index}, this.checked)">
                 <label for="formateur${index}">${escapeHtml(formateur.nom)}</label>
             </div>
+        </div>
             ${formateur.checked ? `
                 <input type="text" class="fonction-input" 
                        placeholder="Fonction" 
                        value="${escapeHtmlAttribute(formateur.fonction)}"
                        onchange="updateFormateurFonction(${index}, this.value)">
             ` : ''}
-        </div>
         `;
     });
 
@@ -2867,7 +2863,9 @@ function renderTechniqueModalContent(firstRecord) {
         <textarea id="commentaireTechnique" placeholder="Informations complémentaires..."></textarea>
     </div>`;
 
-    // Afficher la liste des enseignants AVANT les autres sections
+    modalBody.innerHTML = html;
+
+    // Afficher la liste des enseignants
     if (Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
         html += '<h3>Enseignants inscrits</h3>';
         html += '<div class="enseignants-list">';
@@ -2893,7 +2891,6 @@ function renderTechniqueModalContent(firstRecord) {
         html += '</div>';
     }
 
-    modalBody.innerHTML = html;
 }
 
 function addLieu() {
@@ -2954,14 +2951,6 @@ function removeDateCreneau(index) {
 function updateDate(index, field, value) {
     if (techniqueDates[index]) {
         techniqueDates[index][field] = value;
-    }
-}
-
-function setCreneauHoraires(index, debut, fin) {
-    if (techniqueDates[index]) {
-        techniqueDates[index].debut = debut;
-        techniqueDates[index].fin = fin;
-        renderTechniqueModalContent();
     }
 }
 
@@ -3301,77 +3290,4 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
             let line = `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'} | ${ecole?.nom || ecole?.commune_complement || 'N/A'} | ${ens.circonscription || 'N/A'}`;
 
             // Ajouter les niveaux de classe si présents
-            if (ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0) {
-                line += ` | ${ens.niveauClasse.join(', ')}`;
-            }
-
-            pdf.text(line, 25, y);
-            y += 5;
-
-            // Ajouter la décharge si présente
-            if (ens.decharge) {
-                pdf.setFontSize(9);
-                pdf.text(`   Décharge : ${ens.decharge}`, 30, y);
-                y += 4;
-                pdf.setFontSize(10);
-            }
-
-            if (y > 270) {
-                pdf.addPage();
-                y = 20;
-            }
-        });
-
-        y += 6;
-        pdf.setFontSize(12);
-        pdf.text(`Nombre de formateurs : ${formateurs.length}`, 20, y);
-        y += 6;
-
-        formateurs.forEach(form => {
-            pdf.setFontSize(10);
-            pdf.text(`${form.nom} | ${form.fonction || 'N/A'}`, 25, y);
-            y += 5;
-        });
-
-        if (commentaire && commentaire.trim() !== '') {
-            y += 6;
-            pdf.setFontSize(12);
-            pdf.text('Informations complémentaires :', 20, y);
-            y += 6;
-            pdf.setFontSize(10);
-            const lines = pdf.splitTextToSize(commentaire, 170);
-            pdf.text(lines, 20, y);
-        }
-
-        pdf.save(`Fiche_${record.idFiche}_Lieu${lieuIndex + 1}.pdf`);
-    }
-}
-
-// Set up quantity forms
-(function () {
-    let quantities = document.querySelectorAll('[data-quantity]');
-
-    if (quantities instanceof Node) quantities = [quantities];
-    if (quantities instanceof NodeList) quantities = [].slice.call(quantities);
-    if (quantities instanceof Array) {
-        quantities.forEach((div, index) => {
-            if (index === 0) { // nbEcoles
-                div.quantity = new QuantityInput(div, {
-                    decreaseText: 'Diminuer',
-                    increaseText: 'Augmenter',
-                    value: 1,
-                    min: 1,
-                    id: 'nbEcoles'
-                });
-            } else if (index === 1) { // numeroGroupe
-                div.quantity = new QuantityInput(div, {
-                    decreaseText: 'Diminuer',
-                    increaseText: 'Augmenter',
-                    value: '',
-                    min: 1,
-                    id: 'numeroGroupe'
-                });
-            }
-        });
-    }
-})();
+            if (ens.niveauClasse && Array.isArray(ens.niveauClasse) &

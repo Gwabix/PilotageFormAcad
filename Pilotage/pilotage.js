@@ -100,7 +100,7 @@ async function loadData() {
             nb_pe: tableauTable.Nb_PE[index] || 0,
             nom_pe: tableauTable.Nom_PE[index],
             prenom_pe: tableauTable.Prenom_PE[index],
-            niveau_classe: cleanChoiceList(tableauTable.Niveau_classe[index]),
+            niveau_x_: cleanChoiceList(tableauTable.Niveau_x_[index]),
             temps_formation: tableauTable.Temps_de_formation[index] || 0,
             modalites_formation: cleanChoiceList(tableauTable.Modalites_de_formation[index]),
             objets_transversaux: cleanChoiceList(tableauTable.Objets_transversaux_traites_en_parallele[index]),
@@ -2071,8 +2071,8 @@ function groupFormationsByType(formations) {
 function generateFormationInfoItems(formation, niveauxEnseignant = []) {
     let html = '';
 
-    const niveaux = formation.niveau_classe && formation.niveau_classe.length > 0
-        ? formation.niveau_classe
+    const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
+        ? formation.niveau_x_
         : niveauxEnseignant;
 
     if (niveaux && niveaux.length > 0) {
@@ -2170,8 +2170,8 @@ function exportToCSV(type) {
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
             const ecole = ecolesData.find(e => e.id === formation.ecole);
-            const niveaux = formation.niveau_classe && formation.niveau_classe.length > 0
-                ? formation.niveau_classe.join(', ')
+            const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
+                ? formation.niveau_x_.join(', ')
                 : enseignant.niveaux.join(', ');
 
             csvContent += `"${sanitizeCSV(formation.annee || '')}";`;
@@ -2197,8 +2197,8 @@ function exportToCSV(type) {
             const nomPE = enseignantsData.find(e => e.id === formation.nom_pe);
             const prenomPE = enseignantsData.find(e => e.id === formation.prenom_pe);
             const enseignant = nomPE || prenomPE;
-            const niveaux = formation.niveau_classe && formation.niveau_classe.length > 0
-                ? formation.niveau_classe.join(', ')
+            const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
+                ? formation.niveau_x_.join(', ')
                 : (enseignant && enseignant.niveaux ? enseignant.niveaux.join(', ') : '');
 
             csvContent += `"${sanitizeCSV(formation.annee || '')}";`;

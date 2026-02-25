@@ -88,7 +88,7 @@ async function loadData() {
             nb_pe: tableauTable.Nb_PE[index] || 0,
             nom_pe: tableauTable.Nom_PE[index],
             prenom_pe: tableauTable.Prenom_PE[index],
-            niveau_classe: cleanChoiceList(tableauTable.Niveau_classe[index]),
+            niveau_x_: cleanChoiceList(tableauTable.Niveau_x_[index]),
             temps_formation: tableauTable.Temps_de_formation[index] || 0,
             modalites_formation: cleanChoiceList(tableauTable.Modalites_de_formation[index]),
             objets_transversaux: cleanChoiceList(tableauTable.Objets_transversaux_traites_en_parallele[index]),
