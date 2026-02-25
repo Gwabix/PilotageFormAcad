@@ -42,6 +42,8 @@ let currentTechniqueFiche = null;
 let techniqueLieux = [];
 let techniqueDates = [];
 let techniqueFormateurs = [];
+let techniqueFormateurSearchResults = [];
+let activeTechniqueFormateurResultIndex = -1;
 
 const NIVEAUX_POSSIBLES = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
 
@@ -2298,7 +2300,7 @@ async function updateFiche() {
     }
 }
 
-// ===== FONCTIONS POUR L'ONGLET ÉDITION TECHNIQUE =====
+// ===== FONCTIONS POUR L'ONGLET ÉDITION FICHE TECHNIQUE =====
 
 function searchFilterFormateurTechnique(event) {
     searchFilterTechnique(event, 'formateur', 'filterFormateurTechnique', 'filterFormateurTechniqueResults', getAvailableFormateurs());
@@ -2625,13 +2627,17 @@ async function selectFicheTechnique(idFiche) {
 
 function openTechniqueModal(record, missingFields) {
     techniqueLieux = [{ value: '' }];
-    techniqueDates = [{ lieu: 1, date: '', debut: '', fin: '', editable: true }];
-    techniqueFormateurs = formateursData.map(f => ({
-        id: f.id,
-        nom: f.nom,
-        checked: false,
-        fonction: ''
-    }));
+    techniqueDates = [{ lieu: 0, date: '', debut: '', fin: '', editable: true }];
+
+    const formateurIdsInFiche = Array.isArray(record.formateurs) ? record.formateurs : [];
+    techniqueFormateurs = formateursData
+        .filter(f => formateurIdsInFiche.includes(f.id))
+        .map(f => ({
+            id: f.id,
+            nom: f.nom,
+            checked: true,
+            fonction: ''
+        }));
 
     renderTechniqueModalContent();
 
@@ -2660,7 +2666,7 @@ function renderTechniqueModalContent() {
                     <label class="required">Lieu de formation</label>
                     <input type="text" class="search-input" id="lieu${index}" 
                            value="${escapeHtmlAttribute(lieu.value)}"
-                           placeholder="Commune et établissement, ou 'visioconférence'"
+                           placeholder="Commune et établissement, ou &#34;visioconférence&#34;"
                            onchange="updateLieu(${index}, this.value)">
                 </div>
             </div>
@@ -2686,44 +2692,61 @@ function renderTechniqueModalContent() {
         html += `<div class="lieu-section">
             <h4>Lieu ${lieuIndex + 1}</h4>`;
 
-        datesForLieu.forEach((date, dateIndex) => {
-            const globalIndex = techniqueDates.indexOf(date);
-            html += `
-                <div class="date-section" data-date-index="${globalIndex}">
-                    ${dateIndex > 0 ? `<button class="remove-btn" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
-                    <div class="date-time-group">
-                        <div>
-                            <label class="required">Date</label>
-                            <input type="date" class="time-input" 
-                                   value="${escapeHtmlAttribute(date.date)}"
-                                   onchange="updateDate(${globalIndex}, 'date', this.value)">
+        const dateGroups = new Map();
+        datesForLieu.forEach(date => {
+            const dateKey = date.date || 'empty';
+            if (!dateGroups.has(dateKey)) {
+                dateGroups.set(dateKey, []);
+            }
+            dateGroups.get(dateKey).push(date);
+        });
+
+        Array.from(dateGroups.entries()).forEach(([dateKey, creneaux], groupIndex) => {
+            html += `<div class="date-section" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">`;
+
+            creneaux.forEach((creneau, creneauIndex) => {
+                const globalIndex = techniqueDates.indexOf(creneau);
+                html += `
+                    <div style="position: relative; margin-bottom: 10px;">
+                        ${creneauIndex > 0 ? `<button class="remove-btn" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
+                        <div class="date-time-group">
+                            <div>
+                                <label class="required">Date</label>
+                                <input type="date" class="time-input" 
+                                       value="${escapeHtmlAttribute(creneau.date)}"
+                                       onchange="updateDate(${globalIndex}, 'date', this.value)">
+                            </div>
+                            <div>
+                                <label class="required">Heure début</label>
+                                <input type="time" class="time-input" 
+                                       value="${escapeHtmlAttribute(creneau.debut)}"
+                                       onchange="updateDate(${globalIndex}, 'debut', this.value)">
+                            </div>
+                            <div>
+                                <label class="required">Heure fin</label>
+                                <input type="time" class="time-input" 
+                                       value="${escapeHtmlAttribute(creneau.fin)}"
+                                       onchange="updateDate(${globalIndex}, 'fin', this.value)">
+                            </div>
                         </div>
-                        <div>
-                            <label class="required">Heure début</label>
-                            <input type="time" class="time-input" 
-                                   value="${escapeHtmlAttribute(date.debut)}"
-                                   onchange="updateDate(${globalIndex}, 'debut', this.value)">
-                        </div>
-                        <div>
-                            <label class="required">Heure fin</label>
-                            <input type="time" class="time-input" 
-                                   value="${escapeHtmlAttribute(date.fin)}"
-                                   onchange="updateDate(${globalIndex}, 'fin', this.value)">
+                        <div style="margin-top: 10px;">
+                            <label>
+                                <input type="checkbox" ${creneau.editable ? 'checked' : ''}
+                                       onchange="updateDate(${globalIndex}, 'editable', this.checked)">
+                                Éditer la fiche pour cette formation
+                            </label>
                         </div>
                     </div>
-                    <div style="margin-top: 10px;">
-                        <label>
-                            <input type="checkbox" ${date.editable ? 'checked' : ''}
-                                   onchange="updateDate(${globalIndex}, 'editable', this.checked)">
-                            Éditer la fiche pour cette formation
-                        </label>
-                    </div>
-                </div>
-            `;
+                `;
+            });
+
+            if (creneaux.length > 0 && creneaux[0].date) {
+                html += `<button class="add-btn" onclick="addCreneauToDate(${lieuIndex}, '${escapeHtmlAttribute(creneaux[0].date)}')">+ Ajouter un créneau</button>`;
+            }
+            html += `</div>`;
         });
 
         html += `
-            <button class="add-btn" onclick="addCreneau(${lieuIndex})">+ Ajouter un créneau</button>
             <button class="add-btn" onclick="addDate(${lieuIndex})">+ Ajouter une date</button>
         </div>`;
     });
@@ -2749,7 +2772,14 @@ function renderTechniqueModalContent() {
     });
 
     html += '</div>';
-    html += `<button class="add-btn" onclick="addNewFormateur()">+ Ajouter un formateur</button>`;
+
+    html += '<div style="margin-top: 15px;">';
+    html += '<label>Ajouter un formateur</label>';
+    html += '<div class="search-container">';
+    html += '<input type="text" class="search-input" id="searchFormateurTechnique" placeholder="Rechercher un formateur..." onkeyup="searchFormateurTechnique(event)">';
+    html += '<div class="search-results" id="searchFormateurTechniqueResults"></div>';
+    html += '</div>';
+    html += '</div>';
 
     html += '<h3>Commentaire</h3>';
     html += `<div class="form-group">
@@ -2761,8 +2791,9 @@ function renderTechniqueModalContent() {
 
 function addLieu() {
     if (techniqueLieux.length < 4) {
+        const newLieuIndex = techniqueLieux.length;
         techniqueLieux.push({ value: '' });
-        techniqueDates.push({ lieu: techniqueLieux.length - 1, date: '', debut: '', fin: '', editable: true });
+        techniqueDates.push({ lieu: newLieuIndex, date: '', debut: '', fin: '', editable: true });
         renderTechniqueModalContent();
     }
 }
@@ -2788,13 +2819,11 @@ function addDate(lieuIndex) {
     }
 }
 
-function addCreneau(lieuIndex) {
-    const datesForLieu = techniqueDates.filter(d => d.lieu === lieuIndex);
-    if (datesForLieu.length > 0 && techniqueDates.length < 10) {
-        const lastDate = datesForLieu[datesForLieu.length - 1];
+function addCreneauToDate(lieuIndex, dateValue) {
+    if (techniqueDates.length < 10) {
         techniqueDates.push({
             lieu: lieuIndex,
-            date: lastDate.date,
+            date: dateValue,
             debut: '',
             fin: '',
             editable: true
@@ -2825,30 +2854,144 @@ function updateFormateurFonction(index, fonction) {
     techniqueFormateurs[index].fonction = validateInput(fonction, 100);
 }
 
-async function addNewFormateur() {
-    const nom = prompt('Nom du formateur :');
-    if (!nom || nom.trim() === '') return;
+function searchFormateurTechnique(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    const resultsDiv = document.getElementById('searchFormateurTechniqueResults');
+    const inputField = document.getElementById('searchFormateurTechnique');
 
-    const fonction = prompt('Fonction du formateur :');
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (techniqueFormateurSearchResults.length > 0) {
+            activeTechniqueFormateurResultIndex = Math.min(activeTechniqueFormateurResultIndex + 1, techniqueFormateurSearchResults.length - 1);
+            updateActiveTechniqueFormateurResult(resultsDiv);
+        }
+        return;
+    }
 
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (techniqueFormateurSearchResults.length > 0) {
+            activeTechniqueFormateurResultIndex = Math.max(activeTechniqueFormateurResultIndex - 1, 0);
+            updateActiveTechniqueFormateurResult(resultsDiv);
+        }
+        return;
+    }
+
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        if (techniqueFormateurSearchResults.length > 0 && activeTechniqueFormateurResultIndex >= 0) {
+            selectFormateurTechnique(techniqueFormateurSearchResults[activeTechniqueFormateurResultIndex]);
+            inputField.value = '';
+            resultsDiv.style.display = 'none';
+        } else if (searchTerm.length > 0) {
+            addNewFormateurTechnique(searchTerm);
+            inputField.value = '';
+        }
+        return;
+    }
+
+    if (searchTerm.length < 1) {
+        resultsDiv.style.display = 'none';
+        techniqueFormateurSearchResults = [];
+        activeTechniqueFormateurResultIndex = -1;
+        return;
+    }
+
+    const existingFormateurNames = techniqueFormateurs.map(f => f.nom.toLowerCase());
+    techniqueFormateurSearchResults = formateursData
+        .filter(f => !existingFormateurNames.includes(f.nom.toLowerCase()))
+        .filter(f => f.nom.toLowerCase().includes(searchTerm))
+        .map(f => f.nom)
+        .slice(0, 10);
+
+    if (techniqueFormateurSearchResults.length === 0) {
+        resultsDiv.innerHTML = `<div class="search-result-item" style="cursor: pointer;" onclick="addNewFormateurTechnique('${escapeHtmlAttribute(searchTerm)}')">
+            <strong>+ Créer "${escapeHtml(searchTerm)}"</strong>
+        </div>`;
+        resultsDiv.style.display = 'block';
+        return;
+    }
+
+    activeTechniqueFormateurResultIndex = 0;
+
+    resultsDiv.innerHTML = techniqueFormateurSearchResults.map((nom, index) =>
+        `<div class="search-result-item ${index === 0 ? 'active' : ''}" 
+              data-formateur-nom="${escapeHtmlAttribute(nom)}"
+              data-index="${index}">
+          ${escapeHtml(nom)}
+        </div>`
+    ).join('');
+
+    resultsDiv.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const nom = item.getAttribute('data-formateur-nom');
+            selectFormateurTechnique(nom);
+            inputField.value = '';
+            resultsDiv.style.display = 'none';
+        });
+    });
+
+    resultsDiv.style.display = 'block';
+}
+
+function updateActiveTechniqueFormateurResult(resultsDiv) {
+    const items = resultsDiv.querySelectorAll('.search-result-item');
+    items.forEach((item, index) => {
+        if (index === activeTechniqueFormateurResultIndex) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+function selectFormateurTechnique(nom) {
+    const formateur = formateursData.find(f => f.nom === nom);
+    if (formateur && !techniqueFormateurs.find(tf => tf.id === formateur.id)) {
+        techniqueFormateurs.push({
+            id: formateur.id,
+            nom: formateur.nom,
+            checked: true,
+            fonction: ''
+        });
+        renderTechniqueModalContent();
+    }
+}
+
+async function addNewFormateurTechnique(nom) {
     const nomClean = validateInput(nom, 100);
+    if (!nomClean || nomClean.trim() === '') return;
+
+    const fonction = prompt('Fonction du formateur (optionnel) :');
     const fonctionClean = validateInput(fonction || '', 100);
 
     try {
-        const formateurId = await grist.docApi.applyUserActions([
+        const result = await grist.docApi.applyUserActions([
             ['AddRecord', 'Formateurs', null, { Formateur: nomClean, Fonction: fonctionClean }]
         ]);
 
         await loadData();
 
-        techniqueFormateurs.push({
-            id: formateurId,
-            nom: nomClean,
-            checked: true,
-            fonction: fonctionClean
-        });
+        const newFormateur = formateursData.find(f => f.nom === nomClean);
+        if (newFormateur && !techniqueFormateurs.find(tf => tf.id === newFormateur.id)) {
+            techniqueFormateurs.push({
+                id: newFormateur.id,
+                nom: newFormateur.nom,
+                checked: true,
+                fonction: fonctionClean
+            });
 
-        renderTechniqueModalContent();
+            const firstRecord = currentTechniqueFiche[0];
+            const currentFormateurs = Array.isArray(firstRecord.formateurs) ? firstRecord.formateurs : [];
+            await grist.docApi.applyUserActions([
+                ['UpdateRecord', 'Tableau_de_bord', firstRecord.id, {
+                    Formateur_s_: ['L', ...currentFormateurs, newFormateur.id]
+                }]
+            ]);
+
+            renderTechniqueModalContent();
+        }
 
     } catch (error) {
         console.error('Erreur lors de l\'ajout du formateur:', error);
