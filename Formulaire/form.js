@@ -2625,7 +2625,6 @@ async function selectFicheTechnique(idFiche) {
 
 function openTechniqueModal(record, missingFields) {
     currentTechniqueFiche = record;
-    techniqueMissingFields = missingFields || [];
     techniqueLieux = [{ value: '' }];
     techniqueDates = [{ lieu: 0, date: '', debut: '', fin: '', editable: true }];
 
@@ -2647,7 +2646,6 @@ function openTechniqueModal(record, missingFields) {
 function closeTechniqueModal() {
     document.getElementById('editTechniqueModal').classList.remove('active');
     currentTechniqueFiche = null;
-    techniqueMissingFields = [];
     techniqueLieux = [];
     techniqueDates = [];
     techniqueFormateurs = [];
@@ -2656,21 +2654,7 @@ function closeTechniqueModal() {
 function renderTechniqueModalContent() {
     const modalBody = document.getElementById('techniqueModalBody');
 
-    let html = '';
-
-    if (techniqueMissingFields.length > 0) {
-        html += '<div class="edit-info-block">';
-        html += '<h3>Éléments manquants à compléter</h3>';
-        html += '<ul class="missing-fields-list">';
-        techniqueMissingFields.forEach(field => {
-            html += `<li>${escapeHtml(field)}</li>`;
-        });
-        html += '</ul>';
-        html += '</div>';
-    }
-
-    html += '<h3>Lieux de formation</h3>';
-
+    let html = '<h3>Lieux de formation</h3>';
 
     techniqueLieux.forEach((lieu, index) => {
         html += `
