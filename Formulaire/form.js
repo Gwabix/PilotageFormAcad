@@ -2702,13 +2702,13 @@ function renderTechniqueModalContent() {
         });
 
         Array.from(dateGroups.entries()).forEach(([dateKey, creneaux], groupIndex) => {
-            html += `<div class="date-section" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">`;
+            html += `<div class="date-section" style="margin-bottom: 15px; padding: 15px; padding-top: 40px; background: #f9f9f9; border-radius: 4px; position: relative; border: 1px solid #e0e0e0;">`;
 
             creneaux.forEach((creneau, creneauIndex) => {
                 const globalIndex = techniqueDates.indexOf(creneau);
                 html += `
-                    <div style="position: relative; margin-bottom: 10px;">
-                        ${creneauIndex > 0 ? `<button class="remove-btn" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
+                    <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px; position: relative;">
+                        ${creneauIndex > 0 ? `<button class="remove-btn" style="position: absolute; top: 5px; right: 5px;" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
                         <div class="date-time-group">
                             <div>
                                 <label class="required">Date</label>
@@ -2740,9 +2740,10 @@ function renderTechniqueModalContent() {
                 `;
             });
 
-            if (creneaux.length > 0 && creneaux[0].date) {
-                html += `<button class="add-btn" onclick="addCreneauToDate(${lieuIndex}, '${escapeHtmlAttribute(creneaux[0].date)}')">+ Ajouter un créneau</button>`;
-            }
+            const dateValue = creneaux.length > 0 && creneaux[0].date ? creneaux[0].date : '';
+            html += `<div style="margin-top: 10px;">`;
+            html += `<button class="add-btn" onclick="addCreneauToDate(${lieuIndex}, '${escapeHtmlAttribute(dateValue)}')">+ Ajouter un créneau</button>`;
+            html += `</div>`;
             html += `</div>`;
         });
 
@@ -2833,9 +2834,14 @@ function addCreneauToDate(lieuIndex, dateValue) {
 }
 
 function removeDateCreneau(index) {
-    if (techniqueDates.length > 1) {
+    const creneauToRemove = techniqueDates[index];
+    const creneauxInSameLieu = techniqueDates.filter(d => d.lieu === creneauToRemove.lieu);
+
+    if (creneauxInSameLieu.length > 1) {
         techniqueDates.splice(index, 1);
         renderTechniqueModalContent();
+    } else {
+        alert('Impossible de supprimer le dernier créneau d\'un lieu. Chaque lieu doit avoir au moins un créneau.');
     }
 }
 
