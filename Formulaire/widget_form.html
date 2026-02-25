@@ -995,9 +995,29 @@
 
         .creneau-horaires {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr auto;
             gap: 15px;
             align-items: end;
+        }
+
+        .quick-time-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-quick-time {
+            padding: 5px 10px;
+            font-size: 12px;
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-quick-time:hover {
+            background-color: #106ebe;
         }
 
         .btn-actions-wrapper {

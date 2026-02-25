@@ -1629,7 +1629,7 @@ function displayEditForm(ficheRecords) {
             </div>
             
             <div class="form-group">
-                <label>Intitulé de la formation (facultatif)</label>
+                <label>Intitulé de la formation</label>
                 <input type="text" id="editIntitule" value="${escapeHtmlAttribute(firstRecord.intituleFormation || '')}" maxlength="200">
             </div>
             
@@ -2696,7 +2696,7 @@ function renderTechniqueModalContent(firstRecord) {
     if (techniqueMissingFields && typeof techniqueMissingFields === 'object') {
         if (techniqueMissingFields.intitule) {
             html += '<div class="form-group">';
-            html += '<label>Intitulé de la formation (facultatif)</label>';
+            html += '<label>Intitulé de la formation</label>';
             html += `<input type="text" class="search-input" id="intituleTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.intituleFormation || '') : ''}"
                            placeholder="Intitulé de la formation">`;
@@ -2705,7 +2705,7 @@ function renderTechniqueModalContent(firstRecord) {
 
         if (techniqueMissingFields.dispositif) {
             html += '<div class="form-group">';
-            html += '<label>Dispositif GAIA (facultatif)</label>';
+            html += '<label>Dispositif GAIA</label>';
             html += `<input type="text" class="search-input" id="dispositifTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.dispositifGAIA || '') : ''}"
                            placeholder="Dispositif GAIA">`;
@@ -2714,7 +2714,7 @@ function renderTechniqueModalContent(firstRecord) {
 
         if (techniqueMissingFields.module) {
             html += '<div class="form-group">';
-            html += '<label>Module GAIA (facultatif)</label>';
+            html += '<label>Module GAIA</label>';
             html += `<input type="text" class="search-input" id="moduleTechnique" 
                            value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
                            placeholder="Module GAIA (5 chiffres)">`;
@@ -2810,6 +2810,10 @@ function renderTechniqueModalContent(firstRecord) {
                                            value="${escapeHtmlAttribute(creneau.fin)}"
                                            onchange="updateDate(${globalIndex}, 'fin', this.value)">
                                 </div>
+                                <div class="quick-time-buttons">
+                                    <button type="button" class="btn-quick-time" onclick="setCreneauHoraires(${globalIndex}, '09:00', '12:00')">9h-12h</button>
+                                    <button type="button" class="btn-quick-time" onclick="setCreneauHoraires(${globalIndex}, '13:30', '16:30')">13h30-16h30</button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -2840,13 +2844,13 @@ function renderTechniqueModalContent(firstRecord) {
                        onchange="updateFormateur(${index}, this.checked)">
                 <label for="formateur${index}">${escapeHtml(formateur.nom)}</label>
             </div>
-        </div>
             ${formateur.checked ? `
                 <input type="text" class="fonction-input" 
                        placeholder="Fonction" 
                        value="${escapeHtmlAttribute(formateur.fonction)}"
                        onchange="updateFormateurFonction(${index}, this.value)">
             ` : ''}
+        </div>
         `;
     });
 
@@ -2863,9 +2867,7 @@ function renderTechniqueModalContent(firstRecord) {
         <textarea id="commentaireTechnique" placeholder="Informations complémentaires..."></textarea>
     </div>`;
 
-    modalBody.innerHTML = html;
-
-    // Afficher la liste des enseignants
+    // Afficher la liste des enseignants AVANT les autres sections
     if (Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
         html += '<h3>Enseignants inscrits</h3>';
         html += '<div class="enseignants-list">';
@@ -2891,6 +2893,7 @@ function renderTechniqueModalContent(firstRecord) {
         html += '</div>';
     }
 
+    modalBody.innerHTML = html;
 }
 
 function addLieu() {
@@ -2951,6 +2954,14 @@ function removeDateCreneau(index) {
 function updateDate(index, field, value) {
     if (techniqueDates[index]) {
         techniqueDates[index][field] = value;
+    }
+}
+
+function setCreneauHoraires(index, debut, fin) {
+    if (techniqueDates[index]) {
+        techniqueDates[index].debut = debut;
+        techniqueDates[index].fin = fin;
+        renderTechniqueModalContent();
     }
 }
 
