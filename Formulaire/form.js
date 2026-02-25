@@ -243,7 +243,9 @@ async function loadData() {
             nbPE: safeParseInt(tableauTable.Nb_PE[index], 0, 0),
             nomPE: tableauTable.Nom_PE[index],
             prenomPE: tableauTable.Prenom_PE[index],
+            niveau: sanitizeGristData(tableauTable.Niveau[index]),
             niveauClasse: sanitizeGristData(tableauTable.Niveau_classe[index]) || [],
+            decharge: sanitizeGristData(tableauTable.Decharge[index]),
             modaliteConstitution: sanitizeGristData(tableauTable.Modalite_de_constitution_du_groupe[index]) || [],
             typeFormation: sanitizeGristData(tableauTable.Type_de_formation[index]),
             tempsFormation: safeParseInt(tableauTable.Temps_de_formation[index], 0, 0),
@@ -2586,36 +2588,64 @@ async function selectFicheTechnique(idFiche) {
             return;
         }
 
-        const missingFields = [];
+        const missingFieldsInfo = {
+            intitule: false,
+            dispositif: false,
+            module: false,
+            lieux: [],
+            dates: [],
+            commentaire: false
+        };
 
-        const lieux = [];
+        // Vérifier Intitulé, Dispositif, Module
+        const intitule = tableData.Intitule ? tableData.Intitule[recordIndex] : null;
+        if (!intitule || intitule.trim() === '') {
+            missingFieldsInfo.intitule = true;
+        }
+
+        const dispositif = tableData.Dispositif_GAIA ? tableData.Dispositif_GAIA[recordIndex] : null;
+        if (!dispositif || dispositif.trim() === '') {
+            missingFieldsInfo.dispositif = true;
+        }
+
+        const module = tableData.Module_GAIA ? tableData.Module_GAIA[recordIndex] : null;
+        if (!module || module.trim() === '') {
+            missingFieldsInfo.module = true;
+        }
+
+        // Vérifier lieux
         for (let i = 1; i <= 4; i++) {
             const lieu = tableData[`Lieu${i}`] ? tableData[`Lieu${i}`][recordIndex] : null;
             if (!lieu || lieu.trim() === '') {
-                missingFields.push(`Lieu${i}`);
+                missingFieldsInfo.lieux.push(i);
             }
         }
 
-        const dates = [];
+        // Vérifier dates
         for (let i = 1; i <= 10; i++) {
             const debut = tableData[`Debut${i}`] ? tableData[`Debut${i}`][recordIndex] : null;
             const fin = tableData[`Fin${i}`] ? tableData[`Fin${i}`][recordIndex] : null;
             if (!debut || !fin) {
-                missingFields.push(`Dates/Horaires ${i}`);
+                missingFieldsInfo.dates.push(i);
             }
         }
 
+        // Vérifier commentaire
         const commentaire = tableData.Commentaire ? tableData.Commentaire[recordIndex] : null;
         if (!commentaire || commentaire.trim() === '') {
-            missingFields.push('Commentaire');
+            missingFieldsInfo.commentaire = true;
         }
 
-        if (missingFields.length === 0) {
+        // Vérifier s'il y a au moins un champ manquant
+        const hasMissingFields = missingFieldsInfo.intitule || missingFieldsInfo.dispositif || missingFieldsInfo.module ||
+            missingFieldsInfo.lieux.length > 0 || missingFieldsInfo.dates.length > 0 || missingFieldsInfo.commentaire;
+
+        if (!hasMissingFields) {
             alert('Tous les champs nécessaires sont déjà remplis pour cette fiche.');
             return;
         }
 
-        openTechniqueModal(firstRecord, missingFields);
+        openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo);
 
     } catch (error) {
         console.error('Erreur lors de la récupération des données:', error);
@@ -2623,12 +2653,13 @@ async function selectFicheTechnique(idFiche) {
     }
 }
 
-function openTechniqueModal(record, missingFields) {
-    currentTechniqueFiche = record;
+function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
+    currentTechniqueFiche = ficheRecords;
+    techniqueMissingFields = missingFieldsInfo;
     techniqueLieux = [{ value: '' }];
     techniqueDates = [{ lieu: 0, date: '', debut: '', fin: '', editable: true }];
 
-    const formateurIdsInFiche = Array.isArray(record.formateurs) ? record.formateurs : [];
+    const formateurIdsInFiche = Array.isArray(firstRecord.formateurs) ? firstRecord.formateurs : [];
     techniqueFormateurs = formateursData
         .filter(f => formateurIdsInFiche.includes(f.id))
         .map(f => ({
@@ -2638,7 +2669,7 @@ function openTechniqueModal(record, missingFields) {
             fonction: ''
         }));
 
-    renderTechniqueModalContent();
+    renderTechniqueModalContent(firstRecord);
 
     document.getElementById('editTechniqueModal').classList.add('active');
 }
@@ -2646,15 +2677,78 @@ function openTechniqueModal(record, missingFields) {
 function closeTechniqueModal() {
     document.getElementById('editTechniqueModal').classList.remove('active');
     currentTechniqueFiche = null;
+    techniqueMissingFields = [];
     techniqueLieux = [];
     techniqueDates = [];
     techniqueFormateurs = [];
 }
 
-function renderTechniqueModalContent() {
+function renderTechniqueModalContent(firstRecord) {
+    if (!firstRecord && Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
+        firstRecord = currentTechniqueFiche[0];
+    }
+
     const modalBody = document.getElementById('techniqueModalBody');
 
-    let html = '<h3>Lieux de formation</h3>';
+    let html = '';
+
+    // Afficher les champs manquants uniquement s'ils sont vides
+    if (techniqueMissingFields && typeof techniqueMissingFields === 'object') {
+        if (techniqueMissingFields.intitule) {
+            html += '<div class="form-group">';
+            html += '<label class="required">Intitulé de la formation</label>';
+            html += `<input type="text" class="search-input" id="intituleTechnique" 
+                           value="${firstRecord ? escapeHtmlAttribute(firstRecord.intituleFormation || '') : ''}"
+                           placeholder="Intitulé de la formation">`;
+            html += '</div>';
+        }
+
+        if (techniqueMissingFields.dispositif) {
+            html += '<div class="form-group">';
+            html += '<label class="required">Dispositif GAIA</label>';
+            html += `<input type="text" class="search-input" id="dispositifTechnique" 
+                           value="${firstRecord ? escapeHtmlAttribute(firstRecord.dispositifGAIA || '') : ''}"
+                           placeholder="Dispositif GAIA">`;
+            html += '</div>';
+        }
+
+        if (techniqueMissingFields.module) {
+            html += '<div class="form-group">';
+            html += '<label class="required">Module GAIA</label>';
+            html += `<input type="text" class="search-input" id="moduleTechnique" 
+                           value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
+                           placeholder="Module GAIA (5 chiffres)">`;
+            html += '</div>';
+        }
+    }
+
+    // Afficher la liste des enseignants
+    if (Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
+        html += '<h3>Enseignants inscrits</h3>';
+        html += '<div class="enseignants-list">';
+
+        currentTechniqueFiche.forEach(record => {
+            const ecole = ecolesData.find(e => e.id === record.ecole);
+            const enseignant = enseignantsData.find(e => e.id === record.idPE);
+
+            html += '<div class="enseignant-info-item">';
+            html += `<strong>${escapeHtml(record.nomPE || 'N/A')} ${escapeHtml(record.prenomPE || 'N/A')}</strong>`;
+            html += `<div>École : ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement || 'N/A') : 'N/A'}</div>`;
+            html += `<div>Circonscription : ${escapeHtml(record.circonscription || 'N/A')}</div>`;
+            html += `<div>Niveau : ${escapeHtml(record.niveau || 'N/A')}</div>`;
+            if (record.niveauClasse && Array.isArray(record.niveauClasse) && record.niveauClasse.length > 0) {
+                html += `<div>Niveaux de classe : ${record.niveauClasse.map(n => escapeHtml(n)).join(', ')}</div>`;
+            }
+            if (record.decharge) {
+                html += `<div>Décharge : ${escapeHtml(record.decharge)}</div>`;
+            }
+            html += '</div>';
+        });
+
+        html += '</div>';
+    }
+
+    html += '<h3>Lieux de formation</h3>';
 
     techniqueLieux.forEach((lieu, index) => {
         html += `
@@ -3064,6 +3158,22 @@ async function generateFichesPDF() {
             Lieux_Dates: validateInput(lieuxDatesString, 1000)
         };
 
+        // Récupérer les champs Intitule, Dispositif, Module s'ils sont affichés
+        if (techniqueMissingFields.intitule) {
+            const intituleValue = document.getElementById('intituleTechnique')?.value || '';
+            updates.Intitule = validateInput(intituleValue, 200);
+        }
+
+        if (techniqueMissingFields.dispositif) {
+            const dispositifValue = document.getElementById('dispositifTechnique')?.value || '';
+            updates.Dispositif_GAIA = validateInput(dispositifValue, 100);
+        }
+
+        if (techniqueMissingFields.module) {
+            const moduleValue = document.getElementById('moduleTechnique')?.value || '';
+            updates.Module_GAIA = validateInput(moduleValue, 10);
+        }
+
         lieuxRemplis.forEach((lieu, idx) => {
             updates[`Lieu${idx + 1}`] = validateInput(lieu.value, 200);
         });
@@ -3083,13 +3193,24 @@ async function generateFichesPDF() {
             updates.Formateur_s_ = ['L', ...selectedFormateurs.map(f => f.id)];
         }
 
-        await grist.docApi.applyUserActions([
-            ['UpdateRecord', 'Tableau_de_bord', firstRecord.id, updates]
+        // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
+        const updateActions = currentTechniqueFiche.map(record => [
+            'UpdateRecord', 'Tableau_de_bord', record.id, updates
         ]);
+
+        await grist.docApi.applyUserActions(updateActions);
 
         alert('Données sauvegardées ! Génération des fiches PDF en cours...');
 
-        await generatePDFForLieux(firstRecord, lieuxRemplis, datesValides, selectedFormateurs, commentaire);
+        // Générer le PDF avec les données mises à jour
+        const updatedRecord = {
+            ...firstRecord,
+            intituleFormation: updates.Intitule || firstRecord.intituleFormation,
+            dispositifGAIA: updates.Dispositif_GAIA || firstRecord.dispositifGAIA,
+            moduleGAIA: updates.Module_GAIA || firstRecord.moduleGAIA
+        };
+
+        await generatePDFForLieux(updatedRecord, lieuxRemplis, datesValides, selectedFormateurs, commentaire);
 
         closeTechniqueModal();
         await loadData();
@@ -3104,11 +3225,12 @@ async function generateFichesPDF() {
 async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire) {
     const { jsPDF } = window.jspdf;
 
-    const ecoleIds = [...new Set(currentTechniqueFiche.map(r => r.ecole))];
-    const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+    // Utiliser directement currentTechniqueFiche qui contient déjà toutes les infos des enseignants
+    const enseignants = currentTechniqueFiche;
 
-    const enseignantIds = currentTechniqueFiche.map(r => r.nomPE);
-    const enseignants = enseignantIds.map(id => enseignantsData.find(e => e.id === id)).filter(e => e);
+    // Récupérer les écoles uniques
+    const ecoleIds = [...new Set(enseignants.map(r => r.ecole))];
+    const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
 
     for (let lieuIndex = 0; lieuIndex < lieux.length; lieuIndex++) {
         const lieu = lieux[lieuIndex];
@@ -3120,7 +3242,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
         let y = 20;
 
         pdf.setFontSize(18);
-        pdf.text(`Action de formation ${escapeHtml(record.departement)}`, 20, y);
+        pdf.text(`Action de formation ${record.departement || 'N/A'}`, 20, y);
         y += 10;
 
         pdf.setFontSize(14);
@@ -3150,9 +3272,24 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
         enseignants.forEach(ens => {
             const ecole = ecolesData.find(e => e.id === ens.ecole);
             pdf.setFontSize(10);
-            const line = `${ens.nom} ${ens.prenom} | ${ecole?.nom || 'N/A'} | ${ecole?.circonscription || 'N/A'}`;
+            let line = `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'} | ${ecole?.nom || ecole?.commune_complement || 'N/A'} | ${ens.circonscription || 'N/A'}`;
+
+            // Ajouter les niveaux de classe si présents
+            if (ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0) {
+                line += ` | ${ens.niveauClasse.join(', ')}`;
+            }
+
             pdf.text(line, 25, y);
             y += 5;
+
+            // Ajouter la décharge si présente
+            if (ens.decharge) {
+                pdf.setFontSize(9);
+                pdf.text(`   Décharge : ${ens.decharge}`, 30, y);
+                y += 4;
+                pdf.setFontSize(10);
+            }
+
             if (y > 270) {
                 pdf.addPage();
                 y = 20;
