@@ -27,6 +27,22 @@ let editFilters = {
 let selectedRecordId = null;
 let originalRecordData = null;
 
+// Variables pour le filtrage technique
+let techniqueFilters = {
+    formateur: '',
+    annee: '',
+    ecole: '',
+    typeFormation: '',
+    dispositif: '',
+    module: ''
+};
+let techniqueFilteredResults = [];
+let activeTechniqueFilterResultIndex = -1;
+let currentTechniqueFiche = null;
+let techniqueLieux = [];
+let techniqueDates = [];
+let techniqueFormateurs = [];
+
 const NIVEAUX_POSSIBLES = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
 
 // ===== FONCTIONS DE SÉCURITÉ =====
@@ -1064,7 +1080,8 @@ function switchTab(tabName) {
         // Réactiver le bouton correspondant au tabName
         const btnText = btn.textContent.toLowerCase();
         if ((tabName === 'create' && btnText.includes('créer')) ||
-            (tabName === 'edit' && btnText.includes('modifier'))) {
+            (tabName === 'edit' && btnText.includes('modifier') && !btnText.includes('éditer')) ||
+            (tabName === 'edittechnique' && btnText.includes('éditer'))) {
             btn.classList.add('active');
         }
     });
@@ -1074,9 +1091,12 @@ function switchTab(tabName) {
 
     if (tabName === 'create') {
         document.getElementById('createTab').classList.add('active');
-    } else {
+    } else if (tabName === 'edit') {
         document.getElementById('editTab').classList.add('active');
         updateFilteredRecords();
+    } else if (tabName === 'edittechnique') {
+        document.getElementById('editTechniqueTab').classList.add('active');
+        updateFilteredRecordsTechnique();
     }
 }
 
@@ -2275,6 +2295,720 @@ async function updateFiche() {
     } catch (error) {
         console.error('Erreur lors de la mise à jour:', error);
         alert('Erreur lors de la mise à jour. Consultez la console pour plus de détails.');
+    }
+}
+
+// ===== FONCTIONS POUR L'ONGLET ÉDITION TECHNIQUE =====
+
+function searchFilterFormateurTechnique(event) {
+    searchFilterTechnique(event, 'formateur', 'filterFormateurTechnique', 'filterFormateurTechniqueResults', getAvailableFormateurs());
+}
+
+function searchFilterAnneeTechnique(event) {
+    searchFilterTechnique(event, 'annee', 'filterAnneeTechnique', 'filterAnneeTechniqueResults', getAvailableAnnees());
+}
+
+function searchFilterEcoleTechnique(event) {
+    searchFilterTechnique(event, 'ecole', 'filterEcoleTechnique', 'filterEcoleTechniqueResults', getAvailableEcoles());
+}
+
+function searchFilterTypeFormationTechnique(event) {
+    searchFilterTechnique(event, 'typeFormation', 'filterTypeFormationTechnique', 'filterTypeFormationTechniqueResults', getAvailableTypeFormations());
+}
+
+function searchFilterDispositifTechnique(event) {
+    searchFilterTechnique(event, 'dispositif', 'filterDispositifTechnique', 'filterDispositifTechniqueResults', getAvailableDispositifs());
+}
+
+function searchFilterModuleTechnique(event) {
+    searchFilterTechnique(event, 'module', 'filterModuleTechnique', 'filterModuleTechniqueResults', getAvailableModules());
+}
+
+function searchFilterTechnique(event, filterType, inputId, resultsId, availableValues) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    const resultsDiv = document.getElementById(resultsId);
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (techniqueFilteredResults.length > 0) {
+            activeTechniqueFilterResultIndex = Math.min(activeTechniqueFilterResultIndex + 1, techniqueFilteredResults.length - 1);
+            updateActiveTechniqueFilterResult(resultsDiv);
+        }
+        return;
+    }
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (techniqueFilteredResults.length > 0) {
+            activeTechniqueFilterResultIndex = Math.max(activeTechniqueFilterResultIndex - 1, 0);
+            updateActiveTechniqueFilterResult(resultsDiv);
+        }
+        return;
+    }
+
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        if (techniqueFilteredResults.length > 0 && activeTechniqueFilterResultIndex >= 0) {
+            selectFilterTechnique(filterType, techniqueFilteredResults[activeTechniqueFilterResultIndex], inputId, resultsId);
+        }
+        return;
+    }
+
+    if (searchTerm.length < 1) {
+        resultsDiv.style.display = 'none';
+        techniqueFilteredResults = [];
+        activeTechniqueFilterResultIndex = -1;
+        return;
+    }
+
+    techniqueFilteredResults = availableValues.filter(v => v.toLowerCase().includes(searchTerm));
+
+    if (techniqueFilteredResults.length === 0) {
+        resultsDiv.style.display = 'none';
+        activeTechniqueFilterResultIndex = -1;
+        return;
+    }
+
+    activeTechniqueFilterResultIndex = 0;
+
+    resultsDiv.innerHTML = techniqueFilteredResults.map((value, index) =>
+        `<div class="search-result-item ${index === 0 ? 'active' : ''}" 
+             data-filter-type="${escapeHtmlAttribute(filterType)}"
+             data-filter-value="${escapeHtmlAttribute(value)}"
+             data-input-id="${escapeHtmlAttribute(inputId)}"
+             data-results-id="${escapeHtmlAttribute(resultsId)}"
+             data-index="${index}">
+            ${escapeHtml(value)}
+        </div>`
+    ).join('');
+
+    resultsDiv.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const fType = item.getAttribute('data-filter-type');
+            const fValue = item.getAttribute('data-filter-value');
+            const inId = item.getAttribute('data-input-id');
+            const resId = item.getAttribute('data-results-id');
+            selectFilterTechnique(fType, fValue, inId, resId);
+        });
+    });
+
+    resultsDiv.style.display = 'block';
+}
+
+function updateActiveTechniqueFilterResult(resultsDiv) {
+    const items = resultsDiv.querySelectorAll('.search-result-item');
+    items.forEach((item, index) => {
+        if (index === activeTechniqueFilterResultIndex) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+function selectFilterTechnique(filterType, value, inputId, resultsId) {
+    techniqueFilters[filterType] = value;
+    document.getElementById(inputId).value = value;
+    document.getElementById(resultsId).style.display = 'none';
+    techniqueFilteredResults = [];
+    activeTechniqueFilterResultIndex = -1;
+
+    updateFilterDisplayTechnique();
+    updateFilteredRecordsTechnique();
+}
+
+function removeFilterTechnique(filterType) {
+    techniqueFilters[filterType] = '';
+    const inputIds = {
+        formateur: 'filterFormateurTechnique',
+        annee: 'filterAnneeTechnique',
+        ecole: 'filterEcoleTechnique',
+        typeFormation: 'filterTypeFormationTechnique',
+        dispositif: 'filterDispositifTechnique',
+        module: 'filterModuleTechnique'
+    };
+
+    if (inputIds[filterType]) {
+        document.getElementById(inputIds[filterType]).value = '';
+    }
+
+    updateFilterDisplayTechnique();
+    updateFilteredRecordsTechnique();
+}
+
+function updateFilterDisplayTechnique() {
+    const container = document.getElementById('selectedFiltersTechnique');
+    const activeFilters = Object.entries(techniqueFilters).filter(([_, value]) => value);
+
+    if (activeFilters.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const filterLabels = {
+        formateur: 'Formateur',
+        annee: 'Année',
+        ecole: 'École',
+        typeFormation: 'Type',
+        dispositif: 'Dispositif',
+        module: 'Module'
+    };
+
+    container.innerHTML = '<div style="margin-bottom: 10px; font-weight: 600; color: #2c3e50;">Filtres actifs :</div>' +
+        activeFilters.map(([key, value]) =>
+            `<span class="filter-badge">
+                ${escapeHtml(filterLabels[key])}: ${escapeHtml(value)}
+                <button onclick="removeFilterTechnique('${escapeHtmlAttribute(key)}')">×</button>
+            </span>`
+        ).join('');
+}
+
+function getFilteredRecordsTechnique() {
+    return tableauDeBordData.filter(record => {
+        if (techniqueFilters.formateur) {
+            const formateurIds = Array.isArray(record.formateurs) ? record.formateurs : [];
+            const formateur = formateursData.find(f => f.nom === techniqueFilters.formateur);
+            if (!formateur || !formateurIds.includes(formateur.id)) {
+                return false;
+            }
+        }
+
+        if (techniqueFilters.annee && record.annee !== techniqueFilters.annee) {
+            return false;
+        }
+
+        if (techniqueFilters.ecole) {
+            const ecole = ecolesData.find(e => e.commune_complement === techniqueFilters.ecole);
+            if (!ecole || record.ecole !== ecole.id) {
+                return false;
+            }
+        }
+
+        if (techniqueFilters.typeFormation && record.typeFormation !== techniqueFilters.typeFormation) {
+            return false;
+        }
+
+        if (techniqueFilters.dispositif && record.dispositifGAIA !== techniqueFilters.dispositif) {
+            return false;
+        }
+
+        if (techniqueFilters.module && record.moduleGAIA !== techniqueFilters.module) {
+            return false;
+        }
+
+        return true;
+    });
+}
+
+function updateFilteredRecordsTechnique() {
+    const hasActiveFilter = techniqueFilters.formateur || techniqueFilters.annee || techniqueFilters.ecole ||
+        techniqueFilters.typeFormation || techniqueFilters.dispositif || techniqueFilters.module;
+
+    const container = document.getElementById('recordsListTechnique');
+
+    if (!hasActiveFilter) {
+        container.innerHTML = '<div class="no-records">Saisissez au moins un filtre pour afficher les fiches</div>';
+        return;
+    }
+
+    const records = getFilteredRecordsTechnique();
+
+    if (records.length === 0) {
+        container.innerHTML = '<div class="no-records">Aucune fiche ne correspond aux critères de recherche</div>';
+        return;
+    }
+
+    const fichesMap = new Map();
+    records.forEach(record => {
+        if (!record.idFiche) return;
+        if (!fichesMap.has(record.idFiche)) {
+            fichesMap.set(record.idFiche, []);
+        }
+        fichesMap.get(record.idFiche).push(record);
+    });
+
+    const fiches = Array.from(fichesMap.values());
+
+    if (fiches.length === 0) {
+        container.innerHTML = '<div class="no-records">Aucune fiche ne correspond aux critères de recherche</div>';
+        return;
+    }
+
+    container.innerHTML = fiches.map(ficheRecords => {
+        const firstRecord = ficheRecords[0];
+        const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
+        const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)?.commune_complement).filter(n => n);
+
+        const ecolesText = ecoles.length === 0
+            ? 'N/A'
+            : `${ecoles.length} école${ecoles.length > 1 ? 's' : ''} :<br>` +
+            ecoles.map(e => `• ${escapeHtml(e)}`).join('<br>');
+
+        const modalites = (firstRecord.modaliteConstitution || []).filter(v => v !== 'L').map(v => escapeHtml(v)).join(', ') || 'N/A';
+        const modalitesForm = (firstRecord.modalitesFormation || []).filter(v => v !== 'L').map(v => escapeHtml(v)).join(',') || 'N/A';
+
+        return `
+            <div class="record-item" data-fiche-id="${escapeHtmlAttribute(firstRecord.idFiche)}">
+                <div class="record-info">
+                    <div class="record-title">${ecolesText}</div>
+                    <div class="record-details">
+                        ${escapeHtml(firstRecord.annee)} | ${modalites}<br>
+                        ${escapeHtml(firstRecord.typeFormation)} | ${escapeHtml(firstRecord.tempsFormation)}h | ${modalitesForm}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.querySelectorAll('.record-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const ficheId = validateInput(item.getAttribute('data-fiche-id'), 50);
+            if (ficheId) selectFicheTechnique(ficheId);
+        });
+    });
+}
+
+async function selectFicheTechnique(idFiche) {
+    const ficheRecords = tableauDeBordData.filter(r => r.idFiche === idFiche);
+    if (ficheRecords.length === 0) return;
+
+    currentTechniqueFiche = ficheRecords;
+
+    const firstRecord = ficheRecords[0];
+
+    try {
+        const tableData = await grist.docApi.fetchTable('Tableau_de_bord');
+        const recordIndex = tableData.id.findIndex(id => id === firstRecord.id);
+
+        if (recordIndex === -1) {
+            alert('Erreur : impossible de trouver la fiche dans Grist.');
+            return;
+        }
+
+        const missingFields = [];
+
+        const lieux = [];
+        for (let i = 1; i <= 4; i++) {
+            const lieu = tableData[`Lieu${i}`] ? tableData[`Lieu${i}`][recordIndex] : null;
+            if (!lieu || lieu.trim() === '') {
+                missingFields.push(`Lieu${i}`);
+            }
+        }
+
+        const dates = [];
+        for (let i = 1; i <= 10; i++) {
+            const debut = tableData[`Debut${i}`] ? tableData[`Debut${i}`][recordIndex] : null;
+            const fin = tableData[`Fin${i}`] ? tableData[`Fin${i}`][recordIndex] : null;
+            if (!debut || !fin) {
+                missingFields.push(`Dates/Horaires ${i}`);
+            }
+        }
+
+        const commentaire = tableData.Commentaire ? tableData.Commentaire[recordIndex] : null;
+        if (!commentaire || commentaire.trim() === '') {
+            missingFields.push('Commentaire');
+        }
+
+        if (missingFields.length === 0) {
+            alert('Tous les champs nécessaires sont déjà remplis pour cette fiche.');
+            return;
+        }
+
+        openTechniqueModal(firstRecord, missingFields);
+
+    } catch (error) {
+        console.error('Erreur lors de la récupération des données:', error);
+        alert('Erreur lors de la récupération des données de la fiche.');
+    }
+}
+
+function openTechniqueModal(record, missingFields) {
+    techniqueLieux = [{ value: '' }];
+    techniqueDates = [{ lieu: 1, date: '', debut: '', fin: '', editable: true }];
+    techniqueFormateurs = formateursData.map(f => ({
+        id: f.id,
+        nom: f.nom,
+        checked: false,
+        fonction: ''
+    }));
+
+    renderTechniqueModalContent();
+
+    document.getElementById('editTechniqueModal').classList.add('active');
+}
+
+function closeTechniqueModal() {
+    document.getElementById('editTechniqueModal').classList.remove('active');
+    currentTechniqueFiche = null;
+    techniqueLieux = [];
+    techniqueDates = [];
+    techniqueFormateurs = [];
+}
+
+function renderTechniqueModalContent() {
+    const modalBody = document.getElementById('techniqueModalBody');
+
+    let html = '<h3>Lieux de formation</h3>';
+
+    techniqueLieux.forEach((lieu, index) => {
+        html += `
+            <div class="lieu-section" data-lieu-index="${index}">
+                ${index > 0 ? `<button class="remove-btn" onclick="removeLieu(${index})">×</button>` : ''}
+                <h4>Lieu ${index + 1}</h4>
+                <div class="form-group">
+                    <label class="required">Lieu de formation</label>
+                    <input type="text" class="search-input" id="lieu${index}" 
+                           value="${escapeHtmlAttribute(lieu.value)}"
+                           placeholder="Commune et établissement, ou 'visioconférence'"
+                           onchange="updateLieu(${index}, this.value)">
+                </div>
+            </div>
+        `;
+    });
+
+    if (techniqueLieux.length < 4) {
+        html += `<button class="add-btn" onclick="addLieu()">+ Ajouter un lieu</button>`;
+    }
+
+    html += '<h3>Dates et horaires</h3>';
+
+    const datesByLieu = new Map();
+    techniqueLieux.forEach((_, idx) => datesByLieu.set(idx, []));
+    techniqueDates.forEach(date => {
+        if (!datesByLieu.has(date.lieu)) datesByLieu.set(date.lieu, []);
+        datesByLieu.get(date.lieu).push(date);
+    });
+
+    techniqueLieux.forEach((lieu, lieuIndex) => {
+        const datesForLieu = datesByLieu.get(lieuIndex) || [];
+
+        html += `<div class="lieu-section">
+            <h4>Lieu ${lieuIndex + 1}</h4>`;
+
+        datesForLieu.forEach((date, dateIndex) => {
+            const globalIndex = techniqueDates.indexOf(date);
+            html += `
+                <div class="date-section" data-date-index="${globalIndex}">
+                    ${dateIndex > 0 ? `<button class="remove-btn" onclick="removeDateCreneau(${globalIndex})">×</button>` : ''}
+                    <div class="date-time-group">
+                        <div>
+                            <label class="required">Date</label>
+                            <input type="date" class="time-input" 
+                                   value="${escapeHtmlAttribute(date.date)}"
+                                   onchange="updateDate(${globalIndex}, 'date', this.value)">
+                        </div>
+                        <div>
+                            <label class="required">Heure début</label>
+                            <input type="time" class="time-input" 
+                                   value="${escapeHtmlAttribute(date.debut)}"
+                                   onchange="updateDate(${globalIndex}, 'debut', this.value)">
+                        </div>
+                        <div>
+                            <label class="required">Heure fin</label>
+                            <input type="time" class="time-input" 
+                                   value="${escapeHtmlAttribute(date.fin)}"
+                                   onchange="updateDate(${globalIndex}, 'fin', this.value)">
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <label>
+                            <input type="checkbox" ${date.editable ? 'checked' : ''}
+                                   onchange="updateDate(${globalIndex}, 'editable', this.checked)">
+                            Éditer la fiche pour cette formation
+                        </label>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+            <button class="add-btn" onclick="addCreneau(${lieuIndex})">+ Ajouter un créneau</button>
+            <button class="add-btn" onclick="addDate(${lieuIndex})">+ Ajouter une date</button>
+        </div>`;
+    });
+
+    html += '<h3>Formateurs</h3>';
+    html += '<div class="formateur-checkbox-group">';
+
+    techniqueFormateurs.forEach((formateur, index) => {
+        html += `
+            <div class="formateur-item">
+                <input type="checkbox" id="formateur${index}" 
+                       ${formateur.checked ? 'checked' : ''}
+                       onchange="updateFormateur(${index}, this.checked)">
+                <label for="formateur${index}">${escapeHtml(formateur.nom)}</label>
+            </div>
+            ${formateur.checked ? `
+                <input type="text" class="fonction-input" 
+                       placeholder="Fonction" 
+                       value="${escapeHtmlAttribute(formateur.fonction)}"
+                       onchange="updateFormateurFonction(${index}, this.value)">
+            ` : ''}
+        `;
+    });
+
+    html += '</div>';
+    html += `<button class="add-btn" onclick="addNewFormateur()">+ Ajouter un formateur</button>`;
+
+    html += '<h3>Commentaire</h3>';
+    html += `<div class="form-group">
+        <textarea id="commentaireTechnique" placeholder="Informations complémentaires..."></textarea>
+    </div>`;
+
+    modalBody.innerHTML = html;
+}
+
+function addLieu() {
+    if (techniqueLieux.length < 4) {
+        techniqueLieux.push({ value: '' });
+        techniqueDates.push({ lieu: techniqueLieux.length - 1, date: '', debut: '', fin: '', editable: true });
+        renderTechniqueModalContent();
+    }
+}
+
+function removeLieu(index) {
+    if (techniqueLieux.length > 1) {
+        techniqueLieux.splice(index, 1);
+        techniqueDates = techniqueDates.filter(d => d.lieu !== index)
+            .map(d => d.lieu > index ? { ...d, lieu: d.lieu - 1 } : d);
+        renderTechniqueModalContent();
+    }
+}
+
+function updateLieu(index, value) {
+    techniqueLieux[index].value = validateInput(value, 200);
+}
+
+function addDate(lieuIndex) {
+    const currentDatesCount = techniqueDates.filter(d => d.lieu === lieuIndex).length;
+    if (techniqueDates.length < 10) {
+        techniqueDates.push({ lieu: lieuIndex, date: '', debut: '', fin: '', editable: true });
+        renderTechniqueModalContent();
+    }
+}
+
+function addCreneau(lieuIndex) {
+    const datesForLieu = techniqueDates.filter(d => d.lieu === lieuIndex);
+    if (datesForLieu.length > 0 && techniqueDates.length < 10) {
+        const lastDate = datesForLieu[datesForLieu.length - 1];
+        techniqueDates.push({
+            lieu: lieuIndex,
+            date: lastDate.date,
+            debut: '',
+            fin: '',
+            editable: true
+        });
+        renderTechniqueModalContent();
+    }
+}
+
+function removeDateCreneau(index) {
+    if (techniqueDates.length > 1) {
+        techniqueDates.splice(index, 1);
+        renderTechniqueModalContent();
+    }
+}
+
+function updateDate(index, field, value) {
+    if (techniqueDates[index]) {
+        techniqueDates[index][field] = value;
+    }
+}
+
+function updateFormateur(index, checked) {
+    techniqueFormateurs[index].checked = checked;
+    renderTechniqueModalContent();
+}
+
+function updateFormateurFonction(index, fonction) {
+    techniqueFormateurs[index].fonction = validateInput(fonction, 100);
+}
+
+async function addNewFormateur() {
+    const nom = prompt('Nom du formateur :');
+    if (!nom || nom.trim() === '') return;
+
+    const fonction = prompt('Fonction du formateur :');
+
+    const nomClean = validateInput(nom, 100);
+    const fonctionClean = validateInput(fonction || '', 100);
+
+    try {
+        const formateurId = await grist.docApi.applyUserActions([
+            ['AddRecord', 'Formateurs', null, { Formateur: nomClean, Fonction: fonctionClean }]
+        ]);
+
+        await loadData();
+
+        techniqueFormateurs.push({
+            id: formateurId,
+            nom: nomClean,
+            checked: true,
+            fonction: fonctionClean
+        });
+
+        renderTechniqueModalContent();
+
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du formateur:', error);
+        alert('Erreur lors de l\'ajout du formateur.');
+    }
+}
+
+async function generateFichesPDF() {
+    if (!currentTechniqueFiche || currentTechniqueFiche.length === 0) {
+        alert('Aucune fiche sélectionnée.');
+        return;
+    }
+
+    const lieuxRemplis = techniqueLieux.filter(l => l.value && l.value.trim() !== '');
+    if (lieuxRemplis.length === 0) {
+        alert('Veuillez renseigner au moins un lieu.');
+        return;
+    }
+
+    const datesValides = techniqueDates.filter(d => d.date && d.debut && d.fin && d.editable);
+    if (datesValides.length === 0) {
+        alert('Veuillez renseigner au moins une date/horaire complète avec édition activée.');
+        return;
+    }
+
+    try {
+        const firstRecord = currentTechniqueFiche[0];
+
+        const lieuxDatesString = lieuxRemplis.map((lieu, idx) => {
+            const datesForLieu = datesValides
+                .filter(d => d.lieu === idx)
+                .map((_, dIdx) => `Debut${dIdx + 1}, Fin${dIdx + 1}`)
+                .join(', ');
+            return `Lieu${idx + 1}(${datesForLieu})`;
+        }).join(', ');
+
+        const commentaire = document.getElementById('commentaireTechnique')?.value || '';
+
+        const updates = {
+            Commentaire: validateInput(commentaire, 5000),
+            Lieux_Dates: validateInput(lieuxDatesString, 1000)
+        };
+
+        lieuxRemplis.forEach((lieu, idx) => {
+            updates[`Lieu${idx + 1}`] = validateInput(lieu.value, 200);
+        });
+
+        datesValides.forEach((date, idx) => {
+            if (date.date && date.debut && date.fin) {
+                const dateTime = new Date(date.date + 'T' + date.debut);
+                updates[`Debut${idx + 1}`] = dateTime.getTime() / 1000;
+
+                const dateTimeFin = new Date(date.date + 'T' + date.fin);
+                updates[`Fin${idx + 1}`] = dateTimeFin.getTime() / 1000;
+            }
+        });
+
+        const selectedFormateurs = techniqueFormateurs.filter(f => f.checked);
+        if (selectedFormateurs.length > 0) {
+            updates.Formateur_s_ = ['L', ...selectedFormateurs.map(f => f.id)];
+        }
+
+        await grist.docApi.applyUserActions([
+            ['UpdateRecord', 'Tableau_de_bord', firstRecord.id, updates]
+        ]);
+
+        alert('Données sauvegardées ! Génération des fiches PDF en cours...');
+
+        await generatePDFForLieux(firstRecord, lieuxRemplis, datesValides, selectedFormateurs, commentaire);
+
+        closeTechniqueModal();
+        await loadData();
+        updateFilteredRecordsTechnique();
+
+    } catch (error) {
+        console.error('Erreur lors de la génération:', error);
+        alert('Erreur lors de la génération des fiches. Consultez la console.');
+    }
+}
+
+async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire) {
+    const { jsPDF } = window.jspdf;
+
+    const ecoleIds = [...new Set(currentTechniqueFiche.map(r => r.ecole))];
+    const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+
+    const enseignantIds = currentTechniqueFiche.map(r => r.nomPE);
+    const enseignants = enseignantIds.map(id => enseignantsData.find(e => e.id === id)).filter(e => e);
+
+    for (let lieuIndex = 0; lieuIndex < lieux.length; lieuIndex++) {
+        const lieu = lieux[lieuIndex];
+        const datesForLieu = dates.filter(d => d.lieu === lieuIndex);
+
+        if (datesForLieu.length === 0) continue;
+
+        const pdf = new jsPDF();
+        let y = 20;
+
+        pdf.setFontSize(18);
+        pdf.text(`Action de formation ${escapeHtml(record.departement)}`, 20, y);
+        y += 10;
+
+        pdf.setFontSize(14);
+        pdf.text(`Intitulé de la formation : ${record.intituleFormation || 'N/A'}`, 20, y);
+        y += 8;
+
+        pdf.text(`Identifiant : ${record.dispositifGAIA || 'N/A'} - ${record.moduleGAIA || 'N/A'}`, 20, y);
+        y += 10;
+
+        pdf.setFontSize(12);
+        pdf.text(`Lieu : ${lieu.value}`, 20, y);
+        y += 8;
+
+        datesForLieu.forEach(date => {
+            pdf.text(`Date : ${date.date} | Horaires : ${date.debut}-${date.fin}`, 20, y);
+            y += 6;
+        });
+        y += 4;
+
+        pdf.text(`Nombre d'écoles : ${ecoles.length}`, 20, y);
+        y += 6;
+        pdf.text(`Nombre de stagiaires : ${enseignants.length}`, 20, y);
+        y += 10;
+
+        pdf.text('Liste des stagiaires :', 20, y);
+        y += 6;
+        enseignants.forEach(ens => {
+            const ecole = ecolesData.find(e => e.id === ens.ecole);
+            pdf.setFontSize(10);
+            const line = `${ens.nom} ${ens.prenom} | ${ecole?.nom || 'N/A'} | ${ecole?.circonscription || 'N/A'}`;
+            pdf.text(line, 25, y);
+            y += 5;
+            if (y > 270) {
+                pdf.addPage();
+                y = 20;
+            }
+        });
+
+        y += 6;
+        pdf.setFontSize(12);
+        pdf.text(`Nombre de formateurs : ${formateurs.length}`, 20, y);
+        y += 6;
+
+        formateurs.forEach(form => {
+            pdf.setFontSize(10);
+            pdf.text(`${form.nom} | ${form.fonction || 'N/A'}`, 25, y);
+            y += 5;
+        });
+
+        if (commentaire && commentaire.trim() !== '') {
+            y += 6;
+            pdf.setFontSize(12);
+            pdf.text('Informations complémentaires :', 20, y);
+            y += 6;
+            pdf.setFontSize(10);
+            const lines = pdf.splitTextToSize(commentaire, 170);
+            pdf.text(lines, 20, y);
+        }
+
+        pdf.save(`Fiche_${record.idFiche}_Lieu${lieuIndex + 1}.pdf`);
     }
 }
 

@@ -702,6 +702,252 @@
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
+
+        /* Styles pour la popup/modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            margin: 20px auto;
+            position: relative;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 2px solid #3498db;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #c0392b;
+        }
+
+        .modal-body {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body h3 {
+            color: #2c3e50;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .modal-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .modal-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .modal-footer .btn-cancel {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .modal-footer .btn-cancel:hover {
+            background: #7f8c8d;
+        }
+
+        .modal-footer .btn-submit {
+            background: #27ae60;
+            color: white;
+        }
+
+        .modal-footer .btn-submit:hover {
+            background: #229954;
+        }
+
+        .lieu-section,
+        .date-section {
+            background: #fafafa;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            position: relative;
+        }
+
+        .lieu-section h4,
+        .date-section h4 {
+            margin: 0 0 10px 0;
+            color: #2980b9;
+            font-size: 14px;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .remove-btn:hover {
+            background: #c0392b;
+        }
+
+        .add-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .add-btn:hover {
+            background: #2980b9;
+        }
+
+        .formateur-checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .formateur-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .formateur-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .formateur-item label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .fonction-input {
+            display: block;
+            width: 100%;
+            margin-top: 5px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .date-time-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .time-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input[type="date"],
+        input[type="time"],
+        input[type="text"],
+        textarea {
+            background: #e8f4fd !important;
+            color: black !important;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
     </style>
 </head>
 
@@ -713,6 +959,7 @@
         <div class="tabs">
             <button class="tab-button active" onclick="switchTab('create')">Créer une fiche</button>
             <button class="tab-button" onclick="switchTab('edit')">Modifier une fiche</button>
+            <button class="tab-button" onclick="switchTab('edittechnique')">Éditer une fiche technique</button>
         </div>
 
         <!-- Contenu onglet Créer -->
@@ -962,6 +1209,73 @@
 
             <div id="editFormContainer"></div>
         </div>
+
+        <!-- Contenu onglet Éditer une fiche technique -->
+        <div id="editTechniqueTab" class="tab-content">
+            <h2>Rechercher une fiche</h2>
+            <p style="color: #7f8c8d; font-size: 14px;">Utilisez les filtres ci-dessous pour trouver la fiche à
+                éditer. L'auto-complétion se met à jour en fonction de vos sélections.</p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group_2">
+                    <label for="filterFormateurTechnique">Formateur</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterFormateurTechnique"
+                            placeholder="Rechercher un formateur..." onkeyup="searchFilterFormateurTechnique(event)">
+                        <div class="search-results" id="filterFormateurTechniqueResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterAnneeTechnique">Année scolaire</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterAnneeTechnique"
+                            placeholder="Rechercher une année..." onkeyup="searchFilterAnneeTechnique(event)">
+                        <div class="search-results" id="filterAnneeTechniqueResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterEcoleTechnique">École</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterEcoleTechnique"
+                            placeholder="Rechercher une école..." onkeyup="searchFilterEcoleTechnique(event)">
+                        <div class="search-results" id="filterEcoleTechniqueResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterTypeFormationTechnique">Type de formation</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterTypeFormationTechnique"
+                            placeholder="Rechercher un type..." onkeyup="searchFilterTypeFormationTechnique(event)">
+                        <div class="search-results" id="filterTypeFormationTechniqueResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterDispositifTechnique">Dispositif GAIA</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterDispositifTechnique"
+                            placeholder="Rechercher un dispositif..." onkeyup="searchFilterDispositifTechnique(event)">
+                        <div class="search-results" id="filterDispositifTechniqueResults"></div>
+                    </div>
+                </div>
+
+                <div class="form-group_2">
+                    <label for="filterModuleTechnique">Module GAIA</label>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="filterModuleTechnique"
+                            placeholder="Rechercher un module..." onkeyup="searchFilterModuleTechnique(event)">
+                        <div class="search-results" id="filterModuleTechniqueResults"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="selectedFiltersTechnique" style="margin-top: 15px;"></div>
+
+            <div id="recordsListTechnique" class="record-list"></div>
+        </div>
     </div>
 
     <!-- Bouton retour en haut -->
@@ -969,7 +1283,26 @@
         ▲
     </button>
 
+    <!-- Modal pour l'édition technique -->
+    <div id="editTechniqueModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Éditer une fiche technique</h2>
+                <button class="modal-close" onclick="closeTechniqueModal()">×</button>
+            </div>
+            <div class="modal-body" id="techniqueModalBody">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeTechniqueModal()">Annuler</button>
+                <button class="btn-submit" onclick="generateFichesPDF()">Éditer fiches</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="form.js"></script>
 
 </body>
