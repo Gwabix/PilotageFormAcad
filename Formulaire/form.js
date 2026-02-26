@@ -2583,9 +2583,9 @@ async function updateFiche() {
 
     // Fonction helper pour normaliser et comparer les tableaux
     const arraysEqual = (arr1, arr2) => {
-        // Filtrer null, undefined ET le 'L' de Grist
-        const a1 = (arr1 || []).filter(v => v !== null && v !== undefined && v !== 'L');
-        const a2 = (arr2 || []).filter(v => v !== null && v !== undefined && v !== 'L');
+        // Convertir en tableau si ce n'est pas déjà un tableau, puis filtrer null, undefined ET le 'L' de Grist
+        const a1 = (Array.isArray(arr1) ? arr1 : []).filter(v => v !== null && v !== undefined && v !== 'L');
+        const a2 = (Array.isArray(arr2) ? arr2 : []).filter(v => v !== null && v !== undefined && v !== 'L');
         return JSON.stringify([...a1].sort()) === JSON.stringify([...a2].sort());
     };
 
