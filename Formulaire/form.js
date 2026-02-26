@@ -2662,14 +2662,32 @@ function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
     const formateurIdsInFiche = Array.isArray(firstRecord.formateurs)
         ? firstRecord.formateurs.filter(id => typeof id === 'number')
         : [];
+
+    console.log('=== DEBUG FORMATEURS ===');
+    console.log('Formateurs dans la fiche (brut):', firstRecord.formateurs);
+    console.log('Formateurs dans la fiche (filtrés):', formateurIdsInFiche);
+    console.log('Nombre de formateurs dans la fiche:', formateurIdsInFiche.length);
+    console.log('Tous les formateurs disponibles:', formateursData);
+    console.log('Nombre de formateurs totaux:', formateursData.length);
+
     techniqueFormateurs = formateursData
         .filter(f => formateurIdsInFiche.includes(f.id))
         .map(f => ({
             id: f.id,
             nom: f.nom,
             fonction: '',
-            creneaux: []
+            creneaux: [0]
         }));
+
+    console.log('Formateurs techniques initialisés:', techniqueFormateurs);
+    console.log('Nombre de formateurs affichés:', techniqueFormateurs.length);
+    console.log('========================');
+
+    if (techniqueFormateurs.length === 0 && formateurIdsInFiche.length > 0) {
+        console.error('ATTENTION: Des formateurs sont dans la fiche mais aucun n\'a été trouvé dans formateursData!');
+        console.error('IDs recherchés:', formateurIdsInFiche);
+        console.error('IDs disponibles:', formateursData.map(f => f.id));
+    }
 
     renderTechniqueModalContent(firstRecord);
 
@@ -2969,7 +2987,15 @@ function addLieu() {
     if (techniqueLieux.length < 4) {
         const newLieuIndex = techniqueLieux.length;
         techniqueLieux.push({ value: '' });
+        const newCreneauIndex = techniqueDates.length;
         techniqueDates.push({ lieu: newLieuIndex, date: '', debut: '', fin: '', editable: true });
+
+        techniqueFormateurs.forEach(formateur => {
+            if (!formateur.creneaux.includes(newCreneauIndex)) {
+                formateur.creneaux.push(newCreneauIndex);
+            }
+        });
+
         renderTechniqueModalContent();
     }
 }
@@ -2977,6 +3003,24 @@ function addLieu() {
 function removeLieu(index) {
     if (techniqueLieux.length > 1) {
         techniqueLieux.splice(index, 1);
+
+        // Créer un mapping des anciens index vers les nouveaux index
+        const oldToNewIndexMap = new Map();
+        let newIndex = 0;
+        techniqueDates.forEach((creneau, oldIndex) => {
+            if (creneau.lieu !== index) {
+                oldToNewIndexMap.set(oldIndex, newIndex);
+                newIndex++;
+            }
+        });
+
+        // Mettre à jour les créneaux des formateurs
+        techniqueFormateurs.forEach(formateur => {
+            formateur.creneaux = formateur.creneaux
+                .filter(creneauIndex => oldToNewIndexMap.has(creneauIndex))
+                .map(creneauIndex => oldToNewIndexMap.get(creneauIndex));
+        });
+
         techniqueDates = techniqueDates.filter(d => d.lieu !== index)
             .map(d => d.lieu > index ? { ...d, lieu: d.lieu - 1 } : d);
         renderTechniqueModalContent();
@@ -2990,13 +3034,22 @@ function updateLieu(index, value) {
 function addDate(lieuIndex) {
     const currentDatesCount = techniqueDates.filter(d => d.lieu === lieuIndex).length;
     if (techniqueDates.length < 10) {
+        const newCreneauIndex = techniqueDates.length;
         techniqueDates.push({ lieu: lieuIndex, date: '', debut: '', fin: '', editable: true });
+
+        techniqueFormateurs.forEach(formateur => {
+            if (!formateur.creneaux.includes(newCreneauIndex)) {
+                formateur.creneaux.push(newCreneauIndex);
+            }
+        });
+
         renderTechniqueModalContent();
     }
 }
 
 function addCreneauToDate(lieuIndex, dateValue) {
     if (techniqueDates.length < 10) {
+        const newCreneauIndex = techniqueDates.length;
         techniqueDates.push({
             lieu: lieuIndex,
             date: dateValue,
@@ -3004,6 +3057,13 @@ function addCreneauToDate(lieuIndex, dateValue) {
             fin: '',
             editable: true
         });
+
+        techniqueFormateurs.forEach(formateur => {
+            if (!formateur.creneaux.includes(newCreneauIndex)) {
+                formateur.creneaux.push(newCreneauIndex);
+            }
+        });
+
         renderTechniqueModalContent();
     }
 }
@@ -3014,6 +3074,14 @@ function removeDateCreneau(index) {
 
     if (creneauxInSameLieu.length > 1) {
         techniqueDates.splice(index, 1);
+
+        // Mettre à jour les index des créneaux dans les formateurs
+        techniqueFormateurs.forEach(formateur => {
+            formateur.creneaux = formateur.creneaux
+                .filter(creneauIndex => creneauIndex !== index)
+                .map(creneauIndex => creneauIndex > index ? creneauIndex - 1 : creneauIndex);
+        });
+
         renderTechniqueModalContent();
     } else {
         alert('Impossible de supprimer le dernier créneau d\'un lieu. Chaque lieu doit avoir au moins un créneau.');
@@ -3163,11 +3231,13 @@ function updateActiveTechniqueFormateurResult(resultsDiv) {
 function selectFormateurTechnique(nom) {
     const formateur = formateursData.find(f => f.nom === nom);
     if (formateur && !techniqueFormateurs.find(tf => tf.id === formateur.id)) {
+        // Initialiser avec tous les créneaux cochés par défaut
+        const tousLesCreneaux = techniqueDates.map((_, index) => index);
         techniqueFormateurs.push({
             id: formateur.id,
             nom: formateur.nom,
             fonction: '',
-            creneaux: []
+            creneaux: tousLesCreneaux
         });
         renderTechniqueModalContent();
     }
@@ -3189,11 +3259,13 @@ async function addNewFormateurTechnique(nom) {
 
         const newFormateur = formateursData.find(f => f.nom === nomClean);
         if (newFormateur && !techniqueFormateurs.find(tf => tf.id === newFormateur.id)) {
+            // Initialiser avec tous les créneaux cochés par défaut
+            const tousLesCreneaux = techniqueDates.map((_, index) => index);
             techniqueFormateurs.push({
                 id: newFormateur.id,
                 nom: newFormateur.nom,
                 fonction: fonctionClean,
-                creneaux: []
+                creneaux: tousLesCreneaux
             });
 
             const firstRecord = currentTechniqueFiche[0];
