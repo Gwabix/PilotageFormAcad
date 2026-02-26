@@ -3626,24 +3626,25 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
             body: stagiaireRows,
             theme: 'striped',
             styles: {
-                fontSize: 9,
-                cellPadding: 3,
+                fontSize: 7,
+                cellPadding: 2,
                 overflow: 'linebreak'
             },
             headStyles: {
                 fillColor: [52, 152, 219],
                 textColor: 255,
                 fontStyle: 'bold',
-                fontSize: 10
+                fontSize: 8,
+                halign: 'center'
             },
             columnStyles: {
-                0: { cellWidth: 42 },  // Nom Prénom
-                1: { cellWidth: 55 },  // École
+                0: { cellWidth: 40 },  // Nom Prénom
+                1: { cellWidth: 40 },  // École
                 2: { cellWidth: 30 },  // Circonscription
-                3: { cellWidth: 32 },  // Niveau(x)
-                4: { cellWidth: 31 }   // Décharge
+                3: { cellWidth: 30 },  // Niveau(x)
+                4: { cellWidth: 30 }   // Décharge
             },
-            margin: { left: 20, right: 20 }
+            margin: { left: 10, right: 10 }
         });
 
         y = pdf.lastAutoTable.finalY + 10;
