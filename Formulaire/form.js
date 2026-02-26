@@ -597,6 +597,21 @@ function addFormateurField() {
     input.addEventListener('keyup', (event) => searchFormateurs(event, index));
 }
 
+function addEditFormateurField() {
+    const container = document.getElementById('editFormateursContainer');
+    if (!container) return;
+
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'formateur-field';
+    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+    // SÉCURITÉ : Template statique sans données dynamiques
+    fieldDiv.innerHTML = `
+        <input type="text" class="search-input edit-formateur-input" placeholder="Formateur...">
+    `;
+
+    container.appendChild(fieldDiv);
+}
+
 function searchFormateurs(event, fieldIndex) {
     const searchTerm = event.target.value.toLowerCase().trim();
     const resultsDiv = document.getElementById(`formateurResults_${fieldIndex}`);
@@ -1662,7 +1677,7 @@ function displayEditForm(ficheRecords) {
     // Event listener pour le bouton d'ajout de formateur
     const addFormateurBtn = document.getElementById('addEditFormateurBtn');
     if (addFormateurBtn) {
-        addFormateurBtn.addEventListener('click', addFormateurField);
+        addFormateurBtn.addEventListener('click', addEditFormateurField);
     }
 
     // Event listener pour le bouton de mise à jour
