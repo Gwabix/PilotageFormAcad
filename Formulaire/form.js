@@ -231,56 +231,49 @@ function findSimilarFormateurs(newName) {
  */
 async function confirmFormateurChoice(similarFormateurs, newName, onUseExisting, onCreateNew) {
     return new Promise((resolve) => {
+        // Créer l'overlay de la modal
         const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10001;
-        `;
+        modal.className = 'formateur-modal-overlay';
 
+        // Créer le contenu de la modal
         const content = document.createElement('div');
-        content.style.cssText = `
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-        `;
+        content.className = 'formateur-modal-content';
 
+        // Construire le HTML avec les classes CSS
         let html = `
-            <h3 style="margin-top: 0; color: #e67e22;">⚠️ Formateur similaire détecté</h3>
-            <p>Le nom <strong>"${escapeHtml(newName)}"</strong> ressemble à ${similarFormateurs.length > 1 ? 'des formateurs existants' : 'un formateur existant'} :</p>
-            <div style="margin: 20px 0;">
+            <h3 class="formateur-modal-header">⚠️ Formateur similaire détecté</h3>
+            <p class="formateur-modal-intro">
+                Le nom <strong>"${escapeHtml(newName)}"</strong> ressemble à 
+                ${similarFormateurs.length > 1 ? 'des formateurs existants' : 'un formateur existant'} :
+            </p>
+            <div class="formateur-modal-similar-list">
         `;
 
+        // Ajouter chaque formateur similaire
         similarFormateurs.forEach((sim, idx) => {
             const percent = Math.round(sim.similarity * 100);
             const warning = sim.inverted ? ' (nom/prénom inversés)' : '';
             html += `
-                <div style="margin: 10px 0; padding: 10px; background: #ecf0f1; border-radius: 5px;">
-                    <strong>${escapeHtml(sim.formateur.nom)}</strong> (${percent}% similaire${warning})
-                    <button class="btnValider" style="margin-left: 10px; padding: 5px 15px;" data-action="use" data-index="${idx}">
-                        Utiliser ce formateur
+                <div class="formateur-modal-similar-item">
+                    <div class="formateur-modal-similar-info">
+                        <div class="formateur-modal-similar-name">${escapeHtml(sim.formateur.nom)}</div>
+                        <div class="formateur-modal-similar-score">${percent}% similaire${warning}</div>
+                    </div>
+                    <button class="formateur-modal-btn-use" data-action="use" data-index="${idx}">
+                        Utiliser
                     </button>
                 </div>
             `;
         });
 
+        // Ajouter la section des actions
         html += `
             </div>
-            <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px;">
-                <button class="btnValider" data-action="create" style="background: #3498db;">
+            <div class="formateur-modal-actions">
+                <button class="formateur-modal-btn-create" data-action="create">
                     Créer une nouvelle entrée "${escapeHtml(newName)}"
                 </button>
-                <button class="btnAnnuler" data-action="cancel" style="margin-left: 10px;">
+                <button class="formateur-modal-btn-cancel" data-action="cancel">
                     Annuler
                 </button>
             </div>
