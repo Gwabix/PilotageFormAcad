@@ -2849,7 +2849,8 @@ function renderTechniqueModalContent(firstRecord) {
     if (techniqueFormateurs.length > 0) {
         if (layoutHorizontal) {
             // Layout horizontal (≤4 créneaux)
-            html += '<div class="formateurs-table-horizontal">';
+            const fourCreneauxClass = nombreCreneaux === 4 ? ' four-creneaux' : '';
+            html += `<div class="formateurs-table-horizontal${fourCreneauxClass}">`;
             html += '<table class="formateurs-creneaux-table">';
             html += '<thead><tr>';
             html += '<th class="col-nom">Nom</th>';

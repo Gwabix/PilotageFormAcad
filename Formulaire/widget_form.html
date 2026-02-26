@@ -11,6 +11,7 @@
             margin: 0px;
             background-color: #f0f4f8;
             color-scheme: light;
+            color: #2c3e50;
         }
 
         .container {
@@ -888,6 +889,7 @@
         .formateurs-table-horizontal {
             margin-top: 15px;
             overflow-x: auto;
+            color: #2c3e50;
         }
 
         .formateurs-creneaux-table {
@@ -913,15 +915,28 @@
         .formateurs-creneaux-table .col-nom {
             min-width: 150px;
             font-weight: 500;
+            text-align: center;
         }
 
         .formateurs-creneaux-table .col-fonction {
             min-width: 180px;
+            text-align: center;
         }
 
         .formateurs-creneaux-table .col-creneau {
             text-align: center;
             min-width: 120px;
+        }
+
+        /* Ajustement pour 4 créneaux */
+        .formateurs-table-horizontal.four-creneaux .col-creneau {
+            min-width: unset;
+            font-size: small;
+        }
+
+        .formateurs-table-horizontal.four-creneaux .creneau-header,
+        .formateurs-table-horizontal.four-creneaux .creneau-heure {
+            font-size: small;
         }
 
         .formateurs-creneaux-table .col-creneau-checkbox {
@@ -951,6 +966,7 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            color: #2c3e50;
         }
 
         .formateur-vertical-card {
@@ -1025,7 +1041,7 @@
         }
 
         .fonction-input {
-            width: 100%;
+            width: -webkit-fill-available;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
