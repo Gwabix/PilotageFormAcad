@@ -1521,8 +1521,8 @@ function displayEditForm(ficheRecords) {
             const allEnseignants = enseignantsData.filter(ens => ecoleIds.includes(ens.ecole));
 
             return allEnseignants.map((ens, idx) => {
-                // Vérifier si l'enseignant est dans la fiche
-                const recordForEns = ficheRecords.find(rec => rec.nomPE === ens.id);
+                // Vérifier si l'enseignant est dans la fiche (comparer les IDs, pas les noms)
+                const recordForEns = ficheRecords.find(rec => rec.idPE === ens.id);
                 const isSelected = !!recordForEns;
                 const ecole = ecolesData.find(e => e.id === ens.ecole);
                 const niveauxActuels = recordForEns ? recordForEns.niveauClasse || [] : [];
@@ -2199,7 +2199,7 @@ async function updateFiche() {
     };
 
     // Vérifier les enseignants ajoutés/supprimés
-    const oldEnsIds = originalRecordData.map(r => r.nomPE).sort();
+    const oldEnsIds = originalRecordData.map(r => r.idPE).sort();
     const newEnsIds = selectedEnseignantsData.map(e => e.ensId).sort();
     if (JSON.stringify(oldEnsIds) !== JSON.stringify(newEnsIds)) {
         const added = newEnsIds.filter(id => !oldEnsIds.includes(id));
@@ -2222,7 +2222,7 @@ async function updateFiche() {
 
     // Vérifier les niveaux pour les enseignants communs
     selectedEnseignantsData.forEach(newEns => {
-        const oldRec = originalRecordData.find(r => r.nomPE === newEns.ensId);
+        const oldRec = originalRecordData.find(r => r.idPE === newEns.ensId);
         if (oldRec && !arraysEqual(newEns.niveaux, oldRec.niveauClasse)) {
             changes.push(`Niveaux modifiés pour un enseignant`);
         }
@@ -2267,6 +2267,11 @@ async function updateFiche() {
                 Theme_s_traite_s_en_formation: ['L', ...themes],
                 Annee: annee
             };
+
+            // Ajouter les niveaux de classe si spécifiés
+            if (ensData.niveaux && ensData.niveaux.length > 0) {
+                record.Niveau_x_ = ['L', ...ensData.niveaux];
+            }
 
             if (numeroGroupe > 0) {
                 record.Numero_de_groupe = numeroGroupe;
