@@ -91,6 +91,7 @@ async function loadData() {
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
         tableauBordData = tableauTable.id.map((id, index) => ({
             id: id,
+            id_pe: tableauTable.ID_PE[index],
             id_fiche: tableauTable.ID_fiche[index] || '',
             departement: tableauTable.Departement[index] || '',
             circonscription: cleanChoiceList(tableauTable.Circonscription[index]),
@@ -429,11 +430,7 @@ function selectEnseignant(ensId) {
     // Remplir le champ de recherche avec le nom complet
     document.getElementById('searchEnseignant').value = `${enseignant.prenom} ${enseignant.nom}`;
 
-    const formations = tableauBordData.filter(tb => {
-        const nomPE = enseignantsData.find(e => e.id === tb.nom_pe);
-        const prenomPE = enseignantsData.find(e => e.id === tb.prenom_pe);
-        return (nomPE && nomPE.id === ensId) || (prenomPE && prenomPE.id === ensId);
-    });
+    const formations = tableauBordData.filter(tb => tb.id_pe === ensId);
 
     const formationsByYear = {};
     formations.forEach(formation => {
@@ -1814,10 +1811,7 @@ function selectEcole(ecoleId) {
 
                 const enseignantsFormation = new Set();
                 group.formations.forEach(f => {
-                    const nomPE = enseignantsData.find(e => e.id === f.nom_pe);
-                    const prenomPE = enseignantsData.find(e => e.id === f.prenom_pe);
-                    if (nomPE) enseignantsFormation.add(nomPE.id);
-                    if (prenomPE) enseignantsFormation.add(prenomPE.id);
+                    if (f.id_pe) enseignantsFormation.add(f.id_pe);
                 });
 
                 enseignantsFormation.forEach(ensId => {
@@ -1838,11 +1832,7 @@ function selectEcole(ecoleId) {
             });
 
             const enseignantsSansFormation = enseignantsEcole.filter(ens => {
-                const hasFormation = yearFormations.some(f => {
-                    const nomPE = enseignantsData.find(e => e.id === f.nom_pe);
-                    const prenomPE = enseignantsData.find(e => e.id === f.prenom_pe);
-                    return (nomPE && nomPE.id === ens.id) || (prenomPE && prenomPE.id === ens.id);
-                });
+                const hasFormation = yearFormations.some(f => f.id_pe === ens.id);
                 return !hasFormation;
             });
 
@@ -2162,11 +2152,7 @@ function exportToCSV(type) {
         filename = `formations_${enseignant.nom}_${enseignant.prenom}.csv`;
         csvContent = 'Année scolaire;École;Niveau(x);Type de formation;Modalité constitution;Objets transversaux;Thèmes\n';
 
-        const formations = tableauBordData.filter(tb => {
-            const nomPE = enseignantsData.find(e => e.id === tb.nom_pe);
-            const prenomPE = enseignantsData.find(e => e.id === tb.prenom_pe);
-            return (nomPE && nomPE.id === currentSelection.id) || (prenomPE && prenomPE.id === currentSelection.id);
-        });
+        const formations = tableauBordData.filter(tb => tb.id_pe === currentSelection.id);
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
             const ecole = ecolesData.find(e => e.id === formation.ecole);

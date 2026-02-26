@@ -1586,12 +1586,20 @@ function displayEditForm(ficheRecords) {
     originalRecordData = JSON.parse(JSON.stringify(ficheRecords));
     const firstRecord = ficheRecords[0];
 
-    // Récupérer les écoles uniques de la fiche
-    const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
-    const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+    // Récupérer les écoles uniques de la fiche (depuis selectedEcoles si modifiées, sinon depuis ficheRecords)
+    let ecoleIds, ecoles;
+    if (selectedEcoles && selectedEcoles.length > 0) {
+        // Écoles modifiées via le modal
+        ecoles = selectedEcoles;
+        ecoleIds = ecoles.map(e => e.id);
+    } else {
+        // Écoles d'origine de la fiche
+        ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
+        ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+    }
 
     // Récupérer les enseignants de la fiche
-    const enseignantIds = ficheRecords.map(r => r.nomPE);
+    const enseignantIds = ficheRecords.map(r => r.idPE);
     const enseignants = enseignantIds.map(id => enseignantsData.find(e => e.id === id)).filter(e => e);
 
     // Récupérer les formateurs
@@ -2303,8 +2311,10 @@ async function updateFiche() {
         formateurIds.push(formateur.id);
     }
 
-    // Récupérer les écoles de la fiche (via les enseignants sélectionnés ou depuis originalRecordData)
-    const ecoleIds = [...new Set(originalRecordData.map(r => r.ecole))];
+    // Récupérer les écoles de la fiche (via selectedEcoles si modifiées, sinon depuis originalRecordData)
+    const ecoleIds = (selectedEcoles && selectedEcoles.length > 0)
+        ? selectedEcoles.map(e => e.id)
+        : [...new Set(originalRecordData.map(r => r.ecole))];
 
     // Récupérer les enseignants sélectionnés et leurs niveaux
     const selectedEnseignantsData = [];
@@ -2451,6 +2461,7 @@ async function updateFiche() {
 
         // Recharger les données et réinitialiser
         await loadData();
+        selectedEcoles = []; // Réinitialiser pour ne pas affecter la création de fiches
         editFilters = { formateur: '', annee: '', ecole: '', typeFormation: '', dispositif: '', module: '' };
         document.getElementById('filterFormateur').value = '';
         document.getElementById('filterAnnee').value = '';
