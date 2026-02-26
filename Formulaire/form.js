@@ -2124,6 +2124,11 @@ function validateEcolesModal() {
 }
 
 async function updateFiche() {
+    // Récupérer toutes les valeurs depuis le formulaire d'édition
+    const idFiche = validateInput(document.getElementById('editFicheId').value, 50);
+    const annee = document.getElementById('editAnnee').value;
+    const numeroGroupe = safeParseInt(document.getElementById('editNumeroGroupe').value, 0, 0);
+    const modaliteConstitution = Array.from(document.querySelectorAll('.edit-modalite:checked')).map(cb => cb.value);
     const typeFormation = document.querySelector('input[name="editTypeFormation"]:checked')?.value || '';
     const tempsFormation = safeParseInt(document.getElementById('editDuree').value, 0, 0);
     const modalitesFormation = Array.from(document.querySelectorAll('.edit-Modalites:checked')).map(cb => cb.value);
@@ -2131,6 +2136,7 @@ async function updateFiche() {
     const themes = Array.from(document.querySelectorAll('.edit-themes:checked')).map(cb => cb.value);
     const dispositifGAIA = validateInput(document.getElementById('editDispositif').value.trim(), 10);
     const moduleGAIA = validateInput(document.getElementById('editModule').value.trim(), 5);
+    const intituleFormation = validateInput(document.getElementById('editIntitule').value.trim(), 200);
 
     // Récupérer les formateurs
     const formateurInputs = document.querySelectorAll('.edit-formateur-input');
@@ -2158,6 +2164,9 @@ async function updateFiche() {
 
         formateurIds.push(formateur.id);
     }
+
+    // Récupérer les écoles de la fiche (via les enseignants sélectionnés ou depuis originalRecordData)
+    const ecoleIds = [...new Set(originalRecordData.map(r => r.ecole))];
 
     // Récupérer les enseignants sélectionnés et leurs niveaux
     const selectedEnseignantsData = [];
@@ -2678,13 +2687,6 @@ function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
         ? firstRecord.formateurs.filter(id => typeof id === 'number')
         : [];
 
-    console.log('=== DEBUG FORMATEURS ===');
-    console.log('Formateurs dans la fiche (brut):', firstRecord.formateurs);
-    console.log('Formateurs dans la fiche (filtrés):', formateurIdsInFiche);
-    console.log('Nombre de formateurs dans la fiche:', formateurIdsInFiche.length);
-    console.log('Tous les formateurs disponibles:', formateursData);
-    console.log('Nombre de formateurs totaux:', formateursData.length);
-
     techniqueFormateurs = formateursData
         .filter(f => formateurIdsInFiche.includes(f.id))
         .map(f => ({
@@ -2693,16 +2695,6 @@ function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
             fonction: '',
             creneaux: [0]
         }));
-
-    console.log('Formateurs techniques initialisés:', techniqueFormateurs);
-    console.log('Nombre de formateurs affichés:', techniqueFormateurs.length);
-    console.log('========================');
-
-    if (techniqueFormateurs.length === 0 && formateurIdsInFiche.length > 0) {
-        console.error('ATTENTION: Des formateurs sont dans la fiche mais aucun n\'a été trouvé dans formateursData!');
-        console.error('IDs recherchés:', formateurIdsInFiche);
-        console.error('IDs disponibles:', formateursData.map(f => f.id));
-    }
 
     renderTechniqueModalContent(firstRecord);
 
