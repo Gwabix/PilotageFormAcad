@@ -46,6 +46,10 @@ let techniqueFormateurSearchResults = [];
 let activeTechniqueFormateurResultIndex = -1;
 let techniqueMissingFields = [];
 
+// Variables pour la recherche de formateurs dans l'onglet édition
+let activeEditFormateurResultIndex = -1;
+let filteredEditFormateurResults = [];
+
 const NIVEAUX_POSSIBLES = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
 
 // ===== FONCTIONS DE SÉCURITÉ =====
@@ -601,15 +605,126 @@ function addEditFormateurField() {
     const container = document.getElementById('editFormateursContainer');
     if (!container) return;
 
+    const index = container.children.length;
+
     const fieldDiv = document.createElement('div');
     fieldDiv.className = 'formateur-field';
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : Template statique sans données dynamiques
     fieldDiv.innerHTML = `
-        <input type="text" class="search-input edit-formateur-input" placeholder="Formateur...">
+        <div class="search-container">
+            <input type="text" 
+                   class="search-input edit-formateur-input" 
+                   id="editFormateurInput_${index}"
+                   placeholder="Tapez pour rechercher ou ajouter un formateur..."
+                   data-field-index="${index}">
+            <div class="search-results" id="editFormateurResults_${index}"></div>
+        </div>
     `;
 
     container.appendChild(fieldDiv);
+
+    // Ajouter l'event listener après l'insertion
+    const input = document.getElementById(`editFormateurInput_${index}`);
+    input.addEventListener('keyup', (event) => searchEditFormateurs(event, index));
+}
+
+function searchEditFormateurs(event, fieldIndex) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    const resultsDiv = document.getElementById(`editFormateurResults_${fieldIndex}`);
+    const inputField = document.getElementById(`editFormateurInput_${fieldIndex}`);
+
+    // Gestion de la navigation clavier
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (filteredEditFormateurResults.length > 0) {
+            activeEditFormateurResultIndex = Math.min(activeEditFormateurResultIndex + 1, filteredEditFormateurResults.length - 1);
+            updateActiveEditFormateurResult(resultsDiv);
+        }
+        return;
+    }
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (filteredEditFormateurResults.length > 0) {
+            activeEditFormateurResultIndex = Math.max(activeEditFormateurResultIndex - 1, 0);
+            updateActiveEditFormateurResult(resultsDiv);
+        }
+        return;
+    }
+
+    if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        if (filteredEditFormateurResults.length > 0 && activeEditFormateurResultIndex >= 0) {
+            inputField.value = filteredEditFormateurResults[activeEditFormateurResultIndex];
+            resultsDiv.style.display = 'none';
+        }
+        return;
+    }
+
+    if (searchTerm.length < 1) {
+        resultsDiv.style.display = 'none';
+        filteredEditFormateurResults = [];
+        activeEditFormateurResultIndex = -1;
+        return;
+    }
+
+    filteredEditFormateurResults = formateursData
+        .map(f => f.nom)
+        .filter(nom => nom.toLowerCase().includes(searchTerm))
+        .slice(0, 10);
+
+    if (filteredEditFormateurResults.length === 0) {
+        resultsDiv.style.display = 'none';
+        activeEditFormateurResultIndex = -1;
+        return;
+    }
+
+    activeEditFormateurResultIndex = 0;
+
+    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+    // SÉCURITÉ : Les noms de formateurs sont échappés via escapeHtml()
+    resultsDiv.innerHTML = filteredEditFormateurResults.map((nom, index) =>
+        `<div class="search-result-item ${index === 0 ? 'active' : ''}" 
+              data-formateur-nom="${escapeHtmlAttribute(nom)}"
+              data-field-index="${fieldIndex}"
+              data-index="${index}">
+          ${escapeHtml(nom)}
+        </div>`
+    ).join('');
+
+    // Ajouter les event listeners après insertion
+    resultsDiv.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const nom = item.getAttribute('data-formateur-nom');
+            const fieldIdx = safeParseInt(item.getAttribute('data-field-index'), 0, 0);
+            if (fieldIdx >= 0) selectEditFormateur(nom, fieldIdx);
+        });
+    });
+
+    resultsDiv.style.display = 'block';
+}
+
+function updateActiveEditFormateurResult(resultsDiv) {
+    const items = resultsDiv.querySelectorAll('.search-result-item');
+    items.forEach((item, index) => {
+        if (index === activeEditFormateurResultIndex) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+function selectEditFormateur(nom, fieldIndex) {
+    const inputField = document.getElementById(`editFormateurInput_${fieldIndex}`);
+    const resultsDiv = document.getElementById(`editFormateurResults_${fieldIndex}`);
+
+    inputField.value = nom;
+    resultsDiv.style.display = 'none';
+    filteredEditFormateurResults = [];
+    activeEditFormateurResultIndex = -1;
 }
 
 function searchFormateurs(event, fieldIndex) {
@@ -1653,9 +1768,26 @@ function displayEditForm(ficheRecords) {
                 <div id="editFormateursContainer">
                     ${formateurNoms.length > 0 ? formateurNoms.map((nom, index) => `
                         <div class="formateur-field">
-                            <input type="text" class="search-input edit-formateur-input" value="${escapeHtmlAttribute(nom)}" placeholder="Formateur...">
+                            <div class="search-container">
+                                <input type="text" 
+                                       class="search-input edit-formateur-input" 
+                                       id="editFormateurInput_${index}"
+                                       value="${escapeHtmlAttribute(nom)}" 
+                                       placeholder="Tapez pour rechercher ou ajouter un formateur..."
+                                       data-field-index="${index}">
+                                <div class="search-results" id="editFormateurResults_${index}"></div>
+                            </div>
                         </div>
-                    `).join('') : '<div class="formateur-field"><input type="text" class="search-input edit-formateur-input" placeholder="Formateur..."></div>'}
+                    `).join('') : `<div class="formateur-field">
+                        <div class="search-container">
+                            <input type="text" 
+                                   class="search-input edit-formateur-input" 
+                                   id="editFormateurInput_0"
+                                   placeholder="Tapez pour rechercher ou ajouter un formateur..."
+                                   data-field-index="0">
+                            <div class="search-results" id="editFormateurResults_0"></div>
+                        </div>
+                    </div>`}
                 </div>
                 <button type="button" class="btnValider btn-add-formateur" id="addEditFormateurBtn">+ Ajouter un formateur</button>
             </div>
@@ -1679,6 +1811,12 @@ function displayEditForm(ficheRecords) {
     if (addFormateurBtn) {
         addFormateurBtn.addEventListener('click', addEditFormateurField);
     }
+
+    // Event listeners pour les champs de recherche de formateurs
+    container.querySelectorAll('.edit-formateur-input').forEach(input => {
+        const fieldIndex = safeParseInt(input.getAttribute('data-field-index'), 0, 0);
+        input.addEventListener('keyup', (event) => searchEditFormateurs(event, fieldIndex));
+    });
 
     // Event listener pour le bouton de mise à jour
     const updateBtn = document.getElementById('updateFicheBtn');
