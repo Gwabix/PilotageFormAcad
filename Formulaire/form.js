@@ -128,6 +128,191 @@ function safeParseInt(value, defaultValue = 0, min = null) {
 }
 
 /**
+ * Normalise un nom pour la comparaison (supprime accents, ponctuation, espaces multiples, met en minuscules)
+ * @param {string} name - Nom à normaliser
+ * @returns {string} Nom normalisé
+ */
+function normalizeFormateurName(name) {
+    if (!name) return '';
+    return name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+        .replace(/[^\w\s]/g, ' ')         // Remplace la ponctuation par des espaces
+        .replace(/\s+/g, ' ')              // Remplace espaces multiples par un seul
+        .trim();
+}
+
+/**
+ * Calcule la distance de Levenshtein entre deux chaînes
+ * @param {string} a - Première chaîne
+ * @param {string} b - Deuxième chaîne
+ * @returns {number} Distance de Levenshtein
+ */
+function levenshteinDistance(a, b) {
+    const matrix = [];
+
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    matrix[i][j - 1] + 1,      // insertion
+                    matrix[i - 1][j] + 1       // deletion
+                );
+            }
+        }
+    }
+
+    return matrix[b.length][a.length];
+}
+
+/**
+ * Trouve les formateurs similaires dans la base de données
+ * @param {string} newName - Nom du nouveau formateur à vérifier
+ * @returns {Array} Liste des formateurs similaires avec score de similarité
+ */
+function findSimilarFormateurs(newName) {
+    if (!newName || newName.trim() === '') return [];
+
+    const normalized = normalizeFormateurName(newName);
+    const similarities = [];
+
+    formateursData.forEach(formateur => {
+        const existingNormalized = normalizeFormateurName(formateur.nom);
+
+        // Comparaison directe
+        const directDistance = levenshteinDistance(normalized, existingNormalized);
+        const directSimilarity = 1 - (directDistance / Math.max(normalized.length, existingNormalized.length));
+
+        // Test avec inversion (si les deux contiennent un espace)
+        let invertedSimilarity = 0;
+        if (normalized.includes(' ') && existingNormalized.includes(' ')) {
+            const parts = normalized.split(' ');
+            const inverted = parts.reverse().join(' ');
+            const invertedDistance = levenshteinDistance(inverted, existingNormalized);
+            invertedSimilarity = 1 - (invertedDistance / Math.max(inverted.length, existingNormalized.length));
+        }
+
+        const maxSimilarity = Math.max(directSimilarity, invertedSimilarity);
+
+        // Si similarité > 70%, c'est un doublon probable
+        if (maxSimilarity > 0.7) {
+            similarities.push({
+                formateur: formateur,
+                similarity: maxSimilarity,
+                inverted: invertedSimilarity > directSimilarity
+            });
+        }
+    });
+
+    // Trier par similarité décroissante
+    similarities.sort((a, b) => b.similarity - a.similarity);
+
+    return similarities;
+}
+
+/**
+ * Affiche une boîte de dialogue personnalisée pour confirmer l'utilisation d'un formateur existant
+ * @param {Array} similarFormateurs - Liste des formateurs similaires
+ * @param {string} newName - Nom du nouveau formateur
+ * @param {Function} onUseExisting - Callback si l'utilisateur choisit un formateur existant
+ * @param {Function} onCreateNew - Callback si l'utilisateur choisit de créer une nouvelle entrée
+ */
+async function confirmFormateurChoice(similarFormateurs, newName, onUseExisting, onCreateNew) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+
+        let html = `
+            <h3 style="margin-top: 0; color: #e67e22;">⚠️ Formateur similaire détecté</h3>
+            <p>Le nom <strong>"${escapeHtml(newName)}"</strong> ressemble à ${similarFormateurs.length > 1 ? 'des formateurs existants' : 'un formateur existant'} :</p>
+            <div style="margin: 20px 0;">
+        `;
+
+        similarFormateurs.forEach((sim, idx) => {
+            const percent = Math.round(sim.similarity * 100);
+            const warning = sim.inverted ? ' (nom/prénom inversés)' : '';
+            html += `
+                <div style="margin: 10px 0; padding: 10px; background: #ecf0f1; border-radius: 5px;">
+                    <strong>${escapeHtml(sim.formateur.nom)}</strong> (${percent}% similaire${warning})
+                    <button class="btnValider" style="margin-left: 10px; padding: 5px 15px;" data-action="use" data-index="${idx}">
+                        Utiliser ce formateur
+                    </button>
+                </div>
+            `;
+        });
+
+        html += `
+            </div>
+            <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px;">
+                <button class="btnValider" data-action="create" style="background: #3498db;">
+                    Créer une nouvelle entrée "${escapeHtml(newName)}"
+                </button>
+                <button class="btnAnnuler" data-action="cancel" style="margin-left: 10px;">
+                    Annuler
+                </button>
+            </div>
+        `;
+
+        content.innerHTML = html;
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Gérer les clics sur les boutons
+        content.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+
+            const action = btn.getAttribute('data-action');
+
+            if (action === 'use') {
+                const index = parseInt(btn.getAttribute('data-index'));
+                document.body.removeChild(modal);
+                resolve({ action: 'use', formateur: similarFormateurs[index].formateur });
+            } else if (action === 'create') {
+                document.body.removeChild(modal);
+                resolve({ action: 'create' });
+            } else if (action === 'cancel') {
+                document.body.removeChild(modal);
+                resolve({ action: 'cancel' });
+            }
+        });
+    });
+}
+
+/**
  *  @class
  *  @function Quantity
  *  @param {DOMobject} element to create a quantity wrapper around
@@ -1012,13 +1197,42 @@ async function validerFormulaire() {
                 let formateur = formateursData.find(f => f.nom === formateurNom);
 
                 if (!formateur) {
-                    // Créer le nouveau formateur
-                    const result = await grist.docApi.applyUserActions([
-                        ['AddRecord', 'Formateurs', null, { Formateur: formateurNom }]
-                    ]);
-                    const newId = result.retValues[0];
-                    formateur = { id: newId, nom: formateurNom };
-                    formateursData.push(formateur);
+                    // Vérifier s'il existe des formateurs similaires
+                    const similarFormateurs = findSimilarFormateurs(formateurNom);
+
+                    if (similarFormateurs.length > 0) {
+                        const choice = await confirmFormateurChoice(
+                            similarFormateurs,
+                            formateurNom,
+                            null,
+                            null
+                        );
+
+                        if (choice.action === 'cancel') {
+                            return;
+                        }
+
+                        if (choice.action === 'use') {
+                            // Utiliser le formateur existant
+                            formateur = choice.formateur;
+                        } else {
+                            // Créer le nouveau formateur
+                            const result = await grist.docApi.applyUserActions([
+                                ['AddRecord', 'Formateurs', null, { Formateur: formateurNom }]
+                            ]);
+                            const newId = result.retValues[0];
+                            formateur = { id: newId, nom: formateurNom };
+                            formateursData.push(formateur);
+                        }
+                    } else {
+                        // Aucun formateur similaire, créer directement
+                        const result = await grist.docApi.applyUserActions([
+                            ['AddRecord', 'Formateurs', null, { Formateur: formateurNom }]
+                        ]);
+                        const newId = result.retValues[0];
+                        formateur = { id: newId, nom: formateurNom };
+                        formateursData.push(formateur);
+                    }
                 }
 
                 formateurIds.push(formateur.id);
@@ -2294,17 +2508,53 @@ async function updateFiche() {
         let formateur = formateursData.find(f => f.nom === nom);
 
         if (!formateur) {
-            try {
-                const result = await grist.docApi.applyUserActions([
-                    ['AddRecord', 'Formateurs', null, { Formateur: nom }]
-                ]);
-                const newId = result.retValues[0];
-                formateur = { id: newId, nom };
-                formateursData.push(formateur);
-            } catch (error) {
-                console.error('Erreur création formateur:', error);
-                alert('Erreur lors de la création du formateur: ' + nom);
-                return;
+            // Vérifier s'il existe des formateurs similaires
+            const similarFormateurs = findSimilarFormateurs(nom);
+
+            if (similarFormateurs.length > 0) {
+                const choice = await confirmFormateurChoice(
+                    similarFormateurs,
+                    nom,
+                    null,
+                    null
+                );
+
+                if (choice.action === 'cancel') {
+                    return;
+                }
+
+                if (choice.action === 'use') {
+                    // Utiliser le formateur existant
+                    formateur = choice.formateur;
+                } else {
+                    // Créer le nouveau formateur
+                    try {
+                        const result = await grist.docApi.applyUserActions([
+                            ['AddRecord', 'Formateurs', null, { Formateur: nom }]
+                        ]);
+                        const newId = result.retValues[0];
+                        formateur = { id: newId, nom };
+                        formateursData.push(formateur);
+                    } catch (error) {
+                        console.error('Erreur création formateur:', error);
+                        alert('Erreur lors de la création du formateur: ' + nom);
+                        return;
+                    }
+                }
+            } else {
+                // Aucun formateur similaire, créer directement
+                try {
+                    const result = await grist.docApi.applyUserActions([
+                        ['AddRecord', 'Formateurs', null, { Formateur: nom }]
+                    ]);
+                    const newId = result.retValues[0];
+                    formateur = { id: newId, nom };
+                    formateursData.push(formateur);
+                } catch (error) {
+                    console.error('Erreur création formateur:', error);
+                    alert('Erreur lors de la création du formateur: ' + nom);
+                    return;
+                }
             }
         }
 
@@ -2873,35 +3123,29 @@ function renderTechniqueModalContent(firstRecord) {
 
     let html = '';
 
-    // Afficher les champs manquants uniquement s'ils sont vides
-    if (techniqueMissingFields && typeof techniqueMissingFields === 'object') {
-        if (techniqueMissingFields.intitule) {
-            html += '<div class="form-group">';
-            html += '<label>Intitulé de la formation</label>';
-            html += `<input type="text" class="search-input" id="intituleTechnique" 
-                           value="${firstRecord ? escapeHtmlAttribute(firstRecord.intituleFormation || '') : ''}"
-                           placeholder="Intitulé de la formation">`;
-            html += '</div>';
-        }
+    // Afficher les champs Intitulé, Dispositif, Module (toujours, pas seulement s'ils sont vides)
+    html += '<h3>Informations de la formation</h3>';
 
-        if (techniqueMissingFields.dispositif) {
-            html += '<div class="form-group">';
-            html += '<label>Dispositif GAIA</label>';
-            html += `<input type="text" class="search-input" id="dispositifTechnique" 
-                           value="${firstRecord ? escapeHtmlAttribute(firstRecord.dispositifGAIA || '') : ''}"
-                           placeholder="Dispositif GAIA">`;
-            html += '</div>';
-        }
+    html += '<div class="form-group">';
+    html += '<label>Intitulé de la formation</label>';
+    html += `<input type="text" class="search-input" id="intituleTechnique" 
+                   value="${firstRecord ? escapeHtmlAttribute(firstRecord.intituleFormation || '') : ''}"
+                   placeholder="Intitulé de la formation">`;
+    html += '</div>';
 
-        if (techniqueMissingFields.module) {
-            html += '<div class="form-group">';
-            html += '<label>Module GAIA</label>';
-            html += `<input type="text" class="search-input" id="moduleTechnique" 
-                           value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
-                           placeholder="Module GAIA (5 chiffres)">`;
-            html += '</div>';
-        }
-    }
+    html += '<div class="form-group">';
+    html += '<label>Dispositif GAIA</label>';
+    html += `<input type="text" class="search-input" id="dispositifTechnique" 
+                   value="${firstRecord ? escapeHtmlAttribute(firstRecord.dispositifGAIA || '') : ''}"
+                   placeholder="Dispositif GAIA">`;
+    html += '</div>';
+
+    html += '<div class="form-group">';
+    html += '<label>Module GAIA</label>';
+    html += `<input type="text" class="search-input" id="moduleTechnique" 
+                   value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
+                   placeholder="Module GAIA (5 chiffres)">`;
+    html += '</div>';
 
     html += '<h3>Lieux de formation</h3>';
 
@@ -3408,6 +3652,40 @@ async function addNewFormateurTechnique(nom) {
     const nomClean = validateInput(nom, 100);
     if (!nomClean || nomClean.trim() === '') return;
 
+    // Vérifier s'il existe des formateurs similaires
+    const similarFormateurs = findSimilarFormateurs(nomClean);
+
+    if (similarFormateurs.length > 0) {
+        const choice = await confirmFormateurChoice(
+            similarFormateurs,
+            nomClean,
+            null,
+            null
+        );
+
+        if (choice.action === 'cancel') {
+            return;
+        }
+
+        if (choice.action === 'use') {
+            // Utiliser le formateur existant
+            const existingFormateur = choice.formateur;
+            if (!techniqueFormateurs.find(tf => tf.id === existingFormateur.id)) {
+                const tousLesCreneaux = techniqueDates.map((_, index) => index);
+                techniqueFormateurs.push({
+                    id: existingFormateur.id,
+                    nom: existingFormateur.nom,
+                    fonction: existingFormateur.fonction || '',
+                    creneaux: tousLesCreneaux
+                });
+                renderTechniqueModalContent();
+            }
+            return;
+        }
+
+        // Si choice.action === 'create', continuer avec la création
+    }
+
     const fonction = prompt('Fonction du formateur (optionnel) :');
     const fonctionClean = validateInput(fonction || '', 100);
 
@@ -3482,19 +3760,19 @@ async function generateFichesPDF() {
             Lieux_Dates: validateInput(lieuxDatesString, 1000)
         };
 
-        // Récupérer les champs Intitule, Dispositif, Module s'ils sont affichés
-        if (techniqueMissingFields.intitule) {
-            const intituleValue = document.getElementById('intituleTechnique')?.value || '';
+        // Récupérer les champs Intitulé, Dispositif, Module (toujours)
+        const intituleValue = document.getElementById('intituleTechnique')?.value || '';
+        if (intituleValue.trim() !== '') {
             updates.Intitule = validateInput(intituleValue, 200);
         }
 
-        if (techniqueMissingFields.dispositif) {
-            const dispositifValue = document.getElementById('dispositifTechnique')?.value || '';
+        const dispositifValue = document.getElementById('dispositifTechnique')?.value || '';
+        if (dispositifValue.trim() !== '') {
             updates.Dispositif_GAIA = validateInput(dispositifValue, 100);
         }
 
-        if (techniqueMissingFields.module) {
-            const moduleValue = document.getElementById('moduleTechnique')?.value || '';
+        const moduleValue = document.getElementById('moduleTechnique')?.value || '';
+        if (moduleValue.trim() !== '') {
             updates.Module_GAIA = validateInput(moduleValue, 10);
         }
 
