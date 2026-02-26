@@ -3566,7 +3566,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
         let y = 20;
 
         pdf.setFontSize(18);
-        pdf.text(`Action de formation ${record.departement || 'N/A'}`, 20, y);
+        pdf.text(`Action de formation ${record.departement || 'N/A'}`, 105, y, { align: 'center' });
         y += 10;
 
         pdf.setFontSize(14);
@@ -3603,45 +3603,87 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
         pdf.text(`Nombre de stagiaires : ${enseignants.length}`, 20, y);
         y += 10;
 
-        pdf.text('Liste des stagiaires :', 20, y);
-        y += 6;
-        enseignants.forEach(ens => {
+        // Créer le tableau des stagiaires
+        const stagiaireRows = enseignants.map(ens => {
             const ecole = ecolesData.find(e => e.id === ens.ecole);
-            pdf.setFontSize(10);
-            let line = `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'} | ${ecole?.nom || ecole?.commune_complement || 'N/A'} | ${ens.circonscription || 'N/A'}`;
+            const niveaux = ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0
+                ? ens.niveauClasse.join(', ')
+                : '';
+            const decharge = ens.decharge || '';
 
-            // Ajouter les niveaux de classe si présents
-            if (ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0) {
-                line += ` | ${ens.niveauClasse.join(', ')}`;
-            }
-
-            pdf.text(line, 25, y);
-            y += 5;
-
-            // Ajouter la décharge si présente
-            if (ens.decharge) {
-                pdf.setFontSize(9);
-                pdf.text(`   Décharge : ${ens.decharge}`, 30, y);
-                y += 4;
-                pdf.setFontSize(10);
-            }
-
-            if (y > 270) {
-                pdf.addPage();
-                y = 20;
-            }
+            return [
+                `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'}`,
+                ecole?.nom || ecole?.commune_complement || 'N/A',
+                ens.circonscription || '',
+                niveaux,
+                decharge
+            ];
         });
 
-        y += 6;
+        pdf.autoTable({
+            startY: y,
+            head: [['Nom Prénom', 'École', 'Circonscription', 'Niveau(x)', 'Décharge']],
+            body: stagiaireRows,
+            theme: 'striped',
+            styles: {
+                fontSize: 9,
+                cellPadding: 3,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [52, 152, 219],
+                textColor: 255,
+                fontStyle: 'bold',
+                fontSize: 10
+            },
+            columnStyles: {
+                0: { cellWidth: 42 },  // Nom Prénom
+                1: { cellWidth: 55 },  // École
+                2: { cellWidth: 30 },  // Circonscription
+                3: { cellWidth: 32 },  // Niveau(x)
+                4: { cellWidth: 31 }   // Décharge
+            },
+            margin: { left: 20, right: 20 }
+        });
+
+        y = pdf.lastAutoTable.finalY + 10;
+
+        // Créer le tableau des formateurs
         pdf.setFontSize(12);
         pdf.text(`Nombre de formateurs : ${formateurs.length}`, 20, y);
-        y += 6;
+        y += 8;
 
-        formateurs.forEach(form => {
-            pdf.setFontSize(10);
-            pdf.text(`${form.nom} | ${form.fonction || 'N/A'}`, 25, y);
-            y += 5;
-        });
+        if (formateurs.length > 0) {
+            const formateurRows = formateurs.map(form => [
+                form.nom,
+                form.fonction || ''
+            ]);
+
+            pdf.autoTable({
+                startY: y,
+                head: [['Nom', 'Fonction']],
+                body: formateurRows,
+                theme: 'striped',
+                styles: {
+                    fontSize: 9,
+                    cellPadding: 3,
+                    overflow: 'linebreak'
+                },
+                headStyles: {
+                    fillColor: [46, 204, 113],
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    fontSize: 10
+                },
+                columnStyles: {
+                    0: { cellWidth: 60 },  // Nom
+                    1: { cellWidth: 110 }  // Fonction
+                },
+                margin: { left: 20, right: 20 }
+            });
+
+            y = pdf.lastAutoTable.finalY + 10;
+        }
 
         if (commentaire && commentaire.trim() !== '') {
             y += 6;
