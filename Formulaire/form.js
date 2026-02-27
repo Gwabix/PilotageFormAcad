@@ -3686,7 +3686,7 @@ function selectFormateurTechnique(nom) {
         techniqueFormateurs.push({
             id: formateur.id,
             nom: formateur.nom,
-            fonction: '',
+            fonction: formateur.fonction || '',
             creneaux: tousLesCreneaux
         });
         renderTechniqueModalContent();
