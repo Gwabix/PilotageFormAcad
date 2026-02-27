@@ -3068,13 +3068,25 @@ function openTechniqueModal(ficheRecords, firstRecord, tableData, recordIndex) {
         ? firstRecord.formateurs.filter(id => typeof id === 'number')
         : [];
 
+    // Charger la chaîne Formateurs_Creneaux depuis Grist
+    const formateursCreneauxStr = tableData.Formateurs_Creneaux
+        ? sanitizeGristData(tableData.Formateurs_Creneaux[recordIndex])
+        : '';
+
+    // Parser pour obtenir le mapping formateur -> créneaux
+    const formateurCreneauxMap = parseFormateursCreneaux(
+        formateursCreneauxStr,
+        formateurIdsInFiche,
+        techniqueDates.length
+    );
+
     techniqueFormateurs = formateursData
         .filter(f => formateurIdsInFiche.includes(f.id))
         .map(f => ({
             id: f.id,
             nom: f.nom,
             fonction: '',
-            creneaux: [0]
+            creneaux: formateurCreneauxMap[f.id] || []
         }));
 
     renderTechniqueModalContent(firstRecord);
@@ -3712,6 +3724,110 @@ async function addNewFormateurTechnique(nom) {
     }
 }
 
+/**
+ * Génère la chaîne Formateurs_Creneaux à sauvegarder dans Grist
+ * Format: "Formateur1(Debut1, Fin1, Debut3, Fin3), Formateur2(Debut2, Fin2)"
+ * Si tous les formateurs sont sur tous les créneaux, retourne une chaîne vide
+ * @param {Array} formateurs - Liste des formateurs avec leurs créneaux
+ * @param {Array} datesValides - Liste des dates valides
+ * @returns {string} Chaîne encodant les associations formateurs-créneaux
+ */
+function generateFormateursCreneauxString(formateurs, datesValides) {
+    if (!formateurs || formateurs.length === 0 || !datesValides || datesValides.length === 0) {
+        return '';
+    }
+
+    // Vérifier si tous les formateurs sont présents sur tous les créneaux
+    const totalCreneaux = datesValides.length;
+    const allPresent = formateurs.every(f => {
+        // Compter combien de créneaux valides ce formateur couvre
+        const validCreneaux = f.creneaux.filter(creneauIdx => {
+            const creneauData = techniqueDates[creneauIdx];
+            return datesValides.includes(creneauData);
+        });
+        return validCreneaux.length === totalCreneaux;
+    });
+
+    // Si tous sont présents partout, ne rien encoder
+    if (allPresent) {
+        return '';
+    }
+
+    // Sinon, encoder les associations
+    const parts = formateurs.map(formateur => {
+        // Trouver quels créneaux (indices dans techniqueDates) sont présents pour ce formateur
+        const creneauxPresents = formateur.creneaux
+            .map(creneauIdx => {
+                const creneauData = techniqueDates[creneauIdx];
+                const indexInDatesValides = datesValides.indexOf(creneauData);
+                if (indexInDatesValides >= 0) {
+                    // Retourner le numéro de colonne Grist (index + 1)
+                    return indexInDatesValides + 1;
+                }
+                return null;
+            })
+            .filter(colNum => colNum !== null)
+            .sort((a, b) => a - b);
+
+        // Générer la liste "Debut1, Fin1, Debut3, Fin3"
+        const colonnes = creneauxPresents
+            .map(colNum => `Debut${colNum}, Fin${colNum}`)
+            .join(', ');
+
+        return `${formateur.nom}(${colonnes})`;
+    });
+
+    return parts.join(', ');
+}
+
+/**
+ * Parse la chaîne Formateurs_Creneaux et retourne un objet de mapping formateur -> créneaux
+ * @param {string} formateursCreneauxStr - Chaîne à parser
+ * @param {Array} formateurIds - Liste des IDs des formateurs de la fiche
+ * @param {number} totalDatesValides - Nombre total de dates valides
+ * @returns {Object} Map: idFormateur -> array d'indices de créneaux
+ */
+function parseFormateursCreneaux(formateursCreneauxStr, formateurIds, totalDatesValides) {
+    const result = {};
+
+    // Si la chaîne est vide, tous les formateurs sont sur tous les créneaux
+    if (!formateursCreneauxStr || formateursCreneauxStr.trim() === '') {
+        formateurIds.forEach(id => {
+            // Tous les créneaux : [0, 1, 2, ..., totalDatesValides-1]
+            result[id] = Array.from({ length: totalDatesValides }, (_, i) => i);
+        });
+        return result;
+    }
+
+    // Parser la chaîne : "Formateur1(Debut1, Fin1, Debut3, Fin3), Formateur2(Debut2, Fin2)"
+    const formateurParts = formateursCreneauxStr.split(/\),\s*/);
+
+    formateurParts.forEach(part => {
+        // Extraire nom et créneaux
+        const match = part.match(/^(.+?)\((.+)\)?\s*$/);
+        if (match) {
+            const formateurNom = match[1].trim();
+            const creneauxStr = match[2] || '';
+
+            // Trouver l'ID du formateur par son nom
+            const formateur = formateursData.find(f => f.nom === formateurNom);
+            if (!formateur) return;
+
+            // Extraire les numéros de colonnes : "Debut1, Fin1, Debut3, Fin3" -> [1, 3]
+            const colonnesNums = [];
+            const debutMatches = creneauxStr.matchAll(/Debut(\d+)/g);
+            for (const m of debutMatches) {
+                colonnesNums.push(parseInt(m[1], 10));
+            }
+
+            // Convertir numéros de colonnes en indices de créneaux (colNum - 1)
+            result[formateur.id] = colonnesNums.map(colNum => colNum - 1);
+        }
+    });
+
+    return result;
+}
+
 async function saveFicheTechniqueOnly() {
     if (!currentTechniqueFiche || currentTechniqueFiche.length === 0) {
         alert('Aucune fiche sélectionnée.');
@@ -3775,6 +3891,10 @@ async function saveFicheTechniqueOnly() {
         const selectedFormateurs = techniqueFormateurs.filter(f => f.creneaux && f.creneaux.length > 0);
         if (selectedFormateurs.length > 0) {
             updates.Formateur_s_ = ['L', ...selectedFormateurs.map(f => f.id)];
+
+            // Générer la chaîne Formateurs_Creneaux
+            const formateursCreneauxString = generateFormateursCreneauxString(selectedFormateurs, datesValides);
+            updates.Formateurs_Creneaux = validateInput(formateursCreneauxString, 2000);
         }
 
         // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
@@ -3859,6 +3979,10 @@ async function generateFichesPDF() {
         const selectedFormateurs = techniqueFormateurs.filter(f => f.creneaux && f.creneaux.length > 0);
         if (selectedFormateurs.length > 0) {
             updates.Formateur_s_ = ['L', ...selectedFormateurs.map(f => f.id)];
+
+            // Générer la chaîne Formateurs_Creneaux
+            const formateursCreneauxString = generateFormateursCreneauxString(selectedFormateurs, datesValides);
+            updates.Formateurs_Creneaux = validateInput(formateursCreneauxString, 2000);
         }
 
         // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
