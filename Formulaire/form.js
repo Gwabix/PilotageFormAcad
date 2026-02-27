@@ -4074,9 +4074,9 @@ async function generateFichesPDF() {
         // Générer le PDF avec les données mises à jour
         const updatedRecord = {
             ...firstRecord,
-            intituleFormation: updates.Intitule || firstRecord.intituleFormation,
-            dispositifGAIA: updates.Dispositif_GAIA || firstRecord.dispositifGAIA,
-            moduleGAIA: updates.Module_GAIA || firstRecord.moduleGAIA
+            intituleFormation: updates.Intitule,
+            dispositifGAIA: updates.Dispositif_GAIA,
+            moduleGAIA: updates.Module_GAIA
         };
 
         await generatePDFForLieux(updatedRecord, lieuxRemplis, datesValides, selectedFormateurs, commentaire);
