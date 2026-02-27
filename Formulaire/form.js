@@ -44,7 +44,6 @@ let techniqueDates = [];
 let techniqueFormateurs = [];
 let techniqueFormateurSearchResults = [];
 let activeTechniqueFormateurResultIndex = -1;
-let techniqueMissingFields = [];
 
 // Variables pour la recherche de formateurs dans l'onglet édition
 let activeEditFormateurResultIndex = -1;
@@ -2583,9 +2582,9 @@ async function updateFiche() {
 
     // Fonction helper pour normaliser et comparer les tableaux
     const arraysEqual = (arr1, arr2) => {
-        // Convertir en tableau si ce n'est pas déjà un tableau, puis filtrer null, undefined ET le 'L' de Grist
-        const a1 = (Array.isArray(arr1) ? arr1 : []).filter(v => v !== null && v !== undefined && v !== 'L');
-        const a2 = (Array.isArray(arr2) ? arr2 : []).filter(v => v !== null && v !== undefined && v !== 'L');
+        // Filtrer null, undefined ET le 'L' de Grist
+        const a1 = (arr1 || []).filter(v => v !== null && v !== undefined && v !== 'L');
+        const a2 = (arr2 || []).filter(v => v !== null && v !== undefined && v !== 'L');
         return JSON.stringify([...a1].sort()) === JSON.stringify([...a2].sort());
     };
 
@@ -3009,64 +3008,8 @@ async function selectFicheTechnique(idFiche) {
             return;
         }
 
-        const missingFieldsInfo = {
-            intitule: false,
-            dispositif: false,
-            module: false,
-            lieux: [],
-            dates: [],
-            commentaire: false
-        };
-
-        // Vérifier Intitulé, Dispositif, Module
-        const intitule = tableData.Intitule ? tableData.Intitule[recordIndex] : null;
-        if (!intitule || intitule.trim() === '') {
-            missingFieldsInfo.intitule = true;
-        }
-
-        const dispositif = tableData.Dispositif_GAIA ? tableData.Dispositif_GAIA[recordIndex] : null;
-        if (!dispositif || dispositif.trim() === '') {
-            missingFieldsInfo.dispositif = true;
-        }
-
-        const module = tableData.Module_GAIA ? tableData.Module_GAIA[recordIndex] : null;
-        if (!module || module.trim() === '') {
-            missingFieldsInfo.module = true;
-        }
-
-        // Vérifier lieux
-        for (let i = 1; i <= 4; i++) {
-            const lieu = tableData[`Lieu${i}`] ? tableData[`Lieu${i}`][recordIndex] : null;
-            if (!lieu || lieu.trim() === '') {
-                missingFieldsInfo.lieux.push(i);
-            }
-        }
-
-        // Vérifier dates
-        for (let i = 1; i <= 10; i++) {
-            const debut = tableData[`Debut${i}`] ? tableData[`Debut${i}`][recordIndex] : null;
-            const fin = tableData[`Fin${i}`] ? tableData[`Fin${i}`][recordIndex] : null;
-            if (!debut || !fin) {
-                missingFieldsInfo.dates.push(i);
-            }
-        }
-
-        // Vérifier commentaire
-        const commentaire = tableData.Commentaire ? tableData.Commentaire[recordIndex] : null;
-        if (!commentaire || commentaire.trim() === '') {
-            missingFieldsInfo.commentaire = true;
-        }
-
-        // Vérifier s'il y a au moins un champ manquant
-        const hasMissingFields = missingFieldsInfo.intitule || missingFieldsInfo.dispositif || missingFieldsInfo.module ||
-            missingFieldsInfo.lieux.length > 0 || missingFieldsInfo.dates.length > 0 || missingFieldsInfo.commentaire;
-
-        if (!hasMissingFields) {
-            alert('Tous les champs nécessaires sont déjà remplis pour cette fiche.');
-            return;
-        }
-
-        openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo);
+        // Ouvrir la modal de fiche technique (tous les champs sont modifiables)
+        openTechniqueModal(ficheRecords, firstRecord);
 
     } catch (error) {
         console.error('Erreur lors de la récupération des données:', error);
@@ -3074,9 +3017,8 @@ async function selectFicheTechnique(idFiche) {
     }
 }
 
-function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
+function openTechniqueModal(ficheRecords, firstRecord) {
     currentTechniqueFiche = ficheRecords;
-    techniqueMissingFields = missingFieldsInfo;
     techniqueLieux = [{ value: '' }];
     techniqueDates = [{ lieu: 0, date: '', debut: '', fin: '', editable: true }];
 
@@ -3101,7 +3043,6 @@ function openTechniqueModal(ficheRecords, firstRecord, missingFieldsInfo) {
 function closeTechniqueModal() {
     document.getElementById('editTechniqueModal').classList.remove('active');
     currentTechniqueFiche = null;
-    techniqueMissingFields = [];
     techniqueLieux = [];
     techniqueDates = [];
     techniqueFormateurs = [];
@@ -3116,7 +3057,6 @@ function renderTechniqueModalContent(firstRecord) {
 
     let html = '';
 
-    // Afficher les champs Intitulé, Dispositif, Module (toujours, pas seulement s'ils sont vides)
     html += '<h3>Informations de la formation</h3>';
 
     html += '<div class="form-group">';
@@ -3126,6 +3066,7 @@ function renderTechniqueModalContent(firstRecord) {
                    placeholder="Intitulé de la formation">`;
     html += '</div>';
 
+    html += '<div class="gaia-fields-technique">';
     html += '<div class="form-group">';
     html += '<label>Dispositif GAIA</label>';
     html += `<input type="text" class="search-input" id="dispositifTechnique" 
@@ -3139,6 +3080,7 @@ function renderTechniqueModalContent(firstRecord) {
                    value="${firstRecord ? escapeHtmlAttribute(firstRecord.moduleGAIA || '') : ''}"
                    placeholder="Module GAIA (5 chiffres)">`;
     html += '</div>';
+    html += '</div>'; // fin gaia-fields-technique
 
     html += '<h3>Lieux de formation</h3>';
 
@@ -3753,7 +3695,7 @@ async function generateFichesPDF() {
             Lieux_Dates: validateInput(lieuxDatesString, 1000)
         };
 
-        // Récupérer les champs Intitulé, Dispositif, Module (toujours)
+        // Récupérer les champs Intitulé, Dispositif, Module si renseignés
         const intituleValue = document.getElementById('intituleTechnique')?.value || '';
         if (intituleValue.trim() !== '') {
             updates.Intitule = validateInput(intituleValue, 200);
