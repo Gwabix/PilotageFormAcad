@@ -3094,7 +3094,7 @@ function renderTechniqueModalContent(firstRecord) {
                     <div class="lieu-input-container">
                         <input type="text" class="search-input" id="lieu${index}" 
                                value="${escapeHtmlAttribute(lieu.value)}"
-                               placeholder="Commune et établissement, ou &#34;visioconférence&#34;"
+                               placeholder="Commune et établissement, &#34;visioconférence&#34; ou lien de connexion"
                                onchange="updateLieu(${index}, this.value)">
                         <button type="button" class="btn-visio" onclick="setVisio(${index})">Visioconférence</button>
                     </div>
