@@ -837,6 +837,15 @@
             background-color: #7f8c8d;
         }
 
+        .modal-footer .btn-save {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .modal-footer .btn-save:hover {
+            background-color: #2980b9;
+        }
+
         .modal-footer .btn-submit {
             background-color: #27ae60;
             color: white;
@@ -924,6 +933,8 @@
 
         .btn-visio:hover {
             background-color: #e8f4fd;
+            color: #2c3e50;
+            border: 1px solid #ddd;
         }
 
         /* Tableaux formateurs - Layout horizontal */
@@ -1796,6 +1807,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeTechniqueModal()">Annuler</button>
+                <button class="btn-save" onclick="saveFicheTechniqueOnly()">Enregistrer et revenir</button>
                 <button class="btn-submit" onclick="generateFichesPDF()">Éditer fiches</button>
             </div>
         </div>

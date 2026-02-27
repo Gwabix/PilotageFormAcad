@@ -3009,7 +3009,7 @@ async function selectFicheTechnique(idFiche) {
         }
 
         // Ouvrir la modal de fiche technique (tous les champs sont modifiables)
-        openTechniqueModal(ficheRecords, firstRecord);
+        openTechniqueModal(ficheRecords, firstRecord, tableData, recordIndex);
 
     } catch (error) {
         console.error('Erreur lors de la récupération des données:', error);
@@ -3017,10 +3017,52 @@ async function selectFicheTechnique(idFiche) {
     }
 }
 
-function openTechniqueModal(ficheRecords, firstRecord) {
+function openTechniqueModal(ficheRecords, firstRecord, tableData, recordIndex) {
     currentTechniqueFiche = ficheRecords;
-    techniqueLieux = [{ value: '' }];
-    techniqueDates = [{ lieu: 0, date: '', debut: '', fin: '', editable: true }];
+
+    // Charger les lieux existants (Lieu1 à Lieu4)
+    techniqueLieux = [];
+    for (let i = 1; i <= 4; i++) {
+        const lieuValue = tableData[`Lieu${i}`] ? sanitizeGristData(tableData[`Lieu${i}`][recordIndex]) : '';
+        if (lieuValue && lieuValue.trim() !== '') {
+            techniqueLieux.push({ value: lieuValue });
+        }
+    }
+    // S'assurer qu'il y a au moins un lieu vide
+    if (techniqueLieux.length === 0) {
+        techniqueLieux.push({ value: '' });
+    }
+
+    // Charger les dates existantes (Debut1/Fin1 à Debut10/Fin10)
+    techniqueDates = [];
+    for (let i = 1; i <= 10; i++) {
+        const debutTimestamp = tableData[`Debut${i}`] ? tableData[`Debut${i}`][recordIndex] : null;
+        const finTimestamp = tableData[`Fin${i}`] ? tableData[`Fin${i}`][recordIndex] : null;
+
+        if (debutTimestamp && finTimestamp) {
+            const debutDate = new Date(debutTimestamp * 1000);
+            const finDate = new Date(finTimestamp * 1000);
+
+            // Extraire date, heure de début et heure de fin
+            const dateStr = debutDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            const debutHeure = debutDate.toTimeString().substring(0, 5); // HH:MM
+            const finHeure = finDate.toTimeString().substring(0, 5); // HH:MM
+
+            // Déterminer à quel lieu appartient cette date (simplifié : associé au premier lieu par défaut)
+            // TODO: Améliorer la logique si nécessaire
+            techniqueDates.push({
+                lieu: 0,
+                date: dateStr,
+                debut: debutHeure,
+                fin: finHeure,
+                editable: true
+            });
+        }
+    }
+    // S'assurer qu'il y a au moins une date vide
+    if (techniqueDates.length === 0) {
+        techniqueDates.push({ lieu: 0, date: '', debut: '', fin: '', editable: true });
+    }
 
     const formateurIdsInFiche = Array.isArray(firstRecord.formateurs)
         ? firstRecord.formateurs.filter(id => typeof id === 'number')
@@ -3670,6 +3712,90 @@ async function addNewFormateurTechnique(nom) {
     }
 }
 
+async function saveFicheTechniqueOnly() {
+    if (!currentTechniqueFiche || currentTechniqueFiche.length === 0) {
+        alert('Aucune fiche sélectionnée.');
+        return;
+    }
+
+    const lieuxRemplis = techniqueLieux.filter(l => l.value && l.value.trim() !== '');
+    if (lieuxRemplis.length === 0) {
+        alert('Veuillez renseigner au moins un lieu.');
+        return;
+    }
+
+    const datesValides = techniqueDates.filter(d => d.date && d.debut && d.fin && d.editable);
+    if (datesValides.length === 0) {
+        alert('Veuillez renseigner au moins une date/horaire complète avec édition activée.');
+        return;
+    }
+
+    try {
+        const firstRecord = currentTechniqueFiche[0];
+
+        const lieuxDatesString = lieuxRemplis.map((lieu, idx) => {
+            const datesForLieu = datesValides
+                .filter(d => d.lieu === idx)
+                .map((_, dIdx) => `Debut${dIdx + 1}, Fin${dIdx + 1}`)
+                .join(', ');
+            return `Lieu${idx + 1}(${datesForLieu})`;
+        }).join(', ');
+
+        const commentaire = document.getElementById('commentaireTechnique')?.value || '';
+
+        const updates = {
+            Commentaire: validateInput(commentaire, 5000),
+            Lieux_Dates: validateInput(lieuxDatesString, 1000)
+        };
+
+        // Récupérer les champs Intitulé, Dispositif, Module (toujours sauvegarder, même si vides)
+        const intituleValue = document.getElementById('intituleTechnique')?.value || '';
+        updates.Intitule = validateInput(intituleValue, 200);
+
+        const dispositifValue = document.getElementById('dispositifTechnique')?.value || '';
+        updates.Dispositif_GAIA = validateInput(dispositifValue, 100);
+
+        const moduleValue = document.getElementById('moduleTechnique')?.value || '';
+        updates.Module_GAIA = validateInput(moduleValue, 10);
+
+        lieuxRemplis.forEach((lieu, idx) => {
+            updates[`Lieu${idx + 1}`] = validateInput(lieu.value, 200);
+        });
+
+        datesValides.forEach((date, idx) => {
+            if (date.date && date.debut && date.fin) {
+                const dateTime = new Date(date.date + 'T' + date.debut);
+                updates[`Debut${idx + 1}`] = dateTime.getTime() / 1000;
+
+                const dateTimeFin = new Date(date.date + 'T' + date.fin);
+                updates[`Fin${idx + 1}`] = dateTimeFin.getTime() / 1000;
+            }
+        });
+
+        const selectedFormateurs = techniqueFormateurs.filter(f => f.creneaux && f.creneaux.length > 0);
+        if (selectedFormateurs.length > 0) {
+            updates.Formateur_s_ = ['L', ...selectedFormateurs.map(f => f.id)];
+        }
+
+        // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
+        const updateActions = currentTechniqueFiche.map(record => [
+            'UpdateRecord', 'Tableau_de_bord', record.id, updates
+        ]);
+
+        await grist.docApi.applyUserActions(updateActions);
+
+        alert('Données sauvegardées avec succès !');
+
+        closeTechniqueModal();
+        await loadData();
+        updateFilteredRecordsTechnique();
+
+    } catch (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde des données. Consultez la console.');
+    }
+}
+
 async function generateFichesPDF() {
     if (!currentTechniqueFiche || currentTechniqueFiche.length === 0) {
         alert('Aucune fiche sélectionnée.');
@@ -3706,21 +3832,15 @@ async function generateFichesPDF() {
             Lieux_Dates: validateInput(lieuxDatesString, 1000)
         };
 
-        // Récupérer les champs Intitulé, Dispositif, Module si renseignés
+        // Récupérer les champs Intitulé, Dispositif, Module (toujours sauvegarder, même si vides)
         const intituleValue = document.getElementById('intituleTechnique')?.value || '';
-        if (intituleValue.trim() !== '') {
-            updates.Intitule = validateInput(intituleValue, 200);
-        }
+        updates.Intitule = validateInput(intituleValue, 200);
 
         const dispositifValue = document.getElementById('dispositifTechnique')?.value || '';
-        if (dispositifValue.trim() !== '') {
-            updates.Dispositif_GAIA = validateInput(dispositifValue, 100);
-        }
+        updates.Dispositif_GAIA = validateInput(dispositifValue, 100);
 
         const moduleValue = document.getElementById('moduleTechnique')?.value || '';
-        if (moduleValue.trim() !== '') {
-            updates.Module_GAIA = validateInput(moduleValue, 10);
-        }
+        updates.Module_GAIA = validateInput(moduleValue, 10);
 
         lieuxRemplis.forEach((lieu, idx) => {
             updates[`Lieu${idx + 1}`] = validateInput(lieu.value, 200);
@@ -3780,148 +3900,203 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
     const ecoleIds = [...new Set(enseignants.map(r => r.ecole))];
     const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
 
+    // Pour chaque lieu, on va grouper les dates par ensemble de formateurs
     for (let lieuIndex = 0; lieuIndex < lieux.length; lieuIndex++) {
         const lieu = lieux[lieuIndex];
         const datesForLieu = dates.filter(d => d.lieu === lieuIndex);
 
         if (datesForLieu.length === 0) continue;
 
-        const pdf = new jsPDF();
-        let y = 20;
+        // Grouper les dates par formateurs présents
+        const dateGroups = groupDatesByFormateurs(datesForLieu, formateurs);
 
-        pdf.setFontSize(18);
-        pdf.text(`Action de formation ${record.departement || 'N/A'}`, 105, y, { align: 'center' });
-        y += 10;
+        // Générer une fiche par groupe de dates ayant les mêmes formateurs
+        for (const group of dateGroups) {
+            const pdf = new jsPDF();
+            let y = 20;
 
-        pdf.setFontSize(14);
+            pdf.setFontSize(18);
+            pdf.text(`Action de formation ${record.departement || 'N/A'}`, 105, y, { align: 'center' });
+            y += 10;
 
-        // Afficher l'intitulé seulement s'il est renseigné
-        if (record.intituleFormation && record.intituleFormation.trim() !== '') {
-            pdf.text(`Intitulé de la formation : ${record.intituleFormation}`, 20, y);
+            pdf.setFontSize(14);
+
+            // Afficher l'intitulé seulement s'il est renseigné
+            if (record.intituleFormation && record.intituleFormation.trim() !== '') {
+                pdf.text(`Intitulé de la formation : ${record.intituleFormation}`, 20, y);
+                y += 8;
+            }
+
+            // Afficher l'identifiant seulement si au moins un des deux est renseigné
+            if ((record.dispositifGAIA && record.dispositifGAIA.trim() !== '') ||
+                (record.moduleGAIA && record.moduleGAIA.trim() !== '')) {
+                const dispositif = record.dispositifGAIA && record.dispositifGAIA.trim() !== '' ? record.dispositifGAIA : 'N/A';
+                const module = record.moduleGAIA && record.moduleGAIA.trim() !== '' ? record.moduleGAIA : 'N/A';
+                pdf.text(`Identifiant : ${dispositif} - ${module}`, 20, y);
+                y += 8;
+            }
+
+            y += 2;
+
+            pdf.setFontSize(12);
+            pdf.text(`Lieu : ${lieu.value}`, 20, y);
             y += 8;
-        }
 
-        // Afficher l'identifiant seulement si au moins un des deux est renseigné
-        if ((record.dispositifGAIA && record.dispositifGAIA.trim() !== '') ||
-            (record.moduleGAIA && record.moduleGAIA.trim() !== '')) {
-            const dispositif = record.dispositifGAIA && record.dispositifGAIA.trim() !== '' ? record.dispositifGAIA : 'N/A';
-            const module = record.moduleGAIA && record.moduleGAIA.trim() !== '' ? record.moduleGAIA : 'N/A';
-            pdf.text(`Identifiant : ${dispositif} - ${module}`, 20, y);
-            y += 8;
-        }
+            // Afficher les dates de ce groupe
+            group.dates.forEach(date => {
+                pdf.text(`Date : ${date.date} | Horaires : ${date.debut}-${date.fin}`, 20, y);
+                y += 6;
+            });
+            y += 4;
 
-        y += 2;
-
-        pdf.setFontSize(12);
-        pdf.text(`Lieu : ${lieu.value}`, 20, y);
-        y += 8;
-
-        datesForLieu.forEach(date => {
-            pdf.text(`Date : ${date.date} | Horaires : ${date.debut}-${date.fin}`, 20, y);
+            pdf.text(`Nombre d'écoles : ${ecoles.length}`, 20, y);
             y += 6;
-        });
-        y += 4;
+            pdf.text(`Nombre de stagiaires : ${enseignants.length}`, 20, y);
+            y += 10;
 
-        pdf.text(`Nombre d'écoles : ${ecoles.length}`, 20, y);
-        y += 6;
-        pdf.text(`Nombre de stagiaires : ${enseignants.length}`, 20, y);
-        y += 10;
+            // Créer le tableau des stagiaires
+            const stagiaireRows = enseignants.map(ens => {
+                const ecole = ecolesData.find(e => e.id === ens.ecole);
+                const niveaux = ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0
+                    ? ens.niveauClasse.join(', ')
+                    : '';
+                const decharge = ens.decharge || '';
 
-        // Créer le tableau des stagiaires
-        const stagiaireRows = enseignants.map(ens => {
-            const ecole = ecolesData.find(e => e.id === ens.ecole);
-            const niveaux = ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0
-                ? ens.niveauClasse.join(', ')
-                : '';
-            const decharge = ens.decharge || '';
-
-            return [
-                `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'}`,
-                ecole?.nom || ecole?.commune_complement || 'N/A',
-                ens.circonscription || '',
-                niveaux,
-                decharge
-            ];
-        });
-
-        pdf.autoTable({
-            startY: y,
-            head: [['Nom Prénom', 'École', 'Circonscription', 'Niveau(x)', 'Décharge']],
-            body: stagiaireRows,
-            theme: 'striped',
-            styles: {
-                fontSize: 7,
-                cellPadding: 2,
-                overflow: 'linebreak'
-            },
-            headStyles: {
-                fillColor: [52, 152, 219],
-                textColor: 255,
-                fontStyle: 'bold',
-                fontSize: 8,
-                halign: 'center'
-            },
-            columnStyles: {
-                0: { cellWidth: 40 },  // Nom Prénom
-                1: { cellWidth: 40 },  // École
-                2: { cellWidth: 30 },  // Circonscription
-                3: { cellWidth: 30 },  // Niveau(x)
-                4: { cellWidth: 30 }   // Décharge
-            },
-            margin: { left: 10, right: 10 }
-        });
-
-        y = pdf.lastAutoTable.finalY + 10;
-
-        // Créer le tableau des formateurs
-        pdf.setFontSize(12);
-        pdf.text(`Nombre de formateurs : ${formateurs.length}`, 20, y);
-        y += 8;
-
-        if (formateurs.length > 0) {
-            const formateurRows = formateurs.map(form => [
-                form.nom,
-                form.fonction || ''
-            ]);
+                return [
+                    `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'}`,
+                    ecole?.nom || ecole?.commune_complement || 'N/A',
+                    ens.circonscription || '',
+                    niveaux,
+                    decharge
+                ];
+            });
 
             pdf.autoTable({
                 startY: y,
-                head: [['Nom', 'Fonction']],
-                body: formateurRows,
+                head: [['Nom Prénom', 'École', 'Circonscription', 'Niveau(x)', 'Décharge']],
+                body: stagiaireRows,
                 theme: 'striped',
                 styles: {
-                    fontSize: 9,
-                    cellPadding: 3,
+                    fontSize: 7,
+                    cellPadding: 2,
                     overflow: 'linebreak'
                 },
                 headStyles: {
-                    fillColor: [46, 204, 113],
+                    fillColor: [52, 152, 219],
                     textColor: 255,
                     fontStyle: 'bold',
-                    fontSize: 10
+                    fontSize: 8,
+                    halign: 'center'
                 },
                 columnStyles: {
-                    0: { cellWidth: 60 },  // Nom
-                    1: { cellWidth: 110 }  // Fonction
+                    0: { cellWidth: 40 },  // Nom Prénom
+                    1: { cellWidth: 40 },  // École
+                    2: { cellWidth: 30 },  // Circonscription
+                    3: { cellWidth: 30 },  // Niveau(x)
+                    4: { cellWidth: 30 }   // Décharge
                 },
-                margin: { left: 20, right: 20 }
+                margin: { left: 10, right: 10 }
             });
 
             y = pdf.lastAutoTable.finalY + 10;
-        }
 
-        if (commentaire && commentaire.trim() !== '') {
-            y += 6;
+            // Créer le tableau des formateurs (seulement ceux présents pour ces dates)
             pdf.setFontSize(12);
-            pdf.text('Informations complémentaires :', 20, y);
-            y += 6;
-            pdf.setFontSize(10);
-            const lines = pdf.splitTextToSize(commentaire, 170);
-            pdf.text(lines, 20, y);
-        }
+            pdf.text(`Nombre de formateurs : ${group.formateurs.length}`, 20, y);
+            y += 8;
 
-        pdf.save(`Fiche_${record.idFiche}_Lieu${lieuIndex + 1}.pdf`);
+            if (group.formateurs.length > 0) {
+                const formateurRows = group.formateurs.map(form => [
+                    form.nom,
+                    form.fonction || ''
+                ]);
+
+                pdf.autoTable({
+                    startY: y,
+                    head: [['Nom', 'Fonction']],
+                    body: formateurRows,
+                    theme: 'striped',
+                    styles: {
+                        fontSize: 9,
+                        cellPadding: 3,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: {
+                        fillColor: [46, 204, 113],
+                        textColor: 255,
+                        fontStyle: 'bold',
+                        fontSize: 10
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 60 },  // Nom
+                        1: { cellWidth: 110 }  // Fonction
+                    },
+                    margin: { left: 20, right: 20 }
+                });
+
+                y = pdf.lastAutoTable.finalY + 10;
+            }
+
+            if (commentaire && commentaire.trim() !== '') {
+                y += 6;
+                pdf.setFontSize(12);
+                pdf.text('Informations complémentaires :', 20, y);
+                y += 6;
+                pdf.setFontSize(10);
+                const lines = pdf.splitTextToSize(commentaire, 170);
+                pdf.text(lines, 20, y);
+            }
+
+            // Nom de fichier unique par groupe
+            const groupIndex = dateGroups.indexOf(group);
+            pdf.save(`Fiche_${record.idFiche}_Lieu${lieuIndex + 1}_Groupe${groupIndex + 1}.pdf`);
+        }
     }
+}
+
+// Fonction pour grouper les dates par ensemble de formateurs présents
+function groupDatesByFormateurs(dates, formateurs) {
+    const groups = [];
+
+    // Créer une map : index de date -> liste des IDs de formateurs présents
+    const dateFormateurMap = new Map();
+
+    dates.forEach((date, dateIdx) => {
+        // Trouver l'index global de cette date dans techniqueDates
+        const globalDateIndex = techniqueDates.indexOf(date);
+
+        // Trouver quels formateurs sont présents pour ce créneau
+        const formateursPresents = formateurs.filter(f =>
+            f.creneaux && f.creneaux.includes(globalDateIndex)
+        );
+
+        dateFormateurMap.set(dateIdx, formateursPresents);
+    });
+
+    // Grouper les dates qui ont exactement les mêmes formateurs
+    dates.forEach((date, dateIdx) => {
+        const formateursPresents = dateFormateurMap.get(dateIdx);
+        const formateurIds = formateursPresents.map(f => f.id).sort().join(',');
+
+        // Chercher si un groupe avec ces formateurs existe déjà
+        let existingGroup = groups.find(g => {
+            const groupFormateurIds = g.formateurs.map(f => f.id).sort().join(',');
+            return groupFormateurIds === formateurIds;
+        });
+
+        if (existingGroup) {
+            // Ajouter cette date au groupe existant
+            existingGroup.dates.push(date);
+        } else {
+            // Créer un nouveau groupe
+            groups.push({
+                formateurs: formateursPresents,
+                dates: [date]
+            });
+        }
+    });
+
+    return groups;
 }
 
 // Set up quantity forms
