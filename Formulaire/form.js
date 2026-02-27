@@ -3950,7 +3950,7 @@ async function saveFicheTechniqueOnly() {
             const originalFormateur = formateursData.find(f => f.id === formateur.id);
             if (originalFormateur && originalFormateur.fonction !== formateur.fonction) {
                 allUpdateActions.push([
-                    'UpdateRecord', 'Formateurs', formateur.id, 
+                    'UpdateRecord', 'Formateurs', formateur.id,
                     { Fonction: validateInput(formateur.fonction, 100) }
                 ]);
             }
@@ -4054,7 +4054,7 @@ async function generateFichesPDF() {
             const originalFormateur = formateursData.find(f => f.id === formateur.id);
             if (originalFormateur && originalFormateur.fonction !== formateur.fonction) {
                 allUpdateActions.push([
-                    'UpdateRecord', 'Formateurs', formateur.id, 
+                    'UpdateRecord', 'Formateurs', formateur.id,
                     { Fonction: validateInput(formateur.fonction, 100) }
                 ]);
             }
