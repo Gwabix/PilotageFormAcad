@@ -4262,6 +4262,17 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
     // Générer le nom de fichier pour l'ensemble de la fiche technique
     const fileName = generatePDFFileName(record, dates);
     pdf.save(fileName);
+
+    // Mettre à jour la colonne Edite à True pour toutes les lignes de la fiche technique
+    try {
+        const updateActions = currentTechniqueFiche.map(rec => [
+            'UpdateRecord', 'Tableau_de_bord', rec.id, { Edite: true }
+        ]);
+        await grist.docApi.applyUserActions(updateActions);
+        console.log('Colonne "Edite" mise à jour pour la fiche technique');
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour de la colonne Edite:', error);
+    }
 }
 
 /**
