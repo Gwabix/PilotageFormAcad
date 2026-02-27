@@ -3091,10 +3091,13 @@ function renderTechniqueModalContent(firstRecord) {
                 <h4>Lieu ${index + 1}</h4>
                 <div class="form-group">
                     <label class="required">Lieu de formation</label>
-                    <input type="text" class="search-input" id="lieu${index}" 
-                           value="${escapeHtmlAttribute(lieu.value)}"
-                           placeholder="Commune et établissement, ou &#34;visioconférence&#34;"
-                           onchange="updateLieu(${index}, this.value)">
+                    <div class="lieu-input-container">
+                        <input type="text" class="search-input" id="lieu${index}" 
+                               value="${escapeHtmlAttribute(lieu.value)}"
+                               placeholder="Commune et établissement, ou &#34;visioconférence&#34;"
+                               onchange="updateLieu(${index}, this.value)">
+                        <button type="button" class="btn-visio" onclick="setVisio(${index})">Visioconférence</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -3369,6 +3372,14 @@ function removeLieu(index) {
 
 function updateLieu(index, value) {
     techniqueLieux[index].value = validateInput(value, 200);
+}
+
+function setVisio(index) {
+    const lieuInput = document.getElementById(`lieu${index}`);
+    if (lieuInput) {
+        lieuInput.value = 'Visioconférence';
+        updateLieu(index, 'Visioconférence');
+    }
 }
 
 function addDate(lieuIndex) {
