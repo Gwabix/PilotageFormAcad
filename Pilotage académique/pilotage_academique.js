@@ -218,10 +218,12 @@ async function printPDF(targetClass) {
 
         // Générer le canvas avec html2canvas
         const canvas = await html2canvas(pdfContainer, {
-            scale: 2,
+            scale: 1,
             useCORS: true,
             logging: false,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            removeContainer: true,
+            imageTimeout: 0
         });
 
         // Nettoyer
@@ -236,10 +238,11 @@ async function printPDF(targetClass) {
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: 'a4'
+            format: 'a4',
+            compress: true
         });
 
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/jpeg', 0.8);
 
         // Si le contenu est plus grand qu'une page, ajuster
         if (imgHeight > 297) {
@@ -248,10 +251,10 @@ async function printPDF(targetClass) {
             for (let i = 0; i < totalPages; i++) {
                 if (i > 0) pdf.addPage();
                 const positionY = -(i * 297 * canvas.width / imgWidth);
-                pdf.addImage(imgData, 'PNG', 0, positionY, imgWidth, imgHeight);
+                pdf.addImage(imgData, 'JPEG', 0, positionY, imgWidth, imgHeight, undefined, 'FAST');
             }
         } else {
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
         }
 
         // Générer le nom du fichier
