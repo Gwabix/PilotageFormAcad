@@ -4119,7 +4119,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
                     3: { cellWidth: 30 },  // Niveau(x)
                     4: { cellWidth: 30 }   // Décharge
                 },
-                margin: { left: 10, right: 10 }
+                margin: { left: 20, right: 20 }
             });
 
             y = pdf.lastAutoTable.finalY + 10;
@@ -4171,11 +4171,59 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
                 pdf.text(lines, 20, y);
             }
 
-            // Nom de fichier unique par groupe
-            const groupIndex = dateGroups.indexOf(group);
-            pdf.save(`Fiche_${record.idFiche}_Lieu${lieuIndex + 1}_Groupe${groupIndex + 1}.pdf`);
+            // Nom de fichier selon le format : "Action de formation [département] – [date] – [Intitulé]"
+            const fileName = generatePDFFileName(record, group.dates);
+            pdf.save(fileName);
         }
     }
+}
+
+/**
+ * Génère le nom de fichier PDF selon le format demandé
+ * Format : "Action de formation [département] – [date] – [Intitulé].pdf"
+ * Date : date complète si une seule, année si plusieurs dates même année, années séparées par tiret si plusieurs années
+ * @param {Object} record - Enregistrement contenant département et intitulé
+ * @param {Array} dates - Liste des dates du groupe
+ * @returns {string} Nom du fichier PDF
+ */
+function generatePDFFileName(record, dates) {
+    const departement = record.departement || 'NA';
+    const intitule = record.intituleFormation || 'Formation';
+
+    // Nettoyer l'intitulé pour le nom de fichier (supprimer caractères interdits)
+    const intituleClean = intitule
+        .replace(/[<>:"/\\|?*]/g, '') // Caractères interdits Windows
+        .replace(/\s+/g, ' ') // Espaces multiples
+        .trim()
+        .substring(0, 100); // Limiter la longueur
+
+    // Analyser les dates
+    let datePart = '';
+
+    if (dates.length === 1) {
+        // Une seule date : garder la date complète
+        datePart = dates[0].date || 'date-inconnue';
+    } else if (dates.length > 1) {
+        // Extraire les années uniques et les trier
+        const annees = [...new Set(dates
+            .map(d => d.date ? d.date.substring(0, 4) : null)
+            .filter(a => a !== null)
+        )].sort();
+
+        if (annees.length === 1) {
+            // Plusieurs dates, même année : garder juste l'année
+            datePart = annees[0];
+        } else if (annees.length > 1) {
+            // Plusieurs années : les joindre par tiret dans l'ordre chronologique
+            datePart = annees.join('-');
+        } else {
+            datePart = 'dates-inconnues';
+        }
+    } else {
+        datePart = 'date-inconnue';
+    }
+
+    return `Action de formation ${departement} – ${datePart} – ${intituleClean}.pdf`;
 }
 
 // Fonction pour grouper les dates par ensemble de formateurs présents
