@@ -4101,8 +4101,10 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
     const ecoleIds = [...new Set(enseignants.map(r => r.ecole))];
     const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
 
-    // Créer un seul PDF pour toutes les fiches
-    const pdf = new jsPDF();
+    // Créer un seul PDF pour toutes les fiches avec compression activée
+    const pdf = new jsPDF({
+        compress: true
+    });
     let isFirstPage = true;
 
     // Pour chaque lieu, on va grouper les dates par ensemble de formateurs
@@ -4188,15 +4190,17 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
                 theme: 'striped',
                 styles: {
                     fontSize: 7,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
+                    cellPadding: 1.5,
+                    overflow: 'linebreak',
+                    lineWidth: 0.1
                 },
                 headStyles: {
                     fillColor: [52, 152, 219],
                     textColor: 255,
                     fontStyle: 'bold',
                     fontSize: 8,
-                    halign: 'center'
+                    halign: 'center',
+                    lineWidth: 0.1
                 },
                 columnStyles: {
                     0: { cellWidth: 40 },  // Nom Prénom
@@ -4205,7 +4209,9 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
                     3: { cellWidth: 30 },  // Niveau(x)
                     4: { cellWidth: 30 }   // Décharge
                 },
-                margin: { left: 20, right: 20 }
+                margin: { left: 20, right: 20 },
+                tableLineWidth: 0.1,
+                tableLineColor: [200, 200, 200]
             });
 
             y = pdf.lastAutoTable.finalY + 10;
@@ -4228,20 +4234,24 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
                     theme: 'striped',
                     styles: {
                         fontSize: 9,
-                        cellPadding: 3,
-                        overflow: 'linebreak'
+                        cellPadding: 2,
+                        overflow: 'linebreak',
+                        lineWidth: 0.1
                     },
                     headStyles: {
                         fillColor: [46, 204, 113],
                         textColor: 255,
                         fontStyle: 'bold',
-                        fontSize: 10
+                        fontSize: 10,
+                        lineWidth: 0.1
                     },
                     columnStyles: {
                         0: { cellWidth: 60 },  // Nom
                         1: { cellWidth: 110 }  // Fonction
                     },
-                    margin: { left: 20, right: 20 }
+                    margin: { left: 20, right: 20 },
+                    tableLineWidth: 0.1,
+                    tableLineColor: [200, 200, 200]
                 });
 
                 y = pdf.lastAutoTable.finalY + 10;
