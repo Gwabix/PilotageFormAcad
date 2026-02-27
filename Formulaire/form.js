@@ -409,7 +409,8 @@ async function loadData() {
         const formateursTable = await grist.docApi.fetchTable('Formateurs');
         formateursData = formateursTable.id.map((id, index) => ({
             id: id,
-            nom: sanitizeGristData(formateursTable.Formateur[index])
+            nom: sanitizeGristData(formateursTable.Formateur[index]),
+            fonction: sanitizeGristData(formateursTable.Fonction[index]) || ''
         })).filter(f => f.nom);
 
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
@@ -3085,7 +3086,7 @@ function openTechniqueModal(ficheRecords, firstRecord, tableData, recordIndex) {
         .map(f => ({
             id: f.id,
             nom: f.nom,
-            fonction: '',
+            fonction: f.fonction || '',
             creneaux: formateurCreneauxMap[f.id] || []
         }));
 
@@ -3941,12 +3942,28 @@ async function saveFicheTechniqueOnly() {
             updates.Formateurs_Creneaux = validateInput(formateursCreneauxString, 2000);
         }
 
-        // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
-        const updateActions = currentTechniqueFiche.map(record => [
-            'UpdateRecord', 'Tableau_de_bord', record.id, updates
-        ]);
+        // Préparer les actions de mise à jour
+        const allUpdateActions = [];
 
-        await grist.docApi.applyUserActions(updateActions);
+        // Mettre à jour les fonctions des formateurs si elles ont changé
+        selectedFormateurs.forEach(formateur => {
+            const originalFormateur = formateursData.find(f => f.id === formateur.id);
+            if (originalFormateur && originalFormateur.fonction !== formateur.fonction) {
+                allUpdateActions.push([
+                    'UpdateRecord', 'Formateurs', formateur.id, 
+                    { Fonction: validateInput(formateur.fonction, 100) }
+                ]);
+            }
+        });
+
+        // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
+        currentTechniqueFiche.forEach(record => {
+            allUpdateActions.push([
+                'UpdateRecord', 'Tableau_de_bord', record.id, updates
+            ]);
+        });
+
+        await grist.docApi.applyUserActions(allUpdateActions);
 
         alert('Données sauvegardées avec succès !');
 
@@ -4029,12 +4046,28 @@ async function generateFichesPDF() {
             updates.Formateurs_Creneaux = validateInput(formateursCreneauxString, 2000);
         }
 
-        // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
-        const updateActions = currentTechniqueFiche.map(record => [
-            'UpdateRecord', 'Tableau_de_bord', record.id, updates
-        ]);
+        // Préparer les actions de mise à jour
+        const allUpdateActions = [];
 
-        await grist.docApi.applyUserActions(updateActions);
+        // Mettre à jour les fonctions des formateurs si elles ont changé
+        selectedFormateurs.forEach(formateur => {
+            const originalFormateur = formateursData.find(f => f.id === formateur.id);
+            if (originalFormateur && originalFormateur.fonction !== formateur.fonction) {
+                allUpdateActions.push([
+                    'UpdateRecord', 'Formateurs', formateur.id, 
+                    { Fonction: validateInput(formateur.fonction, 100) }
+                ]);
+            }
+        });
+
+        // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
+        currentTechniqueFiche.forEach(record => {
+            allUpdateActions.push([
+                'UpdateRecord', 'Tableau_de_bord', record.id, updates
+            ]);
+        });
+
+        await grist.docApi.applyUserActions(allUpdateActions);
 
         alert('Données sauvegardées ! Génération des fiches PDF en cours...');
 
