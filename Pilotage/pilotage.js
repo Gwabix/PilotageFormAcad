@@ -234,7 +234,7 @@ async function printPDF(targetClass) {
             orientation: 'portrait',
             unit: 'mm',
             format: 'a4',
-            compress: true
+            compress: false
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.8);
