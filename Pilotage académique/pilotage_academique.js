@@ -242,7 +242,7 @@ async function printPDF(targetClass) {
             compress: false
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.8);
+        const imgData = canvas.toDataURL('image/jpeg', 1);
 
         // Si le contenu est plus grand qu'une page, ajuster
         if (imgHeight > 297) {
