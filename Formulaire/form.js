@@ -3102,6 +3102,13 @@ function closeTechniqueModal() {
     techniqueFormateurs = [];
 }
 
+function formatDateFR(dateStr) {
+    if (!dateStr || dateStr === 'Non défini') return dateStr;
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return dateStr;
+    return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
 function renderTechniqueModalContent(firstRecord) {
     if (!firstRecord && Array.isArray(currentTechniqueFiche) && currentTechniqueFiche.length > 0) {
         firstRecord = currentTechniqueFiche[0];
@@ -3194,6 +3201,7 @@ function renderTechniqueModalContent(firstRecord) {
 
                 html += `
                     <div class="date-header-row">
+                        <button class="remove-btn" onclick="removeDate(${lieuIndex}, '${escapeHtmlAttribute(firstCreneau.date)}')">×</button>
                         <div>
                             <label class="required">Date</label>
                             <input type="date" class="time-input"
@@ -3254,7 +3262,7 @@ function renderTechniqueModalContent(firstRecord) {
     // Construire la liste des créneaux pour l'affichage
     const allCreneaux = techniqueDates.map((creneau, idx) => ({
         index: idx,
-        dateStr: creneau.date || 'Non défini',
+        dateStr: formatDateFR(creneau.date || 'Non défini'),
         heureStr: creneau.debut && creneau.fin ? `${creneau.debut}-${creneau.fin}` : 'Heures non définies'
     }));
 
@@ -3471,6 +3479,42 @@ function addCreneauToDate(lieuIndex, dateValue) {
 
         renderTechniqueModalContent();
     }
+}
+
+function removeDate(lieuIndex, dateValue) {
+    // Trouver tous les créneaux de ce lieu avec cette date
+    const creneauxToRemove = techniqueDates
+        .map((creneau, idx) => ({ creneau, idx }))
+        .filter(({ creneau }) => creneau.lieu === lieuIndex && creneau.date === dateValue);
+
+    if (creneauxToRemove.length === 0) return;
+
+    // Vérifier qu'il reste au moins un créneau pour ce lieu
+    const creneauxInSameLieu = techniqueDates.filter(d => d.lieu === lieuIndex);
+    if (creneauxInSameLieu.length <= creneauxToRemove.length) {
+        alert('Impossible de supprimer cette date. Chaque lieu doit avoir au moins un créneau.');
+        return;
+    }
+
+    if (!confirm(`Supprimer tous les créneaux de cette date (${creneauxToRemove.length} créneau${creneauxToRemove.length > 1 ? 'x' : ''}) ?`)) {
+        return;
+    }
+
+    // Supprimer les créneaux en ordre décroissant d'index pour ne pas perturber les indices
+    const indicesToRemove = creneauxToRemove.map(({ idx }) => idx).sort((a, b) => b - a);
+
+    indicesToRemove.forEach(index => {
+        techniqueDates.splice(index, 1);
+
+        // Mettre à jour les index des créneaux dans les formateurs
+        techniqueFormateurs.forEach(formateur => {
+            formateur.creneaux = formateur.creneaux
+                .filter(creneauIndex => creneauIndex !== index)
+                .map(creneauIndex => creneauIndex > index ? creneauIndex - 1 : creneauIndex);
+        });
+    });
+
+    renderTechniqueModalContent();
 }
 
 function removeDateCreneau(index) {
@@ -4024,6 +4068,10 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
     const ecoleIds = [...new Set(enseignants.map(r => r.ecole))];
     const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
 
+    // Créer un seul PDF pour toutes les fiches
+    const pdf = new jsPDF();
+    let isFirstPage = true;
+
     // Pour chaque lieu, on va grouper les dates par ensemble de formateurs
     for (let lieuIndex = 0; lieuIndex < lieux.length; lieuIndex++) {
         const lieu = lieux[lieuIndex];
@@ -4036,7 +4084,12 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
         // Générer une fiche par groupe de dates ayant les mêmes formateurs
         for (const group of dateGroups) {
-            const pdf = new jsPDF();
+            // Ajouter une nouvelle page pour chaque fiche sauf la première
+            if (!isFirstPage) {
+                pdf.addPage();
+            }
+            isFirstPage = false;
+
             let y = 20;
 
             pdf.setFontSize(18);
@@ -4068,7 +4121,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
             // Afficher les dates de ce groupe
             group.dates.forEach(date => {
-                pdf.text(`Date : ${date.date} | Horaires : ${date.debut}-${date.fin}`, 20, y);
+                pdf.text(`Date : ${formatDateFR(date.date)} | Horaires : ${date.debut}-${date.fin}`, 20, y);
                 y += 6;
             });
             y += 4;
@@ -4170,12 +4223,12 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
                 const lines = pdf.splitTextToSize(commentaire, 170);
                 pdf.text(lines, 20, y);
             }
-
-            // Nom de fichier selon le format : "Action de formation [département] – [date] – [Intitulé]"
-            const fileName = generatePDFFileName(record, group.dates);
-            pdf.save(fileName);
         }
     }
+
+    // Générer le nom de fichier pour l'ensemble de la fiche technique
+    const fileName = generatePDFFileName(record, dates);
+    pdf.save(fileName);
 }
 
 /**
@@ -4183,7 +4236,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
  * Format : "Action de formation [département] – [date] – [Intitulé].pdf"
  * Date : date complète si une seule, année si plusieurs dates même année, années séparées par tiret si plusieurs années
  * @param {Object} record - Enregistrement contenant département et intitulé
- * @param {Array} dates - Liste des dates du groupe
+ * @param {Array} dates - Liste des dates
  * @returns {string} Nom du fichier PDF
  */
 function generatePDFFileName(record, dates) {
