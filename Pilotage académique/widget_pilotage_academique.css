@@ -855,7 +855,7 @@ body {
     z-index: 999;
     width: 50px;
     height: 50px;
-    background-color: #3498db;
+    background-color: #7034db;
     color: white;
     border: none;
     border-radius: 50%;
@@ -864,7 +864,7 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -877,9 +877,10 @@ body {
 }
 
 #scrollTopBtn:hover {
-    background-color: #2980b9;
+    background-color: #29036c;
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    align-items: start;
 }
 
 #scrollTopBtn:active {
