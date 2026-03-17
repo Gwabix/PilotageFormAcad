@@ -519,10 +519,13 @@ function selectEnseignant(ensId) {
 
             html += `<div class="year-card">`;
             html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">`;
-            html += `<span>Année scolaire ${escapeHtml(year)}</span>`;
+            html += `<div class="year-header-content">`;
+            html += `<div class="year-header-top"><span>Année scolaire ${escapeHtml(year)}</span>`;
             if (heuresLabel) html += `<span class="year-header-hours">${escapeHtml(heuresLabel)}</span>`;
             html += `</div>`;
             if (yearSubtitle) html += `<div class="year-header-subtitle">${escapeHtml(yearSubtitle)}</div>`;
+            html += `</div>`;
+            html += `</div>`;
             html += `<div class="year-content">`;
             html += `<div class="info-grid info-grid--two-cols">`;
 
