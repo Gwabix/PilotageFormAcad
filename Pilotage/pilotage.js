@@ -79,6 +79,7 @@ async function loadData() {
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
             id: id,
+            id_pe: enseignantsTable.ID_PE[index] || '',
             civilite: enseignantsTable.Civilite[index] || '',
             nom: enseignantsTable.Nom[index] || '',
             prenom: enseignantsTable.Prenom[index] || '',
@@ -86,7 +87,8 @@ async function loadData() {
             ecole: enseignantsTable.Ecole[index],
             fonction: enseignantsTable.Fonction[index] || '',
             quotite: enseignantsTable.Quotite_de_service[index] || '',
-            niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index])
+            niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index]),
+            annee_scolaire: enseignantsTable.Annee_scolaire[index] || ''
         }));
 
         const formateursTable = await grist.docApi.fetchTable('Formateurs');
@@ -389,11 +391,20 @@ function searchEnseignants(event) {
         return;
     }
 
-    // Filtrer les résultats
-    filteredEnseignants = enseignantsData.filter(e =>
+    // Filtrer les résultats et dédoublonner par id_pe (une seule entrée par personne)
+    const matched = enseignantsData.filter(e =>
         e.nom.toLowerCase().includes(searchTerm) ||
         e.prenom.toLowerCase().includes(searchTerm)
-    ).slice(0, 15);
+    );
+    const seen = new Map();
+    matched.forEach(e => {
+        const key = e.id_pe || String(e.id);
+        const existing = seen.get(key);
+        if (!existing || (e.annee_scolaire || '') > (existing.annee_scolaire || '')) {
+            seen.set(key, e);
+        }
+    });
+    filteredEnseignants = Array.from(seen.values()).slice(0, 15);
 
     selectedIndexEnseignant = 0;
 
@@ -433,15 +444,23 @@ function updateHighlightEnseignant() {
 
 function selectEnseignant(ensId) {
     document.getElementById('searchResultsEnseignant').style.display = 'none';
-    currentSelection = { type: 'enseignant', id: ensId };
 
     const enseignant = enseignantsData.find(e => e.id === ensId);
     if (!enseignant) return;
 
+    // Identifier la personne par son id_pe texte (stable à travers les années)
+    const idPeText = enseignant.id_pe || String(ensId);
+    currentSelection = { type: 'enseignant', id: idPeText };
+
     // Remplir le champ de recherche avec le nom complet
     document.getElementById('searchEnseignant').value = `${enseignant.prenom} ${enseignant.nom}`;
 
-    const formations = tableauBordData.filter(tb => tb.id_pe === ensId);
+    // Collecter toutes les entrées Liste_PE de cette personne (toutes années)
+    const allEnsRowIds = enseignantsData
+        .filter(e => (e.id_pe || String(e.id)) === idPeText)
+        .map(e => e.id);
+
+    const formations = tableauBordData.filter(tb => allEnsRowIds.includes(tb.id_pe));
 
     const formationsByYear = {};
     formations.forEach(formation => {
@@ -488,11 +507,22 @@ function selectEnseignant(ensId) {
             const totalHeures = yearFormations.reduce((sum, f) => sum + (f.temps_formation || 0), 0);
             const heuresLabel = totalHeures > 0 ? `(${totalHeures}h)` : '';
 
+            // Trouver l'entrée Liste_PE pour cette personne et cette année
+            const ensAnnee = enseignantsData.find(e => (e.id_pe || String(e.id)) === idPeText && e.annee_scolaire === year);
+            let yearSubtitle = '';
+            if (ensAnnee) {
+                const ecoleAnnee = ecolesData.find(e => e.id === ensAnnee.ecole);
+                const ecoleNomAnnee = ecoleAnnee ? ecoleAnnee.nom_complement_commune : '';
+                const parts = [ensAnnee.fonction, ecoleNomAnnee].filter(p => p && p.trim());
+                yearSubtitle = parts.join(' – ');
+            }
+
             html += `<div class="year-card">`;
             html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">`;
             html += `<span>Année scolaire ${escapeHtml(year)}</span>`;
             if (heuresLabel) html += `<span class="year-header-hours">${escapeHtml(heuresLabel)}</span>`;
             html += `</div>`;
+            if (yearSubtitle) html += `<div class="year-header-subtitle">${escapeHtml(yearSubtitle)}</div>`;
             html += `<div class="year-content">`;
             html += `<div class="info-grid info-grid--two-cols">`;
 
@@ -2189,13 +2219,17 @@ function exportToCSV(type) {
     let filename = '';
 
     if (type === 'enseignant') {
-        const enseignant = enseignantsData.find(e => e.id === currentSelection.id);
+        const idPeText = currentSelection.id;
+        const enseignant = enseignantsData.find(e => (e.id_pe || String(e.id)) === idPeText);
         if (!enseignant) return;
 
         filename = `formations_${enseignant.nom}_${enseignant.prenom}.csv`;
         csvContent = 'Année scolaire;École;Niveau(x);Type de formation;Modalité constitution;Objets transversaux;Thèmes\n';
 
-        const formations = tableauBordData.filter(tb => tb.id_pe === currentSelection.id);
+        const allEnsRowIds = enseignantsData
+            .filter(e => (e.id_pe || String(e.id)) === idPeText)
+            .map(e => e.id);
+        const formations = tableauBordData.filter(tb => allEnsRowIds.includes(tb.id_pe));
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
             const ecole = ecolesData.find(e => e.id === formation.ecole);

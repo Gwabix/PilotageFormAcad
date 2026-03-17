@@ -246,6 +246,20 @@ body {
     white-space: nowrap;
 }
 
+.year-header-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: #666;
+    padding: 0 20px;
+    margin-top: -12px;
+    margin-bottom: 16px;
+}
+
+.year-card:has(.year-content.collapsed) .year-header-subtitle {
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
 .year-card:has(.year-content.collapsed) .year-header {
     margin-bottom: 0;
 }

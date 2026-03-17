@@ -400,10 +400,12 @@ async function loadData() {
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
             id: id,
+            idPE: sanitizeGristData(enseignantsTable.ID_PE[index]),
             nom: sanitizeGristData(enseignantsTable.Nom[index]),
             prenom: sanitizeGristData(enseignantsTable.Prenom[index]),
             ecole: enseignantsTable.Ecole[index],
-            niveaux: sanitizeGristData(enseignantsTable.Niveau_x_[index]) || []
+            niveaux: sanitizeGristData(enseignantsTable.Niveau_x_[index]) || [],
+            annee_scolaire: sanitizeGristData(enseignantsTable.Annee_scolaire[index]) || ''
         }));
 
         const formateursTable = await grist.docApi.fetchTable('Formateurs');
@@ -624,9 +626,16 @@ function updateEnseignantsList() {
         return;
     }
 
+    const anneeScolaire = document.getElementById('anneeScolaire')?.value || '';
+    if (!anneeScolaire) {
+        container.innerHTML = '<div class="no-enseignants">Sélectionnez d\'abord l\'année scolaire</div>';
+        enseignantsMap.clear();
+        return;
+    }
+
     const selectedEcoleIds = selectedEcoles.map(e => e.id);
     const filteredEnseignants = enseignantsData.filter(ens =>
-        selectedEcoleIds.includes(ens.ecole)
+        selectedEcoleIds.includes(ens.ecole) && ens.annee_scolaire === anneeScolaire
     );
 
     if (filteredEnseignants.length === 0) {
@@ -1391,6 +1400,9 @@ document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
 document.getElementById('filterFrancais').addEventListener('change', filterThemes);
 document.getElementById('filterMathematiques').addEventListener('change', filterThemes);
 
+// Rafraîchir la liste des enseignants quand l'année scolaire change
+document.getElementById('anneeScolaire').addEventListener('change', updateEnseignantsList);
+
 loadData();
 filterThemes();
 addFormateurField();
@@ -1847,8 +1859,11 @@ function displayEditForm(ficheRecords) {
                 <label>Enseignants concernés</label>
                 <div id="editEnseignantsContainer">
                     ${(() => {
-            // Récupérer tous les enseignants des écoles concernées
-            const allEnseignants = enseignantsData.filter(ens => ecoleIds.includes(ens.ecole));
+            // Récupérer les enseignants des écoles concernées pour l'année de la fiche
+            const ficheAnnee = firstRecord.annee || '';
+            const allEnseignants = enseignantsData.filter(ens =>
+                ecoleIds.includes(ens.ecole) && (!ficheAnnee || ens.annee_scolaire === ficheAnnee)
+            );
 
             return allEnseignants.map((ens, idx) => {
                 // Vérifier si l'enseignant est dans la fiche (comparer les IDs, pas les noms)
