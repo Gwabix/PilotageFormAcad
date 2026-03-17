@@ -217,6 +217,7 @@ body {
     font-weight: 600;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     transition: all 0.3s ease;
 }
@@ -236,6 +237,13 @@ body {
 
 .year-header:hover {
     background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+}
+
+.year-header-hours {
+    font-size: 14px;
+    font-weight: 400;
+    opacity: 0.9;
+    white-space: nowrap;
 }
 
 .year-card:has(.year-content.collapsed) .year-header {
@@ -261,6 +269,21 @@ body {
 .info-grid {
     display: grid;
     gap: 15px;
+}
+
+.info-grid--two-cols {
+    grid-template-columns: 1fr 1fr;
+}
+
+.formation-block {
+    display: contents;
+}
+
+.formation-separator {
+    grid-column: 1 / -1;
+    border: none;
+    border-top: 2px dashed #d0d0d0;
+    margin: 5px 0;
 }
 
 .info-item {
@@ -1211,4 +1234,10 @@ body {
 .search-section h2 {
     margin-top: 0;
     color: #2c3e50;
+}
+
+@media (max-width: 600px) {
+    .info-grid--two-cols {
+        grid-template-columns: 1fr;
+    }
 }

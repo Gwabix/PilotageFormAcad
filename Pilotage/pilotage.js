@@ -3,6 +3,7 @@ grist.ready({ requiredAccess: 'read table' });
 let ecolesData = [];
 let enseignantsData = [];
 let tableauBordData = [];
+let formateursData = [];
 let currentSelection = {
     type: null,
     id: null
@@ -88,6 +89,12 @@ async function loadData() {
             niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index])
         }));
 
+        const formateursTable = await grist.docApi.fetchTable('Formateurs');
+        formateursData = formateursTable.id.map((id, index) => ({
+            id: id,
+            nom: formateursTable.Formateur[index] || ''
+        })).filter(f => f.nom);
+
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
         tableauBordData = tableauTable.id.map((id, index) => ({
             id: id,
@@ -108,7 +115,8 @@ async function loadData() {
             themes: cleanChoiceList(tableauTable.Theme_s_traite_s_en_formation[index]),
             annee: tableauTable.Annee[index] || '',
             ecole: tableauTable.Ecole[index],
-            type_formation: tableauTable.Type_de_formation[index] || ''
+            type_formation: tableauTable.Type_de_formation[index] || '',
+            formateurs: cleanChoiceList(tableauTable.Formateur_s_[index])
         }));
 
         console.log('Données chargées:', {
@@ -477,13 +485,22 @@ function selectEnseignant(ensId) {
 
         years.forEach(year => {
             const yearFormations = formationsByYear[year];
-            html += `<div class="year-card">`;
-            html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">Année scolaire ${escapeHtml(year)}</div>`;
-            html += `<div class="year-content">`;
-            html += `<div class="info-grid">`;
+            const totalHeures = yearFormations.reduce((sum, f) => sum + (f.temps_formation || 0), 0);
+            const heuresLabel = totalHeures > 0 ? `(${totalHeures}h)` : '';
 
-            yearFormations.forEach(formation => {
+            html += `<div class="year-card">`;
+            html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">`;
+            html += `<span>Année scolaire ${escapeHtml(year)}</span>`;
+            if (heuresLabel) html += `<span class="year-header-hours">${escapeHtml(heuresLabel)}</span>`;
+            html += `</div>`;
+            html += `<div class="year-content">`;
+            html += `<div class="info-grid info-grid--two-cols">`;
+
+            yearFormations.forEach((formation, idx) => {
+                if (idx > 0) html += `<div class="formation-separator"></div>`;
+                html += `<div class="formation-block">`;
                 html += generateFormationInfoItems(formation, enseignant.niveaux);
+                html += `</div>`;
             });
 
             html += `</div>`;
@@ -2085,12 +2102,30 @@ function generateFormationInfoItems(formation, niveauxEnseignant = []) {
     }
 
     if (formation.type_formation) {
+        const heuresStr = formation.temps_formation > 0 ? ` (${formation.temps_formation}h)` : '';
         html += `
             <div class="info-item">
                 <div class="info-label">Type de formation</div>
-                <div class="info-value">${escapeHtml(formation.type_formation)}</div>
+                <div class="info-value">${escapeHtml(formation.type_formation)}${escapeHtml(heuresStr)}</div>
             </div>
         `;
+    }
+
+    if (formation.formateurs && formation.formateurs.length > 0) {
+        const noms = formation.formateurs
+            .map(fid => {
+                const f = formateursData.find(fd => fd.id === fid);
+                return f ? f.nom : null;
+            })
+            .filter(Boolean);
+        if (noms.length > 0) {
+            html += `
+                <div class="info-item">
+                    <div class="info-label">Formateur(s)</div>
+                    <div class="info-value">${noms.map(n => escapeHtml(n)).join(', ')}</div>
+                </div>
+            `;
+        }
     }
 
     if (formation.modalite_constitution && formation.modalite_constitution.length > 0) {
