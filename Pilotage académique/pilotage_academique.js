@@ -1126,7 +1126,12 @@ function createPieChart(data, title, id, years = []) {
 
         const color = getModaliteColor(item.label, item.yearIndex, years.length);
 
-        html += `<path class="pie-slice" data-year="${escapeHtml(item.year)}" d="M ${centerX} ${centerY} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z" fill="${color}" stroke="white" stroke-width="2"/>`;
+        if (sliceAngle >= 360) {
+            // Cas 100% : un arc dégénéré serait invisible, on dessine un cercle plein
+            html += `<circle class="pie-slice" data-year="${escapeHtml(item.year)}" cx="${centerX}" cy="${centerY}" r="${radius}" fill="${color}" stroke="white" stroke-width="2"/>`;
+        } else {
+            html += `<path class="pie-slice" data-year="${escapeHtml(item.year)}" d="M ${centerX} ${centerY} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z" fill="${color}" stroke="white" stroke-width="2"/>`;
+        }
 
         currentAngle = endAngle;
     });
