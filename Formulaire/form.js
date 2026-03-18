@@ -450,6 +450,88 @@ async function loadData() {
     }
 }
 
+/**
+ * Synchronise la table Formateurs à partir de la table Personnes au chargement du widget.
+ * - Uppercases le champ Nom lors de la construction du nom complet.
+ * - Filtre les personnes dont la Categorie contient "CPC", "CPD" ou "Formateur".
+ * - Ajoute uniquement les couples "Prenom NOM" absents de la colonne Formateur.
+ * - Copie la catégorie dans Fonction si celle-ci est "CPC" ou "CPD".
+ * - N'écrase pas les données existantes et ne crée pas de doublon.
+ * - Ignore silencieusement si l'accès à Personnes ou Categories est refusé.
+ */
+async function syncFormateursFromPersonnes() {
+    try {
+        // Charger la table Categories pour résoudre les IDs en noms
+        const categoriesTable = await grist.docApi.fetchTable('Categories');
+        const categoriesMap = {};
+        categoriesTable.id.forEach((id, index) => {
+            const nom = sanitizeGristData(categoriesTable.Nom[index]);
+            if (nom) categoriesMap[id] = nom;
+        });
+
+        // Charger la table Personnes
+        const personnesTable = await grist.docApi.fetchTable('Personnes');
+
+        const targetCategories = new Set(['CPC', 'CPD', 'Formateur']);
+        const fonctionCategories = new Set(['CPC', 'CPD']);
+
+        // Ensemble normalisé des formateurs existants pour la détection de doublons
+        const existingNormalized = new Set(
+            formateursData.map(f => normalizeFormateurName(f.nom))
+        );
+
+        const actions = [];
+
+        personnesTable.id.forEach((_, index) => {
+            const prenom = (sanitizeGristData(personnesTable.Prenom[index]) || '').trim();
+            const nom = (sanitizeGristData(personnesTable.Nom[index]) || '').toUpperCase().trim();
+
+            // Categorie est un ReferenceList : tableau d'IDs
+            const categorieRaw = sanitizeGristData(personnesTable.Categorie[index]);
+            const catIds = Array.isArray(categorieRaw) ? categorieRaw : [];
+
+            // Résoudre les noms de catégorie
+            const catNames = catIds.map(id => categoriesMap[id]).filter(Boolean);
+
+            // Vérifier qu'au moins une catégorie cible est présente
+            const matchedCats = catNames.filter(n => targetCategories.has(n));
+            if (matchedCats.length === 0) return;
+
+            // Construire le nom complet avec Nom en majuscules
+            const formateurNom = [prenom, nom].filter(Boolean).join(' ');
+            if (!formateurNom) return;
+
+            // Vérifier l'absence de doublon (comparaison normalisée)
+            const normKey = normalizeFormateurName(formateurNom);
+            if (existingNormalized.has(normKey)) return;
+
+            // Déterminer la Fonction : première catégorie CPC ou CPD trouvée
+            const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
+
+            const recordData = { Formateur: formateurNom };
+            if (fonctionCat) recordData.Fonction = fonctionCat;
+
+            actions.push(['AddRecord', 'Formateurs', null, recordData]);
+            // Marquer comme existant pour éviter les doublons intra-lot
+            existingNormalized.add(normKey);
+        });
+
+        if (actions.length > 0) {
+            await grist.docApi.applyUserActions(actions);
+            // Recharger formateursData avec les nouveaux enregistrements
+            const formateursTable = await grist.docApi.fetchTable('Formateurs');
+            formateursData = formateursTable.id.map((id, index) => ({
+                id: id,
+                nom: sanitizeGristData(formateursTable.Formateur[index]),
+                fonction: sanitizeGristData(formateursTable.Fonction[index]) || ''
+            })).filter(f => f.nom);
+        }
+    } catch (error) {
+        // Accès insuffisant ou table absente : ignorer silencieusement
+        console.warn('Synchro Formateurs/Personnes ignorée (accès insuffisant ou erreur) :', error?.message || error);
+    }
+}
+
 function updateEcolesSelection() {
     const nbEcolesEl = document.getElementById('nbEcoles');
     const nbRequired = safeParseInt(nbEcolesEl?.value || '1', 1, 1);
@@ -1403,7 +1485,7 @@ document.getElementById('filterMathematiques').addEventListener('change', filter
 // Rafraîchir la liste des enseignants quand l'année scolaire change
 document.getElementById('anneeScolaire').addEventListener('change', updateEnseignantsList);
 
-loadData();
+loadData().then(() => syncFormateursFromPersonnes());
 filterThemes();
 addFormateurField();
 
