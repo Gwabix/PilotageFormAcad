@@ -1879,6 +1879,10 @@ function updateFilteredRecords() {
 function selectFiche(idFiche) {
     const ficheRecords = tableauDeBordData.filter(r => r.idFiche === idFiche);
     if (ficheRecords.length > 0) {
+        // Réinitialiser les écoles éventuellement modifiées via le modal d'une fiche précédente
+        // (selectedEcoles est partagé entre la création et l'édition : sans reset, displayEditForm
+        // utiliserait les écoles de la fiche précédente et non celles de la fiche sélectionnée)
+        selectedEcoles = [];
         displayEditForm(ficheRecords);
     }
 }
