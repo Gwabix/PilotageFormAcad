@@ -10,7 +10,7 @@ let ecolesData = [];
 
 /** Options connues pour les champs Choice/ChoiceList */
 const choiceOptions = {
-    Civilite: ['M.', 'Mme'],
+    Civilite: ['Monsieur', 'Madame'],
     Fonction: [],
     Quotite_de_service: [],
     D_dir: [],
