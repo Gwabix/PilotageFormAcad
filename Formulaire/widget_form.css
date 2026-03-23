@@ -172,9 +172,8 @@ select:focus,
 
 .clear-input-btn:hover {
     color: #dc3545;
-    background-color: transparent;
-    transform: scale(1.1);
-    font-weight: bolder;
+    background-color: #0003;
+    transform: scale(1.1) translateY(-50%);
 }
 
 .search-results {
