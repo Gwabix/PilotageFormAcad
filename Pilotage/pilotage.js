@@ -1857,7 +1857,7 @@ function selectEcole(ecoleId) {
             html += `<div class="year-header-content">`;
             html += `<div class="year-header-top"><span>Année scolaire ${escapeHtml(year)}</span>`;
             if (heuresLabel) html += `<span class="year-header-hours">${escapeHtml(heuresLabel)}</span>`;
-            html += `</div></div>`;
+            html += `</div></div></div>`;
             html += `<div class="year-content">`;
 
             const formationGroups = groupFormationsByType(yearFormations);
