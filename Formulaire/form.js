@@ -1826,7 +1826,10 @@ function updateFilteredRecords() {
     // Les données proviennent de tableauDeBordData qui sont sanitisées via sanitizeGristData().
     container.innerHTML = fiches.map(ficheRecords => {
         const firstRecord = ficheRecords[0];
-        const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
+        // Récupérer TOUTES les lignes de la fiche (pas seulement celles retenues par le filtre)
+        // afin d'afficher le nombre réel d'écoles de la formation
+        const allFicheRecords = tableauDeBordData.filter(r => r.idFiche === firstRecord.idFiche);
+        const ecoleIds = [...new Set(allFicheRecords.map(r => r.ecole))];
         const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)?.commune_complement).filter(n => n);
 
         // Afficher les noms des écoles avec bullet points
