@@ -166,7 +166,7 @@ select:focus,
     cursor: pointer;
     padding: 0 2px;
     z-index: 1;
-    transition: all 0.2s ease;
+    transition: all 0.1s ease;
     width: fit-content;
 }
 
