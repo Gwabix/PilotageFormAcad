@@ -26,6 +26,7 @@ let editFilters = {
 };
 let selectedRecordId = null;
 let originalRecordData = null;
+let currentEditEcoleIds = [];
 
 // Variables pour le filtrage technique
 let techniqueFilters = {
@@ -1899,9 +1900,8 @@ function displayEditForm(ficheRecords) {
         ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
     }
 
-    // Récupérer les enseignants de la fiche
-    const enseignantIds = ficheRecords.map(r => r.idPE);
-    const enseignants = enseignantIds.map(id => enseignantsData.find(e => e.id === id)).filter(e => e);
+    // Mémoriser les IDs d'écoles pour la fonction de rafraîchissement des enseignants
+    currentEditEcoleIds = ecoleIds;
 
     // Récupérer les formateurs
     const formateurIds = [...new Set(firstRecord.formateurs)];
@@ -1918,10 +1918,12 @@ function displayEditForm(ficheRecords) {
             <div class="form-group_small">
                 <label>Année scolaire *</label>
                 <select id="editAnnee">
-                    <option value="2026-2027" ${firstRecord.annee === '2026-2027' ? 'selected' : ''}>2026-2027</option>
-                    <option value="2027-2028" ${firstRecord.annee === '2027-2028' ? 'selected' : ''}>2027-2028</option>
-                    <option value="2028-2029" ${firstRecord.annee === '2028-2029' ? 'selected' : ''}>2028-2029</option>
-                    <option value="2029-2030" ${firstRecord.annee === '2029-2030' ? 'selected' : ''}>2029-2030</option>
+                    ${[...new Set([
+        ...enseignantsData.map(e => e.annee_scolaire).filter(a => a),
+        firstRecord.annee
+    ].filter(a => a))].sort().map(year =>
+        `<option value="${escapeHtmlAttribute(year)}" ${firstRecord.annee === year ? 'selected' : ''}>${escapeHtml(year)}</option>`
+    ).join('')}
                 </select>
             </div>
             
@@ -2142,10 +2144,89 @@ function displayEditForm(ficheRecords) {
         btnModifierEcoles.addEventListener('click', () => openEcolesModal(ficheRecords));
     }
 
+    // Event listener pour le changement d'année : rafraîchir la liste des enseignants
+    const editAnneeSelect = document.getElementById('editAnnee');
+    if (editAnneeSelect) {
+        editAnneeSelect.addEventListener('change', refreshEditEnseignants);
+    }
+
     // Scroll vers le formulaire d'édition
     setTimeout(() => {
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
+}
+
+/**
+ * Rafraîchit la liste des enseignants dans le formulaire d'édition lors d'un changement d'année.
+ * Utilise le champ texte idPE (ID_PE de Liste_PE) comme pont entre les années pour conserver
+ * les sélections : un même enseignant a un row ID différent pour chaque Annee_scolaire.
+ */
+function refreshEditEnseignants() {
+    const newAnnee = document.getElementById('editAnnee')?.value || '';
+    if (!newAnnee) return;
+
+    // Mémoriser les idPE (texte = identifiant permanent de l'enseignant) des cochés
+    const selectedIdPETexts = new Set();
+    document.querySelectorAll('.edit-ens-checkbox:checked').forEach(checkbox => {
+        const ensId = safeParseInt(checkbox.getAttribute('data-ens-id'), 0, 1);
+        if (ensId > 0) {
+            const ens = enseignantsData.find(e => e.id === ensId);
+            if (ens && ens.idPE) selectedIdPETexts.add(ens.idPE);
+        }
+    });
+
+    // Filtrer les enseignants pour la nouvelle année ET les écoles actuelles
+    const allEnseignants = enseignantsData.filter(ens =>
+        currentEditEcoleIds.includes(ens.ecole) && ens.annee_scolaire === newAnnee
+    );
+
+    const container = document.getElementById('editEnseignantsContainer');
+    if (!container) return;
+
+    if (allEnseignants.length === 0) {
+        container.innerHTML = '<div class="no-data-placeholder">Aucun enseignant trouvé pour cette année scolaire</div>';
+        return;
+    }
+
+    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+    // SÉCURITÉ : Toutes les variables dynamiques sont encodées via escapeHtml / escapeHtmlAttribute.
+    container.innerHTML = allEnseignants.map((ens, idx) => {
+        // Conserver la sélection grâce à l'identifiant texte ID_PE (pont inter-années)
+        const isSelected = ens.idPE && selectedIdPETexts.has(ens.idPE);
+        const ecole = ecolesData.find(e => e.id === ens.ecole);
+        const opacity = isSelected ? '1' : '0.5';
+        const niveauxDisplay = isSelected ? 'block' : 'none';
+
+        return `
+        <div class="enseignant-edit-item" style="opacity: ${opacity};">
+            <div class="enseignant-edit-header">
+                <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox"
+                       data-ens-id="${escapeHtmlAttribute(ens.id)}"
+                       data-idx="${idx}"
+                       ${isSelected ? 'checked' : ''}>
+                <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
+            </div>
+            <div class="enseignant-niveaux-section" id="editNiveaux_${idx}" style="display: ${niveauxDisplay};">
+                <label class="enseignant-niveaux-label">Niveaux de classe :</label>
+                <div class="enseignant-niveaux-grid">
+                    ${NIVEAUX_POSSIBLES.map(niveau => `
+                        <label class="enseignant-niveau-item"><input type="checkbox" class="edit-niveau-${idx}"
+                               value="${escapeHtmlAttribute(niveau)}"
+                               ${(ens.niveaux || []).includes(niveau) ? 'checked' : ''}> ${escapeHtml(niveau)}</label>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    // Réattacher les event listeners après reconstruction
+    container.querySelectorAll('.edit-ens-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            const idx = safeParseInt(checkbox.getAttribute('data-idx'), -1, 0);
+            if (idx >= 0) toggleEditEnseignant(idx);
+        });
+    });
 }
 
 function toggleEditEnseignant(index) {
@@ -2671,6 +2752,19 @@ async function updateFiche() {
 
     if (selectedEnseignantsData.length === 0) {
         alert('Vous devez sélectionner au moins un enseignant');
+        return;
+    }
+
+    // Vérification de cohérence ID_PE × Annee_scolaire
+    // Chaque ligne de Liste_PE est unique par (ID_PE, Annee_scolaire) ;
+    // le row ID sauvegardé dans Tableau_de_bord.ID_PE doit appartenir à l'année sélectionnée.
+    const enseignantMauvaisAnnee = selectedEnseignantsData.find(ensData => {
+        const ens = enseignantsData.find(e => e.id === ensData.ensId);
+        return ens && ens.annee_scolaire !== annee;
+    });
+    if (enseignantMauvaisAnnee) {
+        const ens = enseignantsData.find(e => e.id === enseignantMauvaisAnnee.ensId);
+        alert(`Incohérence détectée : l'enseignant ${ens ? ens.nom + ' ' + ens.prenom : ''} est rattaché à l'année "${ens ? ens.annee_scolaire : '?'}" dans Liste_PE, mais la fiche est en "${annee}".\nVeuillez changer l'année de la fiche pour correspondre à l'année scolaire des enseignants.`);
         return;
     }
 
