@@ -79,7 +79,7 @@ select,
     background-color: #e8f4fd !important;
     color: black !important;
     width: 100%;
-    padding: 10px;
+    padding: 10px 30px 10px 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
@@ -151,6 +151,25 @@ select:focus,
 .search-container {
     position: relative;
     margin-bottom: 10px;
+}
+
+.clear-input-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    z-index: 1;
+}
+
+.clear-input-btn:hover {
+    color: #555;
 }
 
 .search-results {

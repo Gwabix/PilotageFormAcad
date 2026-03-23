@@ -731,7 +731,7 @@ function updateEnseignantsList() {
     filteredEnseignants.forEach(ens => {
         enseignantsMap.set(ens.id, {
             selected: true,
-            niveaux: [...(ens.niveaux || [])]
+            niveaux: (ens.niveaux || []).filter(n => n !== 'L')
         });
     });
 
@@ -741,6 +741,11 @@ function updateEnseignantsList() {
     // et escapeHtmlAttribute() pour les attributs HTML.
     container.innerHTML = filteredEnseignants.map(ens => {
         const ecole = selectedEcoles.find(e => e.id === ens.ecole);
+        const currentNiveaux = enseignantsMap.get(ens.id)?.niveaux || [];
+        const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
+            const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
+            return `<label class="enseignant-niveau-item"><input type="checkbox" id="niveau_${escapeHtmlAttribute(ens.id)}_${escapeHtmlAttribute(niveau)}" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-niveau="${escapeHtmlAttribute(niveau)}" ${checked}><span>${escapeHtml(niveau)}</span></label>`;
+        }).join('');
         return `
           <div class="enseignant-item">
             <div class="enseignant-header">
@@ -748,8 +753,12 @@ function updateEnseignantsList() {
                      id="ens_${escapeHtmlAttribute(ens.id)}" 
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
                      checked>
-              <span class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</span>
+              <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
               <span class="enseignant-school">${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : ''}</span>
+            </div>
+            <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
+              <span class="enseignant-niveaux-label">Niveaux :</span>
+              <div class="enseignant-niveaux-grid">${niveauxItems}</div>
             </div>
           </div>
         `;
@@ -763,6 +772,13 @@ function updateEnseignantsList() {
         });
     });
 
+    container.querySelectorAll('input[data-niveau]').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const ensId = safeParseInt(cb.getAttribute('data-ens-id'), 0, 0);
+            if (ensId > 0) updateNiveaux(ensId);
+        });
+    });
+
 }
 
 function toggleEnseignant(ensId) {
@@ -773,9 +789,11 @@ function toggleEnseignant(ensId) {
         enseignantsMap.get(ensId).selected = checkbox.checked;
     }
 
-    niveauxDiv.style.opacity = checkbox.checked ? '1' : '0.5';
-    const niveauxCheckboxes = niveauxDiv.querySelectorAll('input[type="checkbox"]');
-    niveauxCheckboxes.forEach(cb => cb.disabled = !checkbox.checked);
+    if (niveauxDiv) {
+        niveauxDiv.style.opacity = checkbox.checked ? '1' : '0.5';
+        const niveauxCheckboxes = niveauxDiv.querySelectorAll('input[type="checkbox"]');
+        niveauxCheckboxes.forEach(cb => cb.disabled = !checkbox.checked);
+    }
 }
 
 function updateNiveaux(ensId) {
@@ -837,6 +855,7 @@ function addFormateurField() {
                    id="formateurInput_${index}"
                    placeholder="Tapez pour rechercher ou ajouter un formateur..."
                    data-field-index="${index}">
+            <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
             <div class="search-results" id="formateurResults_${index}"></div>
         </div>
     `;
@@ -846,6 +865,7 @@ function addFormateurField() {
     // Ajouter l'event listener après l'insertion
     const input = document.getElementById(`formateurInput_${index}`);
     input.addEventListener('keyup', (event) => searchFormateurs(event, index));
+    fieldDiv.querySelector('.clear-input-btn').addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('keyup')); });
 }
 
 function addEditFormateurField() {
@@ -865,6 +885,7 @@ function addEditFormateurField() {
                    id="editFormateurInput_${index}"
                    placeholder="Tapez pour rechercher ou ajouter un formateur..."
                    data-field-index="${index}">
+            <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
             <div class="search-results" id="editFormateurResults_${index}"></div>
         </div>
     `;
@@ -874,6 +895,7 @@ function addEditFormateurField() {
     // Ajouter l'event listener après l'insertion
     const input = document.getElementById(`editFormateurInput_${index}`);
     input.addEventListener('keyup', (event) => searchEditFormateurs(event, index));
+    fieldDiv.querySelector('.clear-input-btn').addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('keyup')); });
 }
 
 function searchEditFormateurs(event, fieldIndex) {
@@ -1359,6 +1381,17 @@ async function validerFormulaire() {
                 return acc;
             }, {})]
         ]);
+
+        // Mettre à jour Niveau_x_ dans Liste_PE pour chaque enseignant sélectionné
+        const niveauxActions = [];
+        for (const [ensId, data] of enseignantsMap.entries()) {
+            if (data.selected) {
+                niveauxActions.push(['UpdateRecord', 'Liste_PE', ensId, { Niveau_x_: ['L', ...data.niveaux] }]);
+            }
+        }
+        if (niveauxActions.length > 0) {
+            await grist.docApi.applyUserActions(niveauxActions);
+        }
 
         alert(`✓ ${records.length} ligne(s) créée(s) avec succès dans le Tableau de bord !`);
 
@@ -2090,6 +2123,7 @@ function displayEditForm(ficheRecords) {
                                        value="${escapeHtmlAttribute(nom)}" 
                                        placeholder="Tapez pour rechercher ou ajouter un formateur..."
                                        data-field-index="${index}">
+                                <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
                                 <div class="search-results" id="editFormateurResults_${index}"></div>
                             </div>
                         </div>
@@ -2100,6 +2134,7 @@ function displayEditForm(ficheRecords) {
                                    id="editFormateurInput_0"
                                    placeholder="Tapez pour rechercher ou ajouter un formateur..."
                                    data-field-index="0">
+                            <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
                             <div class="search-results" id="editFormateurResults_0"></div>
                         </div>
                     </div>`}
@@ -2131,6 +2166,10 @@ function displayEditForm(ficheRecords) {
     container.querySelectorAll('.edit-formateur-input').forEach(input => {
         const fieldIndex = safeParseInt(input.getAttribute('data-field-index'), 0, 0);
         input.addEventListener('keyup', (event) => searchEditFormateurs(event, fieldIndex));
+        const clearBtn = input.nextElementSibling;
+        if (clearBtn && clearBtn.classList.contains('clear-input-btn')) {
+            clearBtn.addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('keyup')); });
+        }
     });
 
     // Event listener pour le bouton de mise à jour
