@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rechercher / Modifier un enseignant</title>
+    <link rel="stylesheet" href="recherche_edit.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Rechercher / Modifier un enseignant</h1>
+
+        <!-- ===== ZONE RECHERCHER ===== -->
+        <section class="section-block" id="section-recherche">
+            <h2>Rechercher</h2>
+            <div class="search-grid">
+
+                <!-- Année scolaire -->
+                <div class="form-group">
+                    <label for="annee-select">Année scolaire</label>
+                    <select id="annee-select">
+                        <option value="2026-2027">2026-2027</option>
+                        <option value="2027-2028">2027-2028</option>
+                        <option value="2028-2029">2028-2029</option>
+                        <option value="2029-2030">2029-2030</option>
+                    </select>
+                </div>
+
+                <!-- Recherche Nom -->
+                <div class="form-group">
+                    <label for="nom-input">Nom</label>
+                    <div class="search-container">
+                        <input type="text" id="nom-input" placeholder="Tapez un nom…" autocomplete="off"
+                            aria-autocomplete="list" aria-controls="nom-results" aria-label="Rechercher par nom">
+                        <button type="button" class="clear-input-btn" id="clear-nom" aria-label="Effacer le nom"
+                            hidden>✕</button>
+                        <ul class="autocomplete-list" id="nom-results" role="listbox" aria-label="Noms correspondants">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Prénom filtré -->
+                <div class="form-group">
+                    <label for="prenom-select">Prénom</label>
+                    <select id="prenom-select" disabled aria-label="Prénom">
+                        <option value="">— Sélectionnez d'abord un nom —</option>
+                    </select>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===== STATUT ===== -->
+        <div id="status-msg" class="status-msg" role="status" aria-live="polite"></div>
+
+        <!-- ===== ZONE MODIFIER (masquée jusqu'à sélection) ===== -->
+        <section class="section-block" id="section-modifier" hidden>
+            <h2>Modifier</h2>
+            <form id="edit-form" novalidate>
+
+                <!-- Groupe Identification -->
+                <fieldset class="fieldset-group">
+                    <legend>Identification</legend>
+                    <div class="fields-grid">
+                        <div class="form-group">
+                            <label for="edit-civilite">Civilité</label>
+                            <select id="edit-civilite" name="Civilite">
+                                <option value=""></option>
+                                <option value="M.">M.</option>
+                                <option value="Mme">Mme</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-nom">Nom</label>
+                            <input type="text" id="edit-nom" name="Nom" maxlength="200">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-prenom">Prénom</label>
+                            <input type="text" id="edit-prenom" name="Prenom" maxlength="200">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-id-pe">ID PE</label>
+                            <input type="text" id="edit-id-pe" name="ID_PE" maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-annee">Année scolaire</label>
+                            <input type="text" id="edit-annee" name="Annee_scolaire" maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-mail">Mail</label>
+                            <input type="email" id="edit-mail" name="Mail" maxlength="300">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Groupe École et fonction -->
+                <fieldset class="fieldset-group">
+                    <legend>École et fonction</legend>
+                    <div class="fields-grid">
+                        <div class="form-group form-group--ecole">
+                            <label for="edit-ecole-search">École</label>
+                            <div class="search-container">
+                                <input type="text" id="edit-ecole-search" placeholder="Rechercher une école…"
+                                    autocomplete="off" aria-autocomplete="list" aria-controls="ecole-results">
+                                <button type="button" class="clear-input-btn" id="clear-ecole"
+                                    aria-label="Effacer l'école" hidden>✕</button>
+                                <ul class="autocomplete-list" id="ecole-results" role="listbox"
+                                    aria-label="Écoles correspondantes"></ul>
+                                <input type="hidden" id="edit-ecole" name="Ecole">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-fonction">Fonction</label>
+                            <select id="edit-fonction" name="Fonction">
+                                <option value=""></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-quotite">Quotité de service</label>
+                            <select id="edit-quotite" name="Quotite_de_service">
+                                <option value=""></option>
+                            </select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Groupe Décharges et niveaux -->
+                <fieldset class="fieldset-group">
+                    <legend>Décharges et niveaux</legend>
+
+                    <div class="choicelist-group">
+                        <p class="choicelist-label">Décharge de direction</p>
+                        <div class="checkboxes" id="edit-d-dir"></div>
+                    </div>
+                    <div class="choicelist-group">
+                        <p class="choicelist-label">Niveau(x)</p>
+                        <div class="checkboxes" id="edit-niveau"></div>
+                    </div>
+                    <div class="choicelist-group">
+                        <p class="choicelist-label">TP</p>
+                        <div class="checkboxes" id="edit-tp"></div>
+                    </div>
+                    <div class="choicelist-group">
+                        <p class="choicelist-label">Décharge syndicale</p>
+                        <div class="checkboxes" id="edit-d-synd"></div>
+                    </div>
+                    <div class="choicelist-group">
+                        <p class="choicelist-label">Autre</p>
+                        <div class="checkboxes" id="edit-autre"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-preciser">Préciser</label>
+                        <input type="text" id="edit-preciser" name="Preciser" maxlength="500">
+                    </div>
+                </fieldset>
+
+                <!-- Actions -->
+                <div class="form-actions">
+                    <button type="submit" id="btn-valider" class="btn-primary">Valider</button>
+                    <button type="button" id="btn-annuler" class="btn-secondary">Annuler</button>
+                </div>
+
+            </form>
+        </section>
+
+    </div><!-- /.container -->
+
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <script src="recherche_edit.js"></script>
+</body>
+
+</html>
