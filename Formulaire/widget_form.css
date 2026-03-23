@@ -155,7 +155,7 @@ select:focus,
 
 .clear-input-btn {
     position: absolute;
-    right: 8px;
+    right: 15px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
@@ -166,10 +166,15 @@ select:focus,
     cursor: pointer;
     padding: 0 2px;
     z-index: 1;
+    transition: all 0.2s ease;
+    width: fit-content;
 }
 
 .clear-input-btn:hover {
     color: #dc3545;
+    background-color: transparent;
+    transform: scale(1.1);
+    font-weight: bolder;
 }
 
 .search-results {
