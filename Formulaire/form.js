@@ -741,20 +741,6 @@ function updateEnseignantsList() {
     // et escapeHtmlAttribute() pour les attributs HTML.
     container.innerHTML = filteredEnseignants.map(ens => {
         const ecole = selectedEcoles.find(e => e.id === ens.ecole);
-        const niveauxHTML = NIVEAUX_POSSIBLES.map(niveau => {
-            const checked = ens.niveaux && ens.niveaux.includes(niveau) ? 'checked' : '';
-            return `
-            <div class="niveau-checkbox">
-              <input type="checkbox" 
-                     id="niveau_${escapeHtmlAttribute(ens.id)}_${escapeHtmlAttribute(niveau)}" 
-                     value="${escapeHtmlAttribute(niveau)}"
-                     data-ens-id="${escapeHtmlAttribute(ens.id)}"
-                     ${checked}>
-              <label for="niveau_${escapeHtmlAttribute(ens.id)}_${escapeHtmlAttribute(niveau)}">${escapeHtml(niveau)}</label>
-            </div>
-          `;
-        }).join('');
-
         return `
           <div class="enseignant-item">
             <div class="enseignant-header">
@@ -764,9 +750,6 @@ function updateEnseignantsList() {
                      checked>
               <span class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</span>
               <span class="enseignant-school">${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : ''}</span>
-            </div>
-            <div class="niveaux-checkboxes" id="niveaux_${escapeHtmlAttribute(ens.id)}">
-              ${niveauxHTML}
             </div>
           </div>
         `;
@@ -780,12 +763,6 @@ function updateEnseignantsList() {
         });
     });
 
-    container.querySelectorAll('.niveau-checkbox input').forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-            const ensId = safeParseInt(checkbox.getAttribute('data-ens-id'), 0, 0);
-            if (ensId > 0) updateNiveaux(ensId);
-        });
-    });
 }
 
 function toggleEnseignant(ensId) {
@@ -1958,24 +1935,13 @@ function displayEditForm(ficheRecords) {
                 const recordForEns = ficheRecords.find(rec => rec.idPE === ens.id);
                 const isSelected = !!recordForEns;
                 const ecole = ecolesData.find(e => e.id === ens.ecole);
-                const niveauxActuels = recordForEns ? recordForEns.niveauClasse || [] : [];
-
                 const opacity = isSelected ? '1' : '0.5';
-                const niveauxDisplay = isSelected ? 'block' : 'none';
 
                 return `
                 <div class="enseignant-edit-item" style="opacity: ${opacity};">
                     <div class="enseignant-edit-header">
                         <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-idx="${idx}" ${isSelected ? 'checked' : ''}>
                         <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
-                    </div>
-                    <div class="enseignant-niveaux-section" id="editNiveaux_${idx}" style="display: ${niveauxDisplay};">
-                        <label class="enseignant-niveaux-label">Niveaux de classe :</label>
-                        <div class="enseignant-niveaux-grid">
-                            ${NIVEAUX_POSSIBLES.map(niveau => `
-                                <label class="enseignant-niveau-item"><input type="checkbox" class="edit-niveau-${idx}" value="${escapeHtmlAttribute(niveau)}" ${niveauxActuels.includes(niveau) ? 'checked' : ''}> ${escapeHtml(niveau)}</label>
-                            `).join('')}
-                        </div>
                     </div>
                 </div>
             `;
@@ -2199,7 +2165,6 @@ function refreshEditEnseignants() {
         const isSelected = ens.idPE && selectedIdPETexts.has(ens.idPE);
         const ecole = ecolesData.find(e => e.id === ens.ecole);
         const opacity = isSelected ? '1' : '0.5';
-        const niveauxDisplay = isSelected ? 'block' : 'none';
 
         return `
         <div class="enseignant-edit-item" style="opacity: ${opacity};">
@@ -2209,16 +2174,6 @@ function refreshEditEnseignants() {
                        data-idx="${idx}"
                        ${isSelected ? 'checked' : ''}>
                 <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
-            </div>
-            <div class="enseignant-niveaux-section" id="editNiveaux_${idx}" style="display: ${niveauxDisplay};">
-                <label class="enseignant-niveaux-label">Niveaux de classe :</label>
-                <div class="enseignant-niveaux-grid">
-                    ${NIVEAUX_POSSIBLES.map(niveau => `
-                        <label class="enseignant-niveau-item"><input type="checkbox" class="edit-niveau-${idx}"
-                               value="${escapeHtmlAttribute(niveau)}"
-                               ${(ens.niveaux || []).includes(niveau) ? 'checked' : ''}> ${escapeHtml(niveau)}</label>
-                    `).join('')}
-                </div>
             </div>
         </div>
         `;
@@ -2235,16 +2190,8 @@ function refreshEditEnseignants() {
 
 function toggleEditEnseignant(index) {
     const checkbox = document.getElementById(`editEns_${index}`);
-    const niveauxDiv = document.getElementById(`editNiveaux_${index}`);
     const enseignantItem = checkbox.closest('.enseignant-edit-item');
-
-    if (checkbox.checked) {
-        enseignantItem.style.opacity = '1';
-        niveauxDiv.style.display = 'block';
-    } else {
-        enseignantItem.style.opacity = '0.5';
-        niveauxDiv.style.display = 'none';
-    }
+    enseignantItem.style.opacity = checkbox.checked ? '1' : '0.5';
 }
 
 // Variables globales pour le modal de modification des écoles
@@ -2748,8 +2695,7 @@ async function updateFiche() {
         if (checkbox.checked) {
             const ensId = safeParseInt(checkbox.getAttribute('data-ens-id'), 0, 1);
             if (ensId > 0) {
-                const niveaux = Array.from(document.querySelectorAll(`.edit-niveau-${idx}:checked`)).map(cb => cb.value);
-                selectedEnseignantsData.push({ ensId, niveaux });
+                selectedEnseignantsData.push({ ensId });
             }
         }
     });
@@ -2806,14 +2752,6 @@ async function updateFiche() {
     if (moduleGAIA !== firstOld.moduleGAIA) changes.push(`Module GAIA: ${firstOld.moduleGAIA || 'aucun'} → ${moduleGAIA || 'aucun'}`);
     if (!arraysEqual(formateurIds, firstOld.formateurs)) changes.push('Formateur(s) modifié(s)');
 
-    // Vérifier les niveaux pour les enseignants communs
-    selectedEnseignantsData.forEach(newEns => {
-        const oldRec = originalRecordData.find(r => r.idPE === newEns.ensId);
-        if (oldRec && !arraysEqual(newEns.niveaux, oldRec.niveauClasse)) {
-            changes.push(`Niveaux modifiés pour un enseignant`);
-        }
-    });
-
     if (changes.length === 0) {
         alert('Aucune modification détectée');
         return;
@@ -2853,11 +2791,6 @@ async function updateFiche() {
                 Theme_s_traite_s_en_formation: ['L', ...themes],
                 Annee: annee
             };
-
-            // Ajouter les niveaux de classe si spécifiés
-            if (ensData.niveaux && ensData.niveaux.length > 0) {
-                record.Niveau_x_ = ['L', ...ensData.niveaux];
-            }
 
             if (numeroGroupe > 0) {
                 record.Numero_de_groupe = numeroGroupe;
