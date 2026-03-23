@@ -2001,11 +2001,21 @@ function displayEditForm(ficheRecords) {
                     const isSelected = ficheRecords.some(rec => rec.idPE === ens.id);
                     const idx = globalIdx++;
                     const opacity = isSelected ? '1' : '0.5';
+                    const currentNiveaux = (ens.niveaux || []).filter(n => n !== 'L');
+                    const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
+                        const chk = currentNiveaux.includes(niveau) ? 'checked' : '';
+                        const dis = isSelected ? '' : 'disabled';
+                        return `<label class="enseignant-niveau-item"><input type="checkbox" class="edit-niveau-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-niveau="${escapeHtmlAttribute(niveau)}" ${chk} ${dis}><span>${escapeHtml(niveau)}</span></label>`;
+                    }).join('');
                     return `
                     <div class="enseignant-edit-item" style="opacity: ${opacity};">
                         <div class="enseignant-edit-header">
                             <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-idx="${idx}" ${isSelected ? 'checked' : ''}>
-                            <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</div>
+                            <label for="editEns_${idx}" class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
+                        </div>
+                        <div class="enseignant-niveaux-section" id="editNiveaux_${idx}">
+                            <span class="enseignant-niveaux-label">Niveaux :</span>
+                            <div class="enseignant-niveaux-grid">${niveauxItems}</div>
                         </div>
                     </div>`;
                 }).join('');
@@ -2235,6 +2245,12 @@ function refreshEditEnseignants() {
         const isSelected = ens.idPE && selectedIdPETexts.has(ens.idPE);
         const ecole = ecolesData.find(e => e.id === ens.ecole);
         const opacity = isSelected ? '1' : '0.5';
+        const currentNiveaux = (ens.niveaux || []).filter(n => n !== 'L');
+        const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
+            const chk = currentNiveaux.includes(niveau) ? 'checked' : '';
+            const dis = isSelected ? '' : 'disabled';
+            return `<label class="enseignant-niveau-item"><input type="checkbox" class="edit-niveau-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-niveau="${escapeHtmlAttribute(niveau)}" ${chk} ${dis}><span>${escapeHtml(niveau)}</span></label>`;
+        }).join('');
 
         return `
         <div class="enseignant-edit-item" style="opacity: ${opacity};">
@@ -2243,7 +2259,11 @@ function refreshEditEnseignants() {
                        data-ens-id="${escapeHtmlAttribute(ens.id)}"
                        data-idx="${idx}"
                        ${isSelected ? 'checked' : ''}>
-                <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
+                <label for="editEns_${idx}" class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</label>
+            </div>
+            <div class="enseignant-niveaux-section" id="editNiveaux_${idx}">
+                <span class="enseignant-niveaux-label">Niveaux :</span>
+                <div class="enseignant-niveaux-grid">${niveauxItems}</div>
             </div>
         </div>
         `;
@@ -2262,6 +2282,7 @@ function toggleEditEnseignant(index) {
     const checkbox = document.getElementById(`editEns_${index}`);
     const enseignantItem = checkbox.closest('.enseignant-edit-item');
     enseignantItem.style.opacity = checkbox.checked ? '1' : '0.5';
+    enseignantItem.querySelectorAll('.edit-niveau-checkbox').forEach(cb => cb.disabled = !checkbox.checked);
 }
 
 // Variables globales pour le modal de modification des écoles
@@ -2900,6 +2921,25 @@ async function updateFiche() {
         }
 
         await grist.docApi.applyUserActions(actions);
+
+        // Mettre à jour Niveau_x_ dans Liste_PE pour chaque enseignant sélectionné
+        const niveauxActions = [];
+        document.querySelectorAll('.edit-ens-checkbox:checked').forEach(checkbox => {
+            const ensId = safeParseInt(checkbox.getAttribute('data-ens-id'), 0, 1);
+            if (ensId <= 0) return;
+            const ensItem = checkbox.closest('.enseignant-edit-item');
+            const niveaux = [];
+            if (ensItem) {
+                ensItem.querySelectorAll('.edit-niveau-checkbox:checked').forEach(cb => {
+                    const niveau = cb.getAttribute('data-niveau');
+                    if (niveau) niveaux.push(niveau);
+                });
+            }
+            niveauxActions.push(['UpdateRecord', 'Liste_PE', ensId, { Niveau_x_: ['L', ...niveaux] }]);
+        });
+        if (niveauxActions.length > 0) {
+            await grist.docApi.applyUserActions(niveauxActions);
+        }
 
         alert(`✓ Fiche ${idFiche} mise à jour avec succès (${selectedEnseignantsData.length} ligne(s)) !`);
 
