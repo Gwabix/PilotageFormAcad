@@ -1848,8 +1848,16 @@ function selectEcole(ecoleId) {
     } else {
         years.forEach(year => {
             const yearFormations = formationsByYear[year];
+            const uniqueFichesYear = new Map();
+            yearFormations.forEach(f => { if (f.id_fiche && !uniqueFichesYear.has(f.id_fiche)) uniqueFichesYear.set(f.id_fiche, f); });
+            const totalHeures = Array.from(uniqueFichesYear.values()).reduce((sum, f) => sum + (f.temps_formation || 0), 0);
+            const heuresLabel = totalHeures > 0 ? `(${totalHeures}h)` : '';
             html += `<div class="year-card">`;
-            html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">Année scolaire ${escapeHtml(year)}</div>`;
+            html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">`;
+            html += `<div class="year-header-content">`;
+            html += `<div class="year-header-top"><span>Année scolaire ${escapeHtml(year)}</span>`;
+            if (heuresLabel) html += `<span class="year-header-hours">${escapeHtml(heuresLabel)}</span>`;
+            html += `</div></div>`;
             html += `<div class="year-content">`;
 
             const formationGroups = groupFormationsByType(yearFormations);
