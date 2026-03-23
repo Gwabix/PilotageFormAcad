@@ -607,8 +607,8 @@ button:disabled {
 /* Filtres de recherche */
 .filter-badge {
     display: inline-block;
-    background-color: #e8f4fd;
-    color: #2980b9;
+    background-color: #fde8e8;
+    color: #b92929;
     padding: 5px 10px;
     border-radius: 4px;
     font-size: 12px;
@@ -620,7 +620,7 @@ button:disabled {
 .filter-badge button {
     background: none;
     border: none;
-    color: #2980b9;
+    color: #b92929;
     font-weight: bold;
     cursor: pointer;
     padding: 0;
