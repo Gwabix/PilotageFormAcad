@@ -631,6 +631,7 @@ button:disabled {
 
 .filter-badge button:hover {
     color: #ff0000;
+    font-weight: bolder;
 }
 
 .record-list {
