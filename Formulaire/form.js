@@ -2794,67 +2794,70 @@ async function updateFiche() {
         return;
     }
 
-    // Préparer les actions : suppression des anciens, ajout/mise à jour des nouveaux
+    // Préparer les actions : mise à jour des lignes existantes, ajout/suppression si les enseignants changent
     try {
         const actions = [];
 
-        // Supprimer toutes les anciennes lignes
-        originalRecordData.forEach(oldRec => {
+        // Champs éditables communs à toutes les lignes de la fiche
+        const sharedFields = {
+            ID_fiche: idFiche,
+            Nb_ecoles: ecoleIds.length,
+            Nb_PE: selectedEnseignantsData.length,
+            Modalite_de_constitution_du_groupe: ['L', ...modaliteConstitution],
+            Type_de_formation: typeFormation,
+            Temps_de_formation: tempsFormation,
+            Modalites_de_formation: ['L', ...modalitesFormation],
+            Objets_transversaux_traites_en_parallele: ['L', ...objetsTransversaux],
+            Theme_s_traite_s_en_formation: ['L', ...themes],
+            Annee: annee,
+            Numero_de_groupe: numeroGroupe > 0 ? numeroGroupe : null,
+            Dispositif_GAIA: dispositifGAIA || '',
+            Module_GAIA: moduleGAIA || '',
+            Intitule: intituleFormation || '',
+            'Formateur_s_': formateurIds.length > 0 ? ['L', ...formateurIds] : ['L']
+        };
+
+        // --- Enseignants à conserver (présents avant ET après) ---
+        const keptEnseignants = selectedEnseignantsData.filter(ensData =>
+            originalRecordData.some(r => r.idPE === ensData.ensId)
+        );
+
+        // --- Enseignants supprimés (présents avant, absents après) ---
+        const removedRecords = originalRecordData.filter(r =>
+            !selectedEnseignantsData.some(ensData => ensData.ensId === r.idPE)
+        );
+
+        // --- Enseignants ajoutés (absents avant, présents après) ---
+        const addedEnseignants = selectedEnseignantsData.filter(ensData =>
+            !originalRecordData.some(r => r.idPE === ensData.ensId)
+        );
+
+        // Mettre à jour les lignes existantes conservées (préserve les données fiche technique)
+        keptEnseignants.forEach(ensData => {
+            const oldRec = originalRecordData.find(r => r.idPE === ensData.ensId);
+            actions.push(['UpdateRecord', 'Tableau_de_bord', oldRec.id, { ...sharedFields, ID_PE: ensData.ensId }]);
+        });
+
+        // Supprimer les lignes des enseignants retirés
+        removedRecords.forEach(oldRec => {
             actions.push(['RemoveRecord', 'Tableau_de_bord', oldRec.id]);
         });
 
-        // Créer les nouvelles lignes pour chaque enseignant sélectionné
-        const newRecords = [];
-        selectedEnseignantsData.forEach(ensData => {
-            const ens = enseignantsData.find(e => e.id === ensData.ensId);
-            if (!ens) return;
-
-            const record = {
-                ID_PE: ensData.ensId,
-                ID_fiche: idFiche,
-                Nb_ecoles: ecoleIds.length,
-                Nb_PE: selectedEnseignantsData.length,
-                Modalite_de_constitution_du_groupe: ['L', ...modaliteConstitution],
-                Type_de_formation: typeFormation,
-                Temps_de_formation: tempsFormation,
-                Modalites_de_formation: ['L', ...modalitesFormation],
-                Objets_transversaux_traites_en_parallele: ['L', ...objetsTransversaux],
-                Theme_s_traite_s_en_formation: ['L', ...themes],
-                Annee: annee
-            };
-
-            if (numeroGroupe > 0) {
-                record.Numero_de_groupe = numeroGroupe;
-            }
-
-            if (dispositifGAIA) {
-                record.Dispositif_GAIA = dispositifGAIA;
-            }
-
-            if (moduleGAIA) {
-                record.Module_GAIA = moduleGAIA;
-            }
-
-            if (intituleFormation) {
-                record.Intitule = intituleFormation;
-            }
-
-            if (formateurIds.length > 0) {
-                record['Formateur_s_'] = ['L', ...formateurIds];
-            }
-
-            newRecords.push(record);
-        });
-
-        // Ajouter les nouvelles lignes en bulk
-        if (newRecords.length > 0) {
-            actions.push(['BulkAddRecord', 'Tableau_de_bord', newRecords.map(() => null), newRecords.reduce((acc, record) => {
-                Object.keys(record).forEach(key => {
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(record[key]);
-                });
-                return acc;
-            }, {})]);
+        // Ajouter les nouvelles lignes (enseignants ajoutés)
+        if (addedEnseignants.length > 0) {
+            const newRecords = addedEnseignants.map(ensData => ({
+                ...sharedFields,
+                ID_PE: ensData.ensId
+            }));
+            actions.push(['BulkAddRecord', 'Tableau_de_bord', newRecords.map(() => null),
+                newRecords.reduce((acc, record) => {
+                    Object.keys(record).forEach(key => {
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(record[key]);
+                    });
+                    return acc;
+                }, {})
+            ]);
         }
 
         await grist.docApi.applyUserActions(actions);
