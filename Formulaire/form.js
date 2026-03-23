@@ -1806,6 +1806,14 @@ function updateFilteredRecords() {
 
     const fiches = Array.from(fichesMap.values());
 
+    // Tri chronologique : année scolaire croissante, puis par ID de fiche
+    fiches.sort((a, b) => {
+        const anneeA = a[0].annee || '';
+        const anneeB = b[0].annee || '';
+        if (anneeA !== anneeB) return anneeA.localeCompare(anneeB);
+        return (a[0].idFiche || '').localeCompare(b[0].idFiche || '');
+    });
+
     if (fiches.length === 0) {
         container.innerHTML = '<div class="no-records">Aucune fiche ne correspond aux critères de recherche</div>';
         editFormContainer.innerHTML = '';
@@ -1930,21 +1938,41 @@ function displayEditForm(ficheRecords) {
                 ecoleIds.includes(ens.ecole) && (!ficheAnnee || ens.annee_scolaire === ficheAnnee)
             );
 
-            return allEnseignants.map((ens, idx) => {
-                // Vérifier si l'enseignant est dans la fiche (comparer les IDs, pas les noms)
-                const recordForEns = ficheRecords.find(rec => rec.idPE === ens.id);
-                const isSelected = !!recordForEns;
-                const ecole = ecolesData.find(e => e.id === ens.ecole);
-                const opacity = isSelected ? '1' : '0.5';
+            // Grouper par école, sélectionnés en tête de chaque groupe
+            const ensParEcole = new Map();
+            ecoleIds.forEach(ecoleId => ensParEcole.set(ecoleId, { selected: [], unselected: [] }));
+            allEnseignants.forEach(ens => {
+                const group = ensParEcole.get(ens.ecole);
+                if (!group) return;
+                const isSelected = ficheRecords.some(rec => rec.idPE === ens.id);
+                (isSelected ? group.selected : group.unselected).push(ens);
+            });
 
-                return `
-                <div class="enseignant-edit-item" style="opacity: ${opacity};">
-                    <div class="enseignant-edit-header">
-                        <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-idx="${idx}" ${isSelected ? 'checked' : ''}>
-                        <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</div>
-                    </div>
-                </div>
-            `;
+            let globalIdx = 0;
+            return ecoleIds.map(ecoleId => {
+                const ecoleObj = ecolesData.find(e => e.id === ecoleId);
+                const ecoleName = ecoleObj ? escapeHtml(ecoleObj.nom || ecoleObj.commune_complement) : 'N/A';
+                const { selected, unselected } = ensParEcole.get(ecoleId);
+                const orderedEns = [...selected, ...unselected];
+
+                if (orderedEns.length === 0) return '';
+
+                const header = ecoleIds.length > 1
+                    ? `<div class="edit-ecole-header">${ecoleName}</div>`
+                    : '';
+
+                return header + orderedEns.map(ens => {
+                    const isSelected = ficheRecords.some(rec => rec.idPE === ens.id);
+                    const idx = globalIdx++;
+                    const opacity = isSelected ? '1' : '0.5';
+                    return `
+                    <div class="enseignant-edit-item" style="opacity: ${opacity};">
+                        <div class="enseignant-edit-header">
+                            <input type="checkbox" id="editEns_${idx}" class="edit-ens-checkbox" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-idx="${idx}" ${isSelected ? 'checked' : ''}>
+                            <div class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</div>
+                        </div>
+                    </div>`;
+                }).join('');
             }).join('');
         })()}
                 </div>

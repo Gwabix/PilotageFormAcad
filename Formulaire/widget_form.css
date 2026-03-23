@@ -1288,6 +1288,24 @@ textarea {
     background-color: #fff;
 }
 
+.edit-ecole-header {
+    font-weight: 700;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
+    background-color: #f0f4f8;
+    border: 1px solid #d0d9e4;
+    border-radius: 4px;
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    margin-top: 10px;
+}
+
+.edit-ecole-header:first-child {
+    margin-top: 0;
+}
+
 .enseignant-edit-header {
     display: flex;
     align-items: center;
