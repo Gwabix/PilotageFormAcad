@@ -508,10 +508,11 @@ function renderChoiceList(containerId, globalOptions, checkedValues) {
     const container = document.getElementById(containerId);
     container.innerHTML = ''; // vide le conteneur (sécurisé)
 
-    // Union des options globales et des valeurs actuelles de l'enregistrement
-    const combined = [...new Set([...globalOptions, ...checkedValues])]
-        .filter(v => v)
-        .sort();
+    // Options de la config Grist en premier (ordre préservé), puis les valeurs cochées
+    // absentes de la config (ajoutées en fin, triées pour être stables)
+    const configSet = new Set(globalOptions);
+    const extraChecked = checkedValues.filter(v => v && !configSet.has(v)).sort();
+    const combined = [...globalOptions, ...extraChecked].filter(v => v);
 
     if (combined.length === 0) {
         const span = document.createElement('span');
