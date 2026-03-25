@@ -146,8 +146,8 @@ async function loadData() {
                 : '',
         })).filter(e => e.nom);
 
-        // Construction des options dynamiques pour Choice et ChoiceList
-        buildDynamicChoiceOptions();
+        // Charger les options depuis la configuration des colonnes Grist
+        await loadColumnChoicesFromMeta();
 
         // Pré-sélection de l'année scolaire en cours
         setDefaultYear();
@@ -159,8 +159,67 @@ async function loadData() {
     }
 }
 
+/**
+ * Charge les options de choix depuis la configuration des colonnes Grist (_grist_Tables_column).
+ * En cas d'erreur (accès refusé, table absente), replie sur buildDynamicChoiceOptions().
+ */
+async function loadColumnChoicesFromMeta() {
+    const TARGET_FIELDS = new Set(['D_dir', 'Niveau_x_', 'TP', 'D_synd_', 'Autre', 'Fonction', 'Quotite_de_service']);
+    try {
+        // Trouver l'ID interne de la table Liste_PE
+        const tablesData = await grist.docApi.fetchTable('_grist_Tables');
+        const tableIndex = tablesData.tableId.indexOf('Liste_PE');
+        if (tableIndex === -1) throw new Error('Table Liste_PE introuvable dans les métadonnées');
+        const tableRef = tablesData.id[tableIndex];
+
+        // Lire les métadonnées de colonnes
+        const colsData = await grist.docApi.fetchTable('_grist_Tables_column');
+        let updatedCount = 0;
+
+        colsData.id.forEach((_, i) => {
+            if (colsData.parentId[i] !== tableRef) return;
+            const colId = colsData.colId[i];
+            if (!TARGET_FIELDS.has(colId)) return;
+
+            const widgetOptionsStr = colsData.widgetOptions[i];
+            if (!widgetOptionsStr) return;
+
+            try {
+                const opts = JSON.parse(widgetOptionsStr);
+                if (Array.isArray(opts.choices) && opts.choices.length > 0) {
+                    choiceOptions[colId] = opts.choices
+                        .map(c => validateInput(String(c), 200))
+                        .filter(Boolean);
+                    updatedCount++;
+                }
+            } catch (e) {
+                // widgetOptions JSON invalide pour cette colonne, on ignore
+            }
+        });
+
+        if (updatedCount === 0) {
+            console.info('Aucune option de colonne trouvée dans les métadonnées, repli sur les données.');
+            buildDynamicChoiceOptions();
+            return;
+        }
+
+        // Mettre à jour les <select> pour les champs Choice simples
+        populateChoiceSelect('edit-fonction', choiceOptions.Fonction);
+        populateChoiceSelect('edit-quotite', choiceOptions.Quotite_de_service);
+
+    } catch (err) {
+        const msg = err?.message || String(err);
+        if (msg.includes('ACL_DENY') || msg.includes('access rules') || msg.includes('read access')) {
+            console.info('Options de colonnes : accès aux métadonnées refusé, repli sur les données existantes.');
+        } else {
+            console.warn('Options de colonnes : erreur inattendue, repli sur les données existantes :', msg);
+        }
+        buildDynamicChoiceOptions();
+    }
+}
+
 function buildDynamicChoiceOptions() {
-    // Champs Choice simples
+    // Champs Choice simples : valeurs présentes dans les données
     ['Fonction', 'Quotite_de_service'].forEach(field => {
         const vals = new Set();
         listePEData.forEach(r => { if (r[field]) vals.add(r[field]); });
@@ -169,7 +228,7 @@ function buildDynamicChoiceOptions() {
             choiceOptions[field]);
     });
 
-    // Champs ChoiceList
+    // Champs ChoiceList : valeurs présentes dans les données
     ['D_dir', 'TP', 'D_synd_', 'Autre'].forEach(field => {
         const vals = new Set();
         listePEData.forEach(r => {
