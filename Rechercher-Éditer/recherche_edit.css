@@ -219,9 +219,9 @@ select:disabled {
 
 .choicelist-label {
     font-size: 0.82rem;
-    font-weight: 600;
+    font-weight: 700;
     color: #34495e;
-    margin: 0 0 6px;
+    margin: 0 0 0.2rem;
 }
 
 .checkboxes {
@@ -230,6 +230,7 @@ select:disabled {
     gap: 6px 14px;
     align-items: center;
     min-height: 28px;
+    margin-bottom: 1rem;
 }
 
 .checkbox-label {
@@ -244,6 +245,16 @@ select:disabled {
 
 .checkbox-label:hover {
     color: #1a6fa8;
+}
+
+#edit-preciser {
+    width: 33%;
+    padding: 6px 10px;
+    border: 1px solid #ccd6e0;
+    border-radius: 4px;
+    font-size: 0.88rem;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 input[type="checkbox"] {
