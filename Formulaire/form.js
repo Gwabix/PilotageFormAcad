@@ -553,7 +553,12 @@ async function syncFormateursFromPersonnes() {
             console.info('Synchro Formateurs : aucun formateur à ajouter.');
         }
     } catch (error) {
-        console.warn('Synchro Formateurs/Personnes échouée :', error?.message || error);
+        const msg = error?.message || String(error);
+        if (msg.includes('ACL_DENY') || msg.includes('access rules') || msg.includes('read access')) {
+            console.info('Synchro Formateurs/Personnes ignorée (accès restreint sur Personnes ou Categories).');
+        } else {
+            console.warn('Synchro Formateurs/Personnes échouée (erreur inattendue) :', msg);
+        }
     }
 }
 
