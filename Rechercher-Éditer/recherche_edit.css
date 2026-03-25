@@ -236,7 +236,6 @@ select:disabled {
 .checkbox-label {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
     font-size: 0.86rem;
     color: #2c3e50;
     cursor: pointer;
