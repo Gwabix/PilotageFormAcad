@@ -202,7 +202,7 @@ select:disabled {
 .sous-titre {
     font-size: 0.78rem;
     color: #7f8c8d;
-    margin: 4px 0 12px;
+    margin: 0 0 0.8rem 1rem;
     font-style: italic;
 }
 
@@ -237,7 +237,7 @@ select:disabled {
     gap: 6px 14px;
     align-items: center;
     min-height: 28px;
-    margin-bottom: 1rem;
+    margin: 0 0 1rem 1rem;
 }
 
 .checkbox-label {
@@ -251,6 +251,18 @@ select:disabled {
 
 .checkbox-label:hover {
     color: #1a6fa8;
+}
+
+.field-readonly {
+    background-color: #f4f7fa;
+    color: #6b8090;
+    border: 1px solid #dde6f0;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 0.88rem;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: default;
 }
 
 .preciser-container {

@@ -144,6 +144,9 @@ async function loadData() {
             nomCompletCommune: ec.Nom_Complement_Commune
                 ? sanitizeGristValue(ec.Nom_Complement_Commune[i])
                 : '',
+            uai: ec.UAI ? sanitizeGristValue(ec.UAI[i]) : '',
+            circonscription: ec.Circonscription ? sanitizeGristValue(ec.Circonscription[i]) : '',
+            departement: ec.Departement ? sanitizeGristValue(ec.Departement[i]) : '',
         })).filter(e => e.nom);
 
         // Charger les options depuis la configuration des colonnes Grist
@@ -496,6 +499,9 @@ function populateEditForm(record) {
     document.getElementById('edit-ecole-search').value = ecoleName;
     document.getElementById('edit-ecole').value = record.Ecole > 0 ? record.Ecole : '';
     document.getElementById('clear-ecole').hidden = !ecoleName;
+    document.getElementById('edit-ecole-uai').value = ecoleObj?.uai || '';
+    document.getElementById('edit-ecole-circo').value = ecoleObj?.circonscription || '';
+    document.getElementById('edit-ecole-dept').value = ecoleObj?.departement || '';
 
     // Choice
     document.getElementById('edit-fonction').value = record.Fonction || '';
@@ -696,6 +702,9 @@ function selectEcole(ecole) {
     document.getElementById('edit-ecole-search').value = name;
     document.getElementById('edit-ecole').value = ecole.id;
     document.getElementById('clear-ecole').hidden = false;
+    document.getElementById('edit-ecole-uai').value = ecole.uai || '';
+    document.getElementById('edit-ecole-circo').value = ecole.circonscription || '';
+    document.getElementById('edit-ecole-dept').value = ecole.departement || '';
     closeEcoleResults();
 }
 
@@ -941,6 +950,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-ecole-search').value = '';
         document.getElementById('edit-ecole').value = '';
         document.getElementById('clear-ecole').hidden = true;
+        document.getElementById('edit-ecole-uai').value = '';
+        document.getElementById('edit-ecole-circo').value = '';
+        document.getElementById('edit-ecole-dept').value = '';
         closeEcoleResults();
         ecoleSearch.focus();
     });
