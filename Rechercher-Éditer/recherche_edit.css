@@ -199,6 +199,13 @@ select:disabled {
     letter-spacing: 0.04em;
 }
 
+.sous-titre {
+    font-size: 0.78rem;
+    color: #7f8c8d;
+    margin: 4px 0 12px;
+    font-style: italic;
+}
+
 /* ----- Grille interne des champs d'édition ----- */
 .fields-grid {
     display: grid;
