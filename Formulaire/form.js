@@ -462,16 +462,22 @@ async function loadData() {
  */
 async function syncFormateursFromPersonnes() {
     try {
-        // Charger la table Categories pour résoudre les IDs en noms
-        const categoriesTable = await grist.docApi.fetchTable('Categories');
-        const categoriesMap = {};
-        categoriesTable.id.forEach((id, index) => {
-            const nom = sanitizeGristData(categoriesTable.Nom[index]);
-            if (nom) categoriesMap[id] = nom;
-        });
-
-        // Charger la table Personnes
+        // Charger la table Personnes en premier (échec rapide si inaccessible)
         const personnesTable = await grist.docApi.fetchTable('Personnes');
+
+        // Tenter de charger Categories pour résoudre les IDs (colonne ReferenceList).
+        // En cas d'échec, on supposera que Categorie est un ChoiceList (valeurs texte directes).
+        let categoriesMap = null;
+        try {
+            const categoriesTable = await grist.docApi.fetchTable('Categories');
+            categoriesMap = {};
+            categoriesTable.id.forEach((id, index) => {
+                const nom = sanitizeGristData(categoriesTable.Nom[index]);
+                if (nom) categoriesMap[id] = nom;
+            });
+        } catch (e) {
+            console.info('Synchro Formateurs : table Categories inaccessible, Categorie traitée comme ChoiceList.');
+        }
 
         const targetCategories = new Set(['CPC', 'CPD', 'Formateur']);
         const fonctionCategories = new Set(['CPC', 'CPD']);
@@ -487,12 +493,28 @@ async function syncFormateursFromPersonnes() {
             const prenom = (sanitizeGristData(personnesTable.Prenom[index]) || '').trim();
             const nom = (sanitizeGristData(personnesTable.Nom[index]) || '').toUpperCase().trim();
 
-            // Categorie est un ReferenceList : tableau d'IDs
-            const categorieRaw = sanitizeGristData(personnesTable.Categorie[index]);
-            const catIds = Array.isArray(categorieRaw) ? categorieRaw : [];
+            // Récupérer la valeur brute de Categorie (ReferenceList ou ChoiceList ou Reference scalaire)
+            const categorieRaw = personnesTable.Categorie[index];
 
-            // Résoudre les noms de catégorie
-            const catNames = catIds.map(id => categoriesMap[id]).filter(Boolean);
+            // Normaliser en tableau plat en supprimant le marqueur Grist 'L'
+            let rawValues;
+            if (Array.isArray(categorieRaw)) {
+                rawValues = categorieRaw.filter(v => v !== 'L');
+            } else if (categorieRaw) {
+                rawValues = [categorieRaw]; // Reference scalaire
+            } else {
+                rawValues = [];
+            }
+
+            // Résoudre les noms de catégorie :
+            // - si categoriesMap disponible et valeurs numériques → ReferenceList
+            // - sinon traiter directement comme des chaînes → ChoiceList
+            let catNames;
+            if (categoriesMap && rawValues.length > 0 && typeof rawValues[0] === 'number') {
+                catNames = rawValues.map(id => categoriesMap[id]).filter(Boolean);
+            } else {
+                catNames = rawValues.map(v => sanitizeGristData(v)).filter(v => typeof v === 'string' && v);
+            }
 
             // Vérifier qu'au moins une catégorie cible est présente
             const matchedCats = catNames.filter(n => targetCategories.has(n));
@@ -526,10 +548,12 @@ async function syncFormateursFromPersonnes() {
                 nom: sanitizeGristData(formateursTable.Formateur[index]),
                 fonction: sanitizeGristData(formateursTable.Fonction[index]) || ''
             })).filter(f => f.nom);
+            console.info(`Synchro Formateurs : ${actions.length} formateur(s) ajouté(s).`);
+        } else {
+            console.info('Synchro Formateurs : aucun formateur à ajouter.');
         }
     } catch (error) {
-        // Accès insuffisant ou table absente : ignorer silencieusement
-        console.warn('Synchro Formateurs/Personnes ignorée (accès insuffisant ou erreur) :', error?.message || error);
+        console.warn('Synchro Formateurs/Personnes échouée :', error?.message || error);
     }
 }
 
@@ -1193,27 +1217,6 @@ function validateForm() {
         errors.push('Thème(s) traité(s) en formation est obligatoire');
     }
 
-    // Validation des champs GAIA (facultatifs mais avec format spécifique si renseignés)
-    const dispositifGAIAEl = document.getElementById('dispositifGAIA');
-    const dispositifGAIA = validateInput((dispositifGAIAEl?.value || '').trim(), 10);
-    if (dispositifGAIA && !/^[a-zA-Z0-9]{10}$/.test(dispositifGAIA)) {
-        errors.push('Dispositif GAIA doit contenir exactement 10 caractères alphanumériques');
-        document.getElementById('dispositifError').style.display = 'block';
-    } else {
-        const dispositifErrorEl = document.getElementById('dispositifError');
-        if (dispositifErrorEl) dispositifErrorEl.style.display = 'none';
-    }
-
-    const moduleGAIAEl = document.getElementById('moduleGAIA');
-    const moduleGAIA = validateInput((moduleGAIAEl?.value || '').trim(), 5);
-    if (moduleGAIA && !/^[0-9]{5}$/.test(moduleGAIA)) {
-        errors.push('Module GAIA doit contenir exactement 5 chiffres');
-        document.getElementById('moduleError').style.display = 'block';
-    } else {
-        const moduleErrorEl = document.getElementById('moduleError');
-        if (moduleErrorEl) moduleErrorEl.style.display = 'none';
-    }
-
     // Validation du numéro de groupe
     const numeroGroupeEl = document.getElementById('numeroGroupe');
     const numeroGroupe = (numeroGroupeEl?.value || '').trim();
@@ -1247,12 +1250,6 @@ async function validerFormulaire() {
     const themesFormation = getCheckboxValues('themesFormation');
     const anneeScolaireEl = document.getElementById('anneeScolaire');
     const anneeScolaire = validateInput(anneeScolaireEl?.value || '', 50);
-    const dispositifGAIAEl = document.getElementById('dispositifGAIA');
-    const dispositifGAIA = validateInput((dispositifGAIAEl?.value || '').trim(), 10);
-    const moduleGAIAEl = document.getElementById('moduleGAIA');
-    const moduleGAIA = validateInput((moduleGAIAEl?.value || '').trim(), 5);
-    const intituleFormationEl = document.getElementById('intituleFormation');
-    const intituleFormation = validateInput((intituleFormationEl?.value || '').trim(), 200);
     const formateurs = getFormateurs();
 
     const selectedEnseignants = Array.from(enseignantsMap.entries())
@@ -1352,18 +1349,6 @@ async function validerFormulaire() {
             record.Numero_de_groupe = numeroGroupe;
         }
 
-        if (dispositifGAIA) {
-            record.Dispositif_GAIA = dispositifGAIA;
-        }
-
-        if (moduleGAIA) {
-            record.Module_GAIA = moduleGAIA;
-        }
-
-        if (intituleFormation) {
-            record.Intitule = intituleFormation;
-        }
-
         if (formateurIds.length > 0) {
             record['Formateur_s_'] = ['L', ...formateurIds];
         }
@@ -1440,16 +1425,6 @@ function resetForm() {
     if (filterMathematiquesEl) filterMathematiquesEl.checked = true;
 
     filterThemes();
-
-    // Reset GAIA fields
-    const dispositifGAIAEl = document.getElementById('dispositifGAIA');
-    if (dispositifGAIAEl) dispositifGAIAEl.value = '';
-    const moduleGAIAEl = document.getElementById('moduleGAIA');
-    if (moduleGAIAEl) moduleGAIAEl.value = '';
-    const dispositifErrorEl = document.getElementById('dispositifError');
-    if (dispositifErrorEl) dispositifErrorEl.style.display = 'none';
-    const moduleErrorEl = document.getElementById('moduleError');
-    if (moduleErrorEl) moduleErrorEl.style.display = 'none';
 
     // Reset formateurs
     const formateursContainerEl = document.getElementById('formateursInputsContainer');
