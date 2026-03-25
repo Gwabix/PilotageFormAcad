@@ -246,8 +246,12 @@ select:disabled {
     color: #1a6fa8;
 }
 
-#edit-preciser {
+.preciser-container {
     width: 33%;
+}
+
+#edit-preciser {
+    width: 100%;
     padding: 6px 10px;
     border: 1px solid #ccd6e0;
     border-radius: 4px;

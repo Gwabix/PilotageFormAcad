@@ -207,6 +207,9 @@ async function loadColumnChoicesFromMeta() {
         populateChoiceSelect('edit-fonction', choiceOptions.Fonction);
         populateChoiceSelect('edit-quotite', choiceOptions.Quotite_de_service);
 
+        // Valeurs distinctes pour le champ texte Preciser (toujours depuis les données)
+        buildPreciserOptions();
+
     } catch (err) {
         const msg = err?.message || String(err);
         if (msg.includes('ACL_DENY') || msg.includes('access rules') || msg.includes('read access')) {
@@ -236,6 +239,15 @@ function buildDynamicChoiceOptions() {
         });
         if (vals.size > 0) choiceOptions[field] = [...vals].sort();
     });
+
+    // Valeurs distinctes pour le champ texte Preciser
+    buildPreciserOptions();
+}
+
+function buildPreciserOptions() {
+    const vals = new Set();
+    listePEData.forEach(r => { if (r.Preciser) vals.add(r.Preciser); });
+    choiceOptions.Preciser = [...vals].sort();
 }
 
 function populateChoiceSelect(selectId, options) {
@@ -537,7 +549,103 @@ function renderChoiceList(containerId, globalOptions, checkedValues) {
     });
 }
 
-// ===== RECHERCHE ÉCOLE =====
+// ===== AUTOCOMPLETE PRÉCISER =====
+
+let preciserResults = [];
+let activePreciserIdx = -1;
+
+function handlePreciserInput() {
+    const query = validateInput(document.getElementById('edit-preciser').value, 500);
+    const normalized = normalizeStr(query);
+
+    preciserResults = normalized
+        ? (choiceOptions.Preciser || []).filter(v => normalizeStr(v).includes(normalized))
+        : (choiceOptions.Preciser || []).slice();
+
+    activePreciserIdx = -1;
+    renderPreciserResults(preciserResults, normalized);
+}
+
+function openPreciserDropdown() {
+    preciserResults = (choiceOptions.Preciser || []).slice();
+    activePreciserIdx = -1;
+    renderPreciserResults(preciserResults, '');
+}
+
+function renderPreciserResults(items, query) {
+    const list = document.getElementById('preciser-results');
+    list.innerHTML = '';
+
+    if (items.length === 0) {
+        list.style.display = 'none';
+        document.getElementById('edit-preciser').setAttribute('aria-expanded', 'false');
+        return;
+    }
+
+    items.forEach((val, i) => {
+        const li = document.createElement('li');
+        li.className = 'autocomplete-item';
+        li.setAttribute('role', 'option');
+        li.dataset.index = i;
+        if (query) {
+            appendHighlightedText(li, val, query);
+        } else {
+            li.textContent = val;
+        }
+        li.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectPreciser(val);
+        });
+        list.appendChild(li);
+    });
+
+    list.style.display = 'block';
+    document.getElementById('edit-preciser').setAttribute('aria-expanded', 'true');
+}
+
+function selectPreciser(val) {
+    document.getElementById('edit-preciser').value = val;
+    closePreciserResults();
+}
+
+function closePreciserResults() {
+    const list = document.getElementById('preciser-results');
+    list.style.display = 'none';
+    list.innerHTML = '';
+    activePreciserIdx = -1;
+    document.getElementById('edit-preciser').setAttribute('aria-expanded', 'false');
+}
+
+function handlePreciserKeydown(e) {
+    const list = document.getElementById('preciser-results');
+    if (list.style.display === 'none') return;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activePreciserIdx = Math.min(activePreciserIdx + 1, preciserResults.length - 1);
+        updatePreciserHighlight();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activePreciserIdx = Math.max(activePreciserIdx - 1, 0);
+        updatePreciserHighlight();
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activePreciserIdx >= 0 && preciserResults[activePreciserIdx]) {
+            selectPreciser(preciserResults[activePreciserIdx]);
+        }
+    } else if (e.key === 'Escape') {
+        closePreciserResults();
+    }
+}
+
+function updatePreciserHighlight() {
+    const items = document.querySelectorAll('#preciser-results .autocomplete-item');
+    items.forEach((item, i) => item.classList.toggle('highlighted', i === activePreciserIdx));
+    const h = items[activePreciserIdx];
+    if (h) h.scrollIntoView({ block: 'nearest' });
+}
+
+// ===== RECHERCHE ÉCOLE =
 
 function handleEcoleInput() {
     const query = validateInput(document.getElementById('edit-ecole-search').value, 200);
@@ -814,6 +922,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Changement de prénom
     document.getElementById('prenom-select').addEventListener('change', loadRecordForCurrentSelection);
+
+    // Autocomplete Préciser
+    const preciserInput = document.getElementById('edit-preciser');
+    preciserInput.addEventListener('focus', openPreciserDropdown);
+    preciserInput.addEventListener('input', handlePreciserInput);
+    preciserInput.addEventListener('keydown', handlePreciserKeydown);
+    preciserInput.addEventListener('blur', () => setTimeout(closePreciserResults, 160));
 
     // Recherche École dans le formulaire d'édition
     const ecoleSearch = document.getElementById('edit-ecole-search');

@@ -158,7 +158,12 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-preciser">→ Préciser</label>
-                        <input type="text" id="edit-preciser" name="Preciser" maxlength="500">
+                        <div class="search-container preciser-container">
+                            <input type="text" id="edit-preciser" name="Preciser" maxlength="500" autocomplete="off"
+                                role="combobox" aria-autocomplete="list" aria-controls="preciser-results"
+                                aria-expanded="false">
+                            <ul id="preciser-results" class="autocomplete-list" role="listbox"></ul>
+                        </div>
                     </div>
                 </fieldset>
 
