@@ -2086,20 +2086,23 @@ function displayEditForm(ficheRecords) {
                 </div>
             </div>
             
+            ${firstRecord.dispositifGAIA ? `
             <div class="form-group">
                 <label>Dispositif GAIA</label>
-                <input type="text" id="editDispositif" value="${escapeHtmlAttribute(firstRecord.dispositifGAIA || '')}" maxlength="10">
-            </div>
+                <input type="text" id="editDispositif" value="${escapeHtmlAttribute(firstRecord.dispositifGAIA)}" maxlength="10">
+            </div>` : ''}
             
+            ${firstRecord.moduleGAIA ? `
             <div class="form-group">
                 <label>Module GAIA</label>
-                <input type="text" id="editModule" value="${escapeHtmlAttribute(firstRecord.moduleGAIA || '')}" maxlength="5">
-            </div>
+                <input type="text" id="editModule" value="${escapeHtmlAttribute(firstRecord.moduleGAIA)}" maxlength="5">
+            </div>` : ''}
             
+            ${firstRecord.intituleFormation ? `
             <div class="form-group">
                 <label>Intitulé de la formation</label>
-                <input type="text" id="editIntitule" value="${escapeHtmlAttribute(firstRecord.intituleFormation || '')}" maxlength="200">
-            </div>
+                <input type="text" id="editIntitule" value="${escapeHtmlAttribute(firstRecord.intituleFormation)}" maxlength="200">
+            </div>` : ''}
             
             <div class="form-group">
                 <label>Formateur(s)</label>
@@ -2687,9 +2690,9 @@ async function updateFiche() {
     const modalitesFormation = Array.from(document.querySelectorAll('.edit-Modalites:checked')).map(cb => cb.value);
     const objetsTransversaux = Array.from(document.querySelectorAll('.edit-objets:checked')).map(cb => cb.value);
     const themes = Array.from(document.querySelectorAll('.edit-themes:checked')).map(cb => cb.value);
-    const dispositifGAIA = validateInput(document.getElementById('editDispositif').value.trim(), 10);
-    const moduleGAIA = validateInput(document.getElementById('editModule').value.trim(), 5);
-    const intituleFormation = validateInput(document.getElementById('editIntitule').value.trim(), 200);
+    const dispositifGAIA = validateInput((document.getElementById('editDispositif')?.value || '').trim(), 10);
+    const moduleGAIA = validateInput((document.getElementById('editModule')?.value || '').trim(), 5);
+    const intituleFormation = validateInput((document.getElementById('editIntitule')?.value || '').trim(), 200);
 
     // Récupérer les formateurs
     const formateurInputs = document.querySelectorAll('.edit-formateur-input');
@@ -2729,8 +2732,8 @@ async function updateFiche() {
                         formateur = { id: newId, nom };
                         formateursData.push(formateur);
                     } catch (error) {
-                        console.error('Erreur création formateur:', error);
-                        alert('Erreur lors de la création du formateur: ' + nom);
+                        console.error('Erreur création formateur :', error);
+                        alert('Erreur lors de la création du formateur : ' + nom);
                         return;
                     }
                 }
@@ -2744,8 +2747,8 @@ async function updateFiche() {
                     formateur = { id: newId, nom };
                     formateursData.push(formateur);
                 } catch (error) {
-                    console.error('Erreur création formateur:', error);
-                    alert('Erreur lors de la création du formateur: ' + nom);
+                    console.error('Erreur création formateur :', error);
+                    alert('Erreur lors de la création du formateur : ' + nom);
                     return;
                 }
             }
@@ -3985,7 +3988,7 @@ async function addNewFormateurTechnique(nom) {
         }
 
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du formateur:', error);
+        console.error('Erreur lors de l\'ajout du formateur :', error);
         alert('Erreur lors de l\'ajout du formateur.');
     }
 }
