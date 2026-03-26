@@ -253,7 +253,8 @@ select:disabled {
     color: #1a6fa8;
 }
 
-.field-readonly {
+input[type="text"].field-readonly,
+input[type="email"].field-readonly {
     background-color: #f4f7fa;
     color: #6b8090;
     border: 1px solid #dde6f0;
@@ -263,6 +264,13 @@ select:disabled {
     width: 100%;
     box-sizing: border-box;
     cursor: default;
+}
+
+input[type="text"].field-readonly:focus,
+input[type="email"].field-readonly:focus {
+    outline: none;
+    border-color: #dde6f0;
+    box-shadow: none;
 }
 
 .preciser-container {
