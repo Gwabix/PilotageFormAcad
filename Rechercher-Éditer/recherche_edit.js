@@ -488,7 +488,6 @@ function populateEditForm(record) {
     document.getElementById('edit-nom').value = record.Nom || '';
     document.getElementById('edit-prenom').value = record.Prenom || '';
     document.getElementById('edit-id-pe').value = record.ID_PE || '';
-    document.getElementById('edit-annee').value = record.Annee_scolaire || '';
     document.getElementById('edit-mail').value = record.Mail || '';
 
     // École (référence)
@@ -773,7 +772,6 @@ async function handleSubmit(e) {
         Nom: nom,
         Prenom: prenom,
         ID_PE: validateInput(document.getElementById('edit-id-pe').value.trim(), 100),
-        Annee_scolaire: validateInput(document.getElementById('edit-annee').value.trim(), 20),
         Mail: mail,
         // Référence École : 0 = vide dans Grist, toujours inclus pour permettre l'effacement
         Ecole: ecoleId > 0 ? ecoleId : 0,
