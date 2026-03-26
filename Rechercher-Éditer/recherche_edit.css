@@ -193,8 +193,8 @@ select:disabled {
 }
 
 .autocomplete-item mark {
-    background: #fef9c3;
-    color: #b7791f;
+    background: #c3edfe;
+    color: #1f29b7;
     font-weight: 700;
     border-radius: 2px;
     padding: 0 1px;
