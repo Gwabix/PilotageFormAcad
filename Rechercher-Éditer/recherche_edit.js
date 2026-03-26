@@ -307,7 +307,7 @@ function handleNomInput() {
     const uniqueNames = [...startsWith, ...contains].slice(0, 10);
 
     nomSearchResults = uniqueNames;
-    activeNomIdx = -1;
+    activeNomIdx = uniqueNames.length > 0 ? 0 : -1;
     renderNomResults(uniqueNames, query);
 }
 
@@ -335,6 +335,7 @@ function renderNomResults(names, query) {
     });
 
     list.style.display = 'block';
+    updateNomHighlight();
 }
 
 /**
