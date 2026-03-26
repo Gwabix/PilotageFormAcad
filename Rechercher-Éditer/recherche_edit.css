@@ -75,6 +75,21 @@ h2 {
     grid-column: span 2;
 }
 
+/* ----- Lien mailto ----- */
+.mail-link {
+    display: inline-block;
+    margin-top: 3px;
+    font-size: 0.8rem;
+    color: #2980b9;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.mail-link:hover {
+    text-decoration: underline;
+    color: #1a6fa8;
+}
+
 label {
     font-size: 0.82rem;
     font-weight: 600;

@@ -296,12 +296,15 @@ function handleNomInput() {
     const year = getSelectedYear();
     const normalized = normalizeStr(query);
 
-    const uniqueNames = [...new Set(
+    const allMatches = [...new Set(
         listePEData
             .filter(p => p.Annee_scolaire === year
                 && normalizeStr(p.Nom).includes(normalized))
             .map(p => p.Nom)
-    )].sort().slice(0, 10);
+    )];
+    const startsWith = allMatches.filter(n => normalizeStr(n).startsWith(normalized)).sort();
+    const contains = allMatches.filter(n => !normalizeStr(n).startsWith(normalized)).sort();
+    const uniqueNames = [...startsWith, ...contains].slice(0, 10);
 
     nomSearchResults = uniqueNames;
     activeNomIdx = -1;
@@ -489,6 +492,7 @@ function populateEditForm(record) {
     document.getElementById('edit-prenom').value = record.Prenom || '';
     document.getElementById('edit-id-pe').value = record.ID_PE || '';
     document.getElementById('edit-mail').value = record.Mail || '';
+    updateMailLink(record.Mail || '');
 
     // École (référence)
     const ecoleObj = ecolesData.find(e => e.id === record.Ecole);
@@ -955,12 +959,30 @@ document.addEventListener('DOMContentLoaded', () => {
         ecoleSearch.focus();
     });
 
+    // Lien mailto dynamique
+    document.getElementById('edit-mail').addEventListener('input', (e) => updateMailLink(e.target.value));
+
     // Soumission du formulaire
     document.getElementById('edit-form').addEventListener('submit', handleSubmit);
 
     // Annuler (réinitialise le formulaire aux valeurs chargées)
     document.getElementById('btn-annuler').addEventListener('click', handleAnnuler);
 });
+
+// ===== LIEN MAILTO =====
+
+function updateMailLink(email) {
+    const link = document.getElementById('mail-link');
+    const trimmed = email.trim();
+    // Validation basique : doit contenir '@' et aucun caractère de contrôle
+    if (trimmed && trimmed.includes('@') && !/[\s<>"']/.test(trimmed)) {
+        link.href = 'mailto:' + trimmed;
+        link.textContent = trimmed;
+        link.hidden = false;
+    } else {
+        link.hidden = true;
+    }
+}
 
 // Lancement du chargement initial
 loadData();
