@@ -277,7 +277,7 @@ input[type="email"].field-readonly:focus {
     width: 33%;
 }
 
-#edit-preciser {
+.edit-preciser {
     width: 100%;
     padding: 6px 10px;
     border: 1px solid #ccd6e0;
