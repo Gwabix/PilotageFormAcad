@@ -413,7 +413,9 @@ async function loadData() {
         formateursData = formateursTable.id.map((id, index) => ({
             id: id,
             nom: sanitizeGristData(formateursTable.Formateur[index]),
-            fonction: sanitizeGristData(formateursTable.Fonction[index]) || ''
+            fonction: sanitizeGristData(formateursTable.Fonction[index]) || '',
+            autoLoad: formateursTable.AutoLoad ? formateursTable.AutoLoad[index] === true : false,
+            lister: formateursTable.Lister ? formateursTable.Lister[index] !== false : true
         })).filter(f => f.nom);
 
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
@@ -455,9 +457,13 @@ async function loadData() {
  * Synchronise la table Formateurs à partir de la table Personnes au chargement du widget.
  * - Uppercases le champ Nom lors de la construction du nom complet.
  * - Filtre les personnes dont la Categorie contient "CPC", "CPD" ou "Formateur".
- * - Ajoute uniquement les couples "Prenom NOM" absents de la colonne Formateur.
+ * - Ajoute uniquement les couples "Prenom NOM" absents de la colonne Formateur,
+ *   en marquant les nouvelles lignes AutoLoad=true et Lister=true.
  * - Copie la catégorie dans Fonction si celle-ci est "CPC" ou "CPD".
+ * - Pour les entrées AutoLoad=true qui ne correspondent plus à une personne éligible,
+ *   applique Lister=false (soft-remove) sans supprimer la ligne.
  * - N'écrase pas les données existantes et ne crée pas de doublon.
+ * - Ne touche jamais aux entrées manuelles (AutoLoad non true).
  * - Ignore silencieusement si l'accès à Personnes ou Categories est refusé.
  */
 async function syncFormateursFromPersonnes() {
@@ -487,7 +493,9 @@ async function syncFormateursFromPersonnes() {
             formateursData.map(f => normalizeFormateurName(f.nom))
         );
 
-        const actions = [];
+        // Construire l'ensemble des personnes éligibles (pour add + soft-remove)
+        const eligibleNormalized = new Set();
+        const toAdd = [];
 
         personnesTable.id.forEach((_, index) => {
             const prenom = (sanitizeGristData(personnesTable.Prenom[index]) || '').trim();
@@ -524,33 +532,51 @@ async function syncFormateursFromPersonnes() {
             const formateurNom = [prenom, nom].filter(Boolean).join(' ');
             if (!formateurNom) return;
 
-            // Vérifier l'absence de doublon (comparaison normalisée)
             const normKey = normalizeFormateurName(formateurNom);
-            if (existingNormalized.has(normKey)) return;
+            eligibleNormalized.add(normKey);
 
-            // Déterminer la Fonction : première catégorie CPC ou CPD trouvée
-            const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
+            // Planifier l'ajout si absent de Formateurs (comparaison normalisée)
+            if (!existingNormalized.has(normKey)) {
+                const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
+                toAdd.push({ formateurNom, fonctionCat });
+                // Marquer comme existant pour éviter les doublons intra-lot
+                existingNormalized.add(normKey);
+            }
+        });
 
-            const recordData = { Formateur: formateurNom };
+        const actions = [];
+
+        // ADD : personnes éligibles absentes de Formateurs
+        toAdd.forEach(({ formateurNom, fonctionCat }) => {
+            const recordData = { Formateur: formateurNom, AutoLoad: true, Lister: true };
             if (fonctionCat) recordData.Fonction = fonctionCat;
-
             actions.push(['AddRecord', 'Formateurs', null, recordData]);
-            // Marquer comme existant pour éviter les doublons intra-lot
-            existingNormalized.add(normKey);
+        });
+
+        // SOFT-REMOVE : AutoLoad=true non éligibles → Lister=false
+        formateursData.forEach(f => {
+            if (f.autoLoad === true) {
+                const normKey = normalizeFormateurName(f.nom);
+                if (!eligibleNormalized.has(normKey)) {
+                    actions.push(['UpdateRecord', 'Formateurs', f.id, { Lister: false }]);
+                }
+            }
         });
 
         if (actions.length > 0) {
             await grist.docApi.applyUserActions(actions);
-            // Recharger formateursData avec les nouveaux enregistrements
+            // Recharger formateursData avec les nouveaux enregistrements et champs
             const formateursTable = await grist.docApi.fetchTable('Formateurs');
             formateursData = formateursTable.id.map((id, index) => ({
                 id: id,
                 nom: sanitizeGristData(formateursTable.Formateur[index]),
-                fonction: sanitizeGristData(formateursTable.Fonction[index]) || ''
+                fonction: sanitizeGristData(formateursTable.Fonction[index]) || '',
+                autoLoad: formateursTable.AutoLoad ? formateursTable.AutoLoad[index] === true : false,
+                lister: formateursTable.Lister ? formateursTable.Lister[index] !== false : true
             })).filter(f => f.nom);
-            console.info(`Synchro Formateurs : ${actions.length} formateur(s) ajouté(s).`);
+            console.info(`Synchro Formateurs : ${actions.length} action(s) appliquée(s).`);
         } else {
-            console.info('Synchro Formateurs : aucun formateur à ajouter.');
+            console.info('Synchro Formateurs : aucune modification nécessaire.');
         }
     } catch (error) {
         const msg = error?.message || String(error);
@@ -968,6 +994,7 @@ function searchEditFormateurs(event, fieldIndex) {
     }
 
     filteredEditFormateurResults = formateursData
+        .filter(f => f.lister !== false)
         .map(f => f.nom)
         .filter(nom => nom.toLowerCase().includes(searchTerm))
         .slice(0, 10);
@@ -1066,6 +1093,7 @@ function searchFormateurs(event, fieldIndex) {
     }
 
     filteredFormateurResults = formateursData
+        .filter(f => f.lister !== false)
         .map(f => f.nom)
         .filter(nom => nom.toLowerCase().includes(searchTerm))
         .slice(0, 10);
@@ -3855,6 +3883,7 @@ function searchFormateurTechnique(event) {
 
     const existingFormateurNames = techniqueFormateurs.map(f => f.nom.toLowerCase());
     techniqueFormateurSearchResults = formateursData
+        .filter(f => f.lister !== false)
         .filter(f => !existingFormateurNames.includes(f.nom.toLowerCase()))
         .filter(f => f.nom.toLowerCase().includes(searchTerm))
         .map(f => f.nom)
