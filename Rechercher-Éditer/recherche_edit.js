@@ -125,7 +125,9 @@ async function loadData() {
             Nom: sanitizeGristValue(pe.Nom[i]),
             Prenom: sanitizeGristValue(pe.Prenom[i]),
             Mail: sanitizeGristValue(pe.Mail[i]),
-            Ecole: typeof pe.Ecole[i] === 'number' ? pe.Ecole[i] : 0,
+            Ecole: (typeof pe.Ecole !== 'undefined' && pe.Ecole !== null && typeof pe.Ecole[i] !== 'undefined' && pe.Ecole[i] !== null)
+                ? String(pe.Ecole[i])
+                : '',
             Fonction: sanitizeGristValue(pe.Fonction[i]),
             Quotite_de_service: sanitizeGristValue(pe.Quotite_de_service[i]),
             D_dir: sanitizeGristValue(pe.D_dir[i]) || [],
@@ -494,13 +496,16 @@ function populateEditForm(record) {
     document.getElementById('edit-mail').value = record.Mail || '';
     updateMailLink(record.Mail || '');
 
-    // École (référence)
-    const ecoleObj = ecolesData.find(e => e.id === record.Ecole);
+    // École (référence par UAI dans Liste_PE)
+    const recordEcole = record.Ecole === null || record.Ecole === undefined
+        ? ''
+        : String(record.Ecole);
+    const ecoleObj = ecolesData.find(e => e.uai === recordEcole || String(e.id) === recordEcole);
     const ecoleName = ecoleObj
         ? (ecoleObj.nomCompletCommune || ecoleObj.nom)
         : '';
     document.getElementById('edit-ecole-search').value = ecoleName;
-    document.getElementById('edit-ecole').value = record.Ecole > 0 ? record.Ecole : '';
+    document.getElementById('edit-ecole').value = ecoleObj?.uai || recordEcole || '';
     document.getElementById('clear-ecole').hidden = !ecoleName;
     document.getElementById('edit-ecole-uai').value = ecoleObj?.uai || '';
     document.getElementById('edit-ecole-circo').value = ecoleObj?.circonscription || '';
@@ -660,9 +665,14 @@ function handleEcoleInput() {
     const query = validateInput(document.getElementById('edit-ecole-search').value, 200);
     document.getElementById('clear-ecole').hidden = !query;
 
+    // Si l'utilisateur tape ou modifie le texte, on réinitialise la sélection courante.
+    document.getElementById('edit-ecole').value = '';
+    document.getElementById('edit-ecole-uai').value = '';
+    document.getElementById('edit-ecole-circo').value = '';
+    document.getElementById('edit-ecole-dept').value = '';
+
     if (!query) {
         closeEcoleResults();
-        document.getElementById('edit-ecole').value = '';
         return;
     }
 
@@ -703,7 +713,7 @@ function renderEcoleResults(ecoles) {
 function selectEcole(ecole) {
     const name = ecole.nomCompletCommune || ecole.nom;
     document.getElementById('edit-ecole-search').value = name;
-    document.getElementById('edit-ecole').value = ecole.id;
+    document.getElementById('edit-ecole').value = ecole.uai || '';
     document.getElementById('clear-ecole').hidden = false;
     document.getElementById('edit-ecole-uai').value = ecole.uai || '';
     document.getElementById('edit-ecole-circo').value = ecole.circonscription || '';
@@ -769,7 +779,7 @@ async function handleSubmit(e) {
         return;
     }
 
-    const ecoleId = safeParseInt(document.getElementById('edit-ecole').value, 0);
+    const ecoleUAI = validateInput(document.getElementById('edit-ecole').value.trim(), 100);
 
     const data = {
         Civilite: validateInput(document.getElementById('edit-civilite').value, 20),
@@ -777,8 +787,8 @@ async function handleSubmit(e) {
         Prenom: prenom,
         ID_PE: validateInput(document.getElementById('edit-id-pe').value.trim(), 100),
         Mail: mail,
-        // Référence École : 0 = vide dans Grist, toujours inclus pour permettre l'effacement
-        Ecole: ecoleId > 0 ? ecoleId : 0,
+        // Référence École stockée par UAI dans Liste_PE
+        Ecole: ecoleUAI,
         Fonction: validateInput(document.getElementById('edit-fonction').value, 100),
         Quotite_de_service: validateInput(document.getElementById('edit-quotite').value, 100),
         D_dir: collectChoiceList('edit-d-dir'),
