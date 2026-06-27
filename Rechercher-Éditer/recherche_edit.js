@@ -146,7 +146,7 @@ async function loadData() {
             Nom: sanitizeGristValue(pe.Nom[i]),
             Prenom: sanitizeGristValue(pe.Prenom[i]),
             Mail: sanitizeGristValue(pe.Mail[i]),
-            Ecole: parseEcoleRef(pe.UAI, i),
+            UAI: parseEcoleRef(pe.UAI, i),
             Fonction: sanitizeGristValue(pe.Fonction[i]),
             Quotite_de_service: sanitizeGristValue(pe.Quotite_de_service[i]),
             D_dir: sanitizeGristValue(pe.D_dir[i]) || [],
