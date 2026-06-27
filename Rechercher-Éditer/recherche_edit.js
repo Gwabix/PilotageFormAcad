@@ -146,7 +146,7 @@ async function loadData() {
             Nom: sanitizeGristValue(pe.Nom[i]),
             Prenom: sanitizeGristValue(pe.Prenom[i]),
             Mail: sanitizeGristValue(pe.Mail[i]),
-            Ecole: parseEcoleRef(pe.Ecole, i),
+            Ecole: parseEcoleRef(pe.UAI, i),
             Fonction: sanitizeGristValue(pe.Fonction[i]),
             Quotite_de_service: sanitizeGristValue(pe.Quotite_de_service[i]),
             D_dir: sanitizeGristValue(pe.D_dir[i]) || [],
@@ -516,15 +516,15 @@ function populateEditForm(record) {
     updateMailLink(record.Mail || '');
 
     // École (référence par UAI dans Liste_PE)
-    const recordEcole = record.Ecole === null || record.Ecole === undefined
+    const recordUAI = record.UAI === null || record.UAI === undefined
         ? ''
         : String(record.Ecole);
-    const ecoleObj = ecolesData.find(e => e.uai === recordEcole || String(e.id) === recordEcole);
+    const ecoleObj = ecolesData.find(e => e.uai === recordUAI || String(e.id) === recordUAI);
     const ecoleName = ecoleObj
         ? (ecoleObj.nomCompletCommune || ecoleObj.nom)
         : '';
     document.getElementById('edit-ecole-search').value = ecoleName;
-    document.getElementById('edit-ecole').value = ecoleObj?.uai || recordEcole || '';
+    document.getElementById('edit-ecole').value = ecoleObj?.uai || recordUAI || '';
     document.getElementById('clear-ecole').hidden = !ecoleName;
     document.getElementById('edit-ecole-uai').value = ecoleObj?.uai || '';
     document.getElementById('edit-ecole-circo').value = ecoleObj?.circonscription || '';
@@ -807,7 +807,7 @@ async function handleSubmit(e) {
         ID_PE: validateInput(document.getElementById('edit-id-pe').value.trim(), 100),
         Mail: mail,
         // Référence École stockée par UAI dans Liste_PE
-        Ecole: ecoleUAI,
+        UAI: ecoleUAI,
         Fonction: validateInput(document.getElementById('edit-fonction').value, 100),
         Quotite_de_service: validateInput(document.getElementById('edit-quotite').value, 100),
         D_dir: collectChoiceList('edit-d-dir'),
