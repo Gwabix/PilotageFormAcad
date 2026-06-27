@@ -63,6 +63,27 @@ function sanitizeGristValue(value) {
     return validateInput(String(value), 5000);
 }
 
+function parseGristValue(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') {
+        if ('id' in value && value.id !== null && value.id !== undefined) {
+            return String(value.id);
+        }
+        if ('value' in value && value.value !== null && value.value !== undefined) {
+            return String(value.value);
+        }
+        return sanitizeGristValue(String(value));
+    }
+    return sanitizeGristValue(value);
+}
+
+function parseEcoleRef(raw, index) {
+    if (Array.isArray(raw)) {
+        return parseGristValue(raw[index]);
+    }
+    return parseGristValue(raw);
+}
+
 /**
  * Normalise une chaîne pour la comparaison (minuscules, sans accents).
  */
@@ -125,9 +146,7 @@ async function loadData() {
             Nom: sanitizeGristValue(pe.Nom[i]),
             Prenom: sanitizeGristValue(pe.Prenom[i]),
             Mail: sanitizeGristValue(pe.Mail[i]),
-            Ecole: (typeof pe.Ecole !== 'undefined' && pe.Ecole !== null && typeof pe.Ecole[i] !== 'undefined' && pe.Ecole[i] !== null)
-                ? String(pe.Ecole[i])
-                : '',
+            Ecole: parseEcoleRef(pe.Ecole, i),
             Fonction: sanitizeGristValue(pe.Fonction[i]),
             Quotite_de_service: sanitizeGristValue(pe.Quotite_de_service[i]),
             D_dir: sanitizeGristValue(pe.D_dir[i]) || [],
