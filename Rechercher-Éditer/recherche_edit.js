@@ -518,8 +518,8 @@ function populateEditForm(record) {
     // École (référence par UAI dans Liste_PE)
     const recordUAI = record.UAI === null || record.UAI === undefined
         ? ''
-        : String(record.Ecole);
-    const ecoleObj = ecolesData.find(e => e.uai === recordUAI || String(e.id) === recordUAI);
+        : String(record.UAI);
+    const ecoleObj = ecolesData.find(e => String(e.id) === recordUAI || e.uai === recordUAI);
     const ecoleName = ecoleObj
         ? (ecoleObj.nomCompletCommune || ecoleObj.nom)
         : '';
@@ -800,6 +800,9 @@ async function handleSubmit(e) {
 
     const ecoleUAI = validateInput(document.getElementById('edit-ecole').value.trim(), 100);
 
+    const ecoleRow = ecoleUAI ? ecolesData.find(e => e.uai === ecoleUAI) : null;
+    const ecoleRef = ecoleRow ? ecoleRow.id : 0;
+
     const data = {
         Civilite: validateInput(document.getElementById('edit-civilite').value, 20),
         Nom: nom,
@@ -807,7 +810,7 @@ async function handleSubmit(e) {
         ID_PE: validateInput(document.getElementById('edit-id-pe').value.trim(), 100),
         Mail: mail,
         // Référence École stockée par UAI dans Liste_PE
-        UAI: ecoleUAI,
+        UAI: ecoleRef,
         Fonction: validateInput(document.getElementById('edit-fonction').value, 100),
         Quotite_de_service: validateInput(document.getElementById('edit-quotite').value, 100),
         D_dir: collectChoiceList('edit-d-dir'),
