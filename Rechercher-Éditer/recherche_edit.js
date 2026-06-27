@@ -140,13 +140,12 @@ async function loadData() {
         const ec = await grist.docApi.fetchTable('Ecoles');
         ecolesData = ec.id.map((id, i) => ({
             id,
-            nom: sanitizeGristValue(ec.Nom[i]),
-            nomCompletCommune: ec.Nom_Complement_Commune
-                ? sanitizeGristValue(ec.Nom_Complement_Commune[i])
-                : '',
-            uai: ec.UAI ? sanitizeGristValue(ec.UAI[i]) : '',
-            circonscription: ec.Circonscription ? sanitizeGristValue(ec.Circonscription[i]) : '',
-            departement: ec.Departement ? sanitizeGristValue(ec.Departement[i]) : '',
+            nom: sanitizeGristValue(ec.Nom_etablissement[i]),
+            nomCompletCommune: ec.Commune_Nom ? sanitizeGristValue(ec.Commune_Nom[i]) : '',
+            uai: ec.Identifiant_de_l_etablissement ? sanitizeGristValue(ec.Identifiant_de_l_etablissement[i]) : '',
+            circonscription: ec.nom_circonscription ? sanitizeGristValue(ec.nom_circonscription[i]) : '',
+            departement: (ec.Code_departement ? sanitizeGristValue(ec.Code_departement[i]) : '')
+                + (ec.Libelle_departement ? ' ' + sanitizeGristValue(ec.Libelle_departement[i]) : ''),
         })).filter(e => e.nom);
 
         // Charger les options depuis la configuration des colonnes Grist
