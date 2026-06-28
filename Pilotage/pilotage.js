@@ -2086,8 +2086,10 @@ function selectCirconscription(circonscription) {
     // Remplir le champ de recherche avec le nom complet
     document.getElementById('searchCirconscription').value = circonscription;
 
-    const ecolesCirco = ecolesData.filter(e => e.circonscription === circonscription);
-
+    const ecolesCirco = ecolesData
+        .filter(e => e.circonscription === circonscription)
+        .sort((a, b) => a.nom_complement_commune.localeCompare(b.nom_complement_commune, 'fr'));
+    
     let html = `
         <div class="export-buttons">
             <div class="left-buttons">
