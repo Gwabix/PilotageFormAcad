@@ -125,10 +125,16 @@ function isSameEcoleRef(ref, ecole) {
         (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
 }
 
-function findEcoleByRef(rowId) {
+function findEcoleByRowId(rowId) {
     const n = Number(rowId);
     if (!Number.isInteger(n) || n <= 0) return undefined;
     return ecolesData.find(e => Number(e.id) === n);
+}
+
+function findEcoleByUaiOrId(ref) {
+    const refStr = String(ref ?? '').trim();
+    if (!refStr) return undefined;
+    return ecolesData.find(e => e.uai === refStr || String(e.id) === refStr);
 }
 
 function getEcoleDisplayName(ecole) {
@@ -838,7 +844,7 @@ function updateEnseignantsList() {
     // IMPORTANT : Lors de l'ajout de nouvelles variables, utiliser escapeHtml() pour le contenu
     // et escapeHtmlAttribute() pour les attributs HTML.
     container.innerHTML = filteredEnseignants.map(ens => {
-        const ecole = findEcoleByRef(ens.ecole_rowid);
+        const ecole = findEcoleByRowId(ens.ecole_rowid);
         const currentNiveaux = enseignantsMap.get(ens.id)?.niveaux || [];
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
             const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
@@ -1914,7 +1920,7 @@ function updateFilteredRecords() {
         // afin d'afficher le nombre réel d'écoles de la formation
         const allFicheRecords = tableauDeBordData.filter(r => r.idFiche === firstRecord.idFiche);
         const ecoleIds = [...new Set(allFicheRecords.map(r => getRecordEcoleRef(r)))];
-        const ecoles = ecoleIds.map(id => findEcoleByRef(id)?.commune_nom).filter(n => n);
+        const ecoles = ecoleIds.map(id => findEcoleByUaiOrId(id)?.commune_nom).filter(n => n);
 
         // Afficher les noms des écoles avec bullet points
         const ecolesText = ecoles.length === 0
@@ -1979,7 +1985,7 @@ function displayEditForm(ficheRecords) {
                 .map(r => Number(getRecordEcoleRef(r)))
                 .filter(n => Number.isInteger(n) && n > 0)
         )];
-        ecoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
+        ecoles = ecoleIds.map(id => findEcoleByRowId(id)).filter(e => e);
     }
 
     // Mémoriser les IDs d'écoles pour la fonction de rafraîchissement des enseignants
@@ -2048,7 +2054,7 @@ function displayEditForm(ficheRecords) {
 
             let globalIdx = 0;
             return ecoleIds.map(ecoleId => {
-                const ecoleObj = findEcoleByRef(ecoleId);
+                const ecoleObj = findEcoleByRowId(ecoleId);
                 const ecoleName = ecoleObj ? escapeHtml(getEcoleDisplayName(ecoleObj)) : 'N/A';
                 const { selected, unselected } = ensParEcole.get(normalizeEcoleRef(ecoleId));
                 const orderedEns = [...selected, ...unselected];
@@ -2309,7 +2315,7 @@ function refreshEditEnseignants() {
     container.innerHTML = allEnseignants.map((ens, idx) => {
         // Conserver la sélection grâce à l'identifiant texte ID_PE (pont inter-années)
         const isSelected = ens.idPE && selectedIdPETexts.has(ens.idPE);
-        const ecole = findEcoleByRef(ens.ecole_rowid);
+        const ecole = findEcoleByRowId(ens.ecole_rowid);
         const opacity = isSelected ? '1' : '0.5';
         const currentNiveaux = (ens.niveaux || []).filter(n => n !== 'L');
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
@@ -2362,7 +2368,7 @@ function openEcolesModal(ficheRecords) {
 
     // Récupérer les écoles actuelles de la fiche
     const ecoleIds = [...new Set(ficheRecords.map(r => getRecordEcoleRef(r)))];
-    modalSelectedEcoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
+    modalSelectedEcoles = ecoleIds.map(id => findEcoleByUaiOrId(id)).filter(e => e);
 
     // Créer le modal s'il n'existe pas
     let modal = document.getElementById('ecolesModal');
@@ -3267,7 +3273,7 @@ function updateFilteredRecordsTechnique() {
     container.innerHTML = fiches.map(ficheRecords => {
         const firstRecord = ficheRecords[0];
         const ecoleIds = [...new Set(ficheRecords.map(r => getRecordEcoleRef(r)))];
-        const ecoles = ecoleIds.map(id => findEcoleByRef(id)?.commune_nom).filter(n => n);
+        const ecoles = ecoleIds.map(id => findEcoleByUaiOrId(id)?.commune_nom).filter(n => n);
 
         const ecolesText = ecoles.length === 0
             ? 'N/A'
@@ -3672,7 +3678,7 @@ function renderTechniqueModalContent(firstRecord) {
         html += '<div class="enseignants-list">';
 
         currentTechniqueFiche.forEach(record => {
-            const ecole = findEcoleByRef(getRecordEcoleRef(record));
+            const ecole = findEcoleByUaiOrId(getRecordEcoleRef(record));
             const enseignant = enseignantsData.find(e => e.id === record.idPE);
 
             html += '<div class="enseignant-info-item">';
@@ -4406,7 +4412,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
     // Récupérer les écoles uniques
     const ecoleIds = [...new Set(enseignants.map(r => getRecordEcoleRef(r)))];
-    const ecoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
+    const ecoles = ecoleIds.map(id => findEcoleByUaiOrId(id)).filter(e => e);
 
     // Créer un seul PDF pour toutes les fiches
     const pdf = new jsPDF();
@@ -4473,7 +4479,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
             // Créer le tableau des stagiaires
             const stagiaireRows = enseignants.map(ens => {
-                const ecole = findEcoleByRef(getRecordEcoleRef(ens));
+                const ecole = findEcoleByUaiOrId(getRecordEcoleRef(ens));
                 const niveaux = ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0
                     ? ens.niveauClasse.join(', ')
                     : '';

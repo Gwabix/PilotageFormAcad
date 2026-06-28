@@ -73,8 +73,10 @@ function isSameEcoleRef(ref, ecole) {
         (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
 }
 
-function findEcoleByRef(ref) {
-    return ecolesData.find(e => isSameEcoleRef(ref, e));
+function findEcoleByUaiOrId(ref) {
+    const refStr = String(ref ?? '').trim();
+    if (!refStr) return null;
+    return ecolesData.find(e => e.uai === refStr || String(e.id) === refStr) || null;
 }
 
 function getRecordEcoleRef(record) {
@@ -500,7 +502,7 @@ function selectDepartement(departement) {
             );
 
             const formationsCirco = tableauBordData.filter(tb => {
-                const ecole = findEcoleByRef(getRecordEcoleRef(tb));
+                const ecole = findEcoleByUaiOrId(getRecordEcoleRef(tb));
                 return ecole && ecole.departement === departement && ecole.circonscription === circonscription;
             });
 
@@ -517,7 +519,7 @@ function selectDepartement(departement) {
 
     // Récupérer toutes les formations du département
     const formationsDept = tableauBordData.filter(tb => {
-        const ecole = findEcoleByRef(getRecordEcoleRef(tb));
+        const ecole = findEcoleByUaiOrId(getRecordEcoleRef(tb));
         return ecole && ecole.departement === departement;
     });
 
@@ -563,7 +565,7 @@ function displayAcademie() {
             const ecolesDept = ecolesData.filter(e => e.departement === departement);
 
             const formationsDept = tableauBordData.filter(tb => {
-                const ecole = findEcoleByRef(getRecordEcoleRef(tb));
+                const ecole = findEcoleByUaiOrId(getRecordEcoleRef(tb));
                 return ecole && ecole.departement === departement;
             });
 

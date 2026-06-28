@@ -96,8 +96,10 @@ function isSameEcoleRef(ref, ecole) {
         || normalizedRef === normalizeEcoleRef(ecole.uai);
 }
 
-function findEcoleByRef(ref) {
-    return ecolesData.find(e => isSameEcoleRef(ref, e));
+function findEcoleByUaiOrId(ref) {
+    const refStr = String(ref ?? '').trim();
+    if (!refStr) return null;
+    return ecolesData.find(e => e.uai === refStr || String(e.id) === refStr) || null;
 }
 
 /**
@@ -541,7 +543,7 @@ function populateEditForm(record) {
 
     // École (référence par UAI dans Liste_PE)
     const recordUAI = normalizeEcoleRef(record.UAI);
-    const ecoleObj = findEcoleByRef(recordUAI);
+    const ecoleObj = findEcoleByUaiOrId(recordUAI);
     const ecoleName = ecoleObj
         ? (ecoleObj.nomCompletCommune || ecoleObj.nom)
         : '';
@@ -830,7 +832,7 @@ async function handleSubmit(e) {
         return;
     }
 
-    const ecoleRow = ecoleUAI ? findEcoleByRef(ecoleUAI) : null;
+    const ecoleRow = ecoleUAI ? findEcoleByUaiOrId(ecoleUAI) : null;
     if (ecoleUAI && !ecoleRow) {
         showStatus('École non reconnue: enregistrement annulé pour éviter une référence invalide.', 'error');
         document.getElementById('edit-ecole-search').focus();

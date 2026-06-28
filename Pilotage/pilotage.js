@@ -61,27 +61,16 @@ function cleanChoiceList(choiceList) {
     return choiceList.filter(item => item !== 'L' && item !== null && item !== '');
 }
 
-function normalizeEcoleRef(ref) {
-    if (ref === null || ref === undefined) return '';
-    return String(ref).trim();
+function findEcoleByRowId(rowId) {
+    const n = Number(rowId);
+    if (!Number.isInteger(n) || n <= 0) return null;
+    return ecolesData.find(e => e.id === n);
 }
 
-function isSameEcoleRef(ref, ecole) {
-    if (!ecole) return false;
-    const normalizedRef = normalizeEcoleRef(ref);
-    return normalizedRef === normalizeEcoleRef(ecole.id) ||
-        (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
-}
-
-function findEcoleByRef(ref) {
-    return ecolesData.find(e => isSameEcoleRef(ref, e));
-}
-
-function getRecordEcoleRef(record) {
-    if (!record) return '';
-    const uaiRef = normalizeEcoleRef(record.uai);
-    if (uaiRef) return uaiRef;
-    return normalizeEcoleRef(record.ecole);
+function findEcoleByUaiOrId(ref) {
+    const refStr = String(ref ?? '').trim();
+    if (!refStr) return null;
+    return ecolesData.find(e => e.uai === refStr || String(e.id) === refStr) || null;
 }
 
 async function loadData() {
@@ -110,7 +99,8 @@ async function loadData() {
             nom: enseignantsTable.Nom[index] || '',
             prenom: enseignantsTable.Prenom[index] || '',
             mail: enseignantsTable.Mail[index] || '',
-            ecole: enseignantsTable.Ecole[index],
+            ecole_rowid: Number(enseignantsTable.UAI[index]) || null,
+            ecole_label: sanitizeGristData(enseignantsTable.Ecole[index]) || '',
             fonction: enseignantsTable.Fonction[index] || '',
             quotite: enseignantsTable.Quotite_de_service[index] || '',
             niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index]),
@@ -372,9 +362,9 @@ function navigateToEcole(ecoleId) {
     selectEcole(ecoleId);
 
     // Remplir le champ de recherche
-    const ecole = findEcoleByRef(ecoleId);
-    if (ecole) {
-        document.getElementById('searchEcole').value = ecole.nom_complement_commune;
+    function findEcoleByRowId(rowId) {
+        if (!Number.isInteger(rowId) || rowId <= 0) return null;
+        return ecolesData.find(e => e.id === rowId);
     }
 
     // Scroll vers le haut de la page
@@ -442,7 +432,7 @@ function searchEnseignants(event) {
     }
 
     resultsDiv.innerHTML = filteredEnseignants.map((ens, index) => {
-        const ecole = findEcoleByRef(ens.ecole);
+        const ecole = findEcoleByRowId(ens.ecole_rowid);
         const ecoleNom = ecole ? ecole.nom_complement_commune : 'École non renseignée';
         const highlightClass = index === selectedIndexEnseignant ? ' highlighted' : '';
         return `
@@ -515,7 +505,7 @@ function selectEnseignant(ensId) {
     if (years.length === 0) {
         html += '<div class="no-results">Aucune formation enregistrée pour cet enseignant.</div>';
     } else {
-        const ecole = findEcoleByRef(enseignant.ecole);
+        const ecole = findEcoleByRowId(enseignant.ecole_rowid);
         const ecoleNom = ecole ? ecole.nom_complement_commune : 'École non renseignée';
 
         html += `
@@ -538,7 +528,7 @@ function selectEnseignant(ensId) {
             const ensAnnee = enseignantsData.find(e => (e.id_pe || String(e.id)) === idPeText && e.annee_scolaire === year);
             let yearSubtitle = '';
             if (ensAnnee) {
-                const ecoleAnnee = findEcoleByRef(ensAnnee.ecole);
+                const ecoleAnnee = findEcoleByRowId(ensAnnee.ecole_rowid);
                 const ecoleNomAnnee = ecoleAnnee ? ecoleAnnee.nom_complement_commune : '';
                 const parts = [ensAnnee.fonction, ecoleNomAnnee].filter(p => p && p.trim());
                 yearSubtitle = parts.join(' – ');
@@ -1826,13 +1816,14 @@ function selectEcole(ecoleId) {
     document.getElementById('searchResultsEcole').style.display = 'none';
     currentSelection = { type: 'ecole', id: ecoleId };
 
-    const ecole = findEcoleByRef(ecoleId);
+    const ecole = findEcoleByRowId(ecoleId);
     if (!ecole) return;
 
     // Remplir le champ de recherche avec le nom complet
     document.getElementById('searchEcole').value = ecole.nom_complement_commune;
 
-    const enseignantsEcole = enseignantsData.filter(e => isSameEcoleRef(e.ecole, ecole));
+    const ecoleRowId = Number(ecoleId);
+    const enseignantsEcole = enseignantsData.filter(e => Number(e.ecole_rowid) === ecoleRowId);
     const enseignantIds = enseignantsEcole.map(e => e.id);
 
     const formations = tableauBordData.filter(tb => isSameEcoleRef(getRecordEcoleRef(tb), ecole));
@@ -2278,7 +2269,7 @@ function exportToCSV(type) {
         const formations = tableauBordData.filter(tb => allEnsRowIds.includes(tb.id_pe));
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
-            const ecole = findEcoleByRef(getRecordEcoleRef(formation));
+            const ecole = findEcoleByUaiOrId(getRecordEcoleRef(formation));
             const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
                 ? formation.niveau_x_.join(', ')
                 : enseignant.niveaux.join(', ');
@@ -2294,7 +2285,7 @@ function exportToCSV(type) {
         });
 
     } else if (type === 'ecole') {
-        const ecole = findEcoleByRef(currentSelection.id);
+        const ecole = findEcoleByRowId(currentSelection.id);
         if (!ecole) return;
 
         filename = `formations_${ecole.nom.replace(/[^a-z0-9]/gi, '_')}.csv`;
