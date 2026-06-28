@@ -129,6 +129,11 @@ function findEcoleByRef(ref) {
     return ecolesData.find(e => isSameEcoleRef(ref, e));
 }
 
+function getEcoleDisplayName(ecole) {
+    if (!ecole) return '';
+    return ecole.nom_complement_commune || ecole.commune_complement || ecole.nom || ecole.commune || '';
+}
+
 function getEcoleRefsFromSelectedEcoles(ecoles) {
     const refs = new Set();
     ecoles.forEach(e => {
@@ -697,6 +702,7 @@ function searchEcoles(event) {
         (e.nom?.toLowerCase().includes(searchTerm) ||
             e.commune?.toLowerCase().includes(searchTerm) ||
             e.commune_complement?.toLowerCase().includes(searchTerm) ||
+            e.nom_complement_commune?.toLowerCase().includes(searchTerm) ||
             e.uai?.toLowerCase().includes(searchTerm))
     ).slice(0, 10);
 
@@ -714,7 +720,7 @@ function searchEcoles(event) {
         `<div class="search-result-item ${index === 0 ? 'active' : ''}" 
               data-ecole-id="${escapeHtmlAttribute(ecole.id)}"
               data-index="${index}">
-          <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+                    <strong>${escapeHtml(getEcoleDisplayName(ecole))}</strong><br>
           <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
         </div>`
     ).join('');
@@ -774,7 +780,7 @@ function displaySelectedEcoles() {
     // SÉCURITÉ : Toutes les données sont échappées via escapeHtml()
     container.innerHTML = selectedEcoles.map(ecole =>
         `<span class="school-tag">
-          ${escapeHtml(ecole.nom || ecole.commune_complement)} ${ecole.uai ? '- ' + escapeHtml(ecole.uai) : ''}
+                    ${escapeHtml(getEcoleDisplayName(ecole))} ${ecole.uai ? '- ' + escapeHtml(ecole.uai) : ''}
           <button data-ecole-id="${escapeHtmlAttribute(ecole.id)}">×</button>
         </span>`
     ).join('');
@@ -849,7 +855,7 @@ function updateEnseignantsList() {
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
                      checked>
               <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
-              <span class="enseignant-school">${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : ''}</span>
+                            <span class="enseignant-school">${ecole ? escapeHtml(getEcoleDisplayName(ecole)) : ''}</span>
             </div>
             <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
               <span class="enseignant-niveaux-label">Niveaux :</span>
@@ -2007,7 +2013,7 @@ function displayEditForm(ficheRecords) {
                 <div class="edit-info-block">
                     ${ecoles.length === 0
             ? '<div class="no-data-placeholder">Aucune école</div>'
-            : ecoles.map(e => `• ${escapeHtml(e.nom || e.commune_complement)} ${e.uai ? '(' + escapeHtml(e.uai) + ')' : ''}`).join('<br>')}
+            : ecoles.map(e => `• ${escapeHtml(getEcoleDisplayName(e))} ${e.uai ? '(' + escapeHtml(e.uai) + ')' : ''}`).join('<br>')}
                 </div>
                 <button type="button" class="btnValider edit-btn-modifier" id="btnModifierEcoles">Modifier les écoles</button>
             </div>
@@ -2036,7 +2042,7 @@ function displayEditForm(ficheRecords) {
             let globalIdx = 0;
             return ecoleIds.map(ecoleId => {
                 const ecoleObj = findEcoleByRef(ecoleId);
-                const ecoleName = ecoleObj ? escapeHtml(ecoleObj.nom || ecoleObj.commune_complement) : 'N/A';
+                const ecoleName = ecoleObj ? escapeHtml(getEcoleDisplayName(ecoleObj)) : 'N/A';
                 const { selected, unselected } = ensParEcole.get(normalizeEcoleRef(ecoleId));
                 const orderedEns = [...selected, ...unselected];
 
@@ -2312,7 +2318,7 @@ function refreshEditEnseignants() {
                        data-ens-id="${escapeHtmlAttribute(ens.id)}"
                        data-idx="${idx}"
                        ${isSelected ? 'checked' : ''}>
-                <label for="editEns_${idx}" class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</label>
+                  <label for="editEns_${idx}" class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(getEcoleDisplayName(ecole)) : 'N/A'}</label>
             </div>
             <div class="enseignant-niveaux-section" id="editNiveaux_${idx}">
                 <span class="enseignant-niveaux-label">Niveaux :</span>
@@ -2625,7 +2631,7 @@ function searchEcolesModal(event) {
         const div = document.createElement('div');
         div.className = 'search-result-item' + (index === modalActiveResultIndex ? ' active' : '');
         div.innerHTML = `
-            <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+            <strong>${escapeHtml(getEcoleDisplayName(ecole))}</strong><br>
             <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
         `;
         div.addEventListener('click', () => selectModalEcole(ecole.id));
@@ -2709,7 +2715,7 @@ function displayModalSelectedEcoles() {
         <div class="selected-school-item">
             <button type="button" class="remove-school" title="Supprimer l'école" onclick="removeModalEcole(${ecole.id})">&times;</button>
             <div>
-                <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+                <strong>${escapeHtml(getEcoleDisplayName(ecole))}</strong><br>
                 <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
             </div>
         </div>
