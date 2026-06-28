@@ -77,19 +77,29 @@ function findEcoleByRef(ref) {
     return ecolesData.find(e => isSameEcoleRef(ref, e));
 }
 
+function getRecordEcoleRef(record) {
+    if (!record) return '';
+    const uaiRef = normalizeEcoleRef(record.uai);
+    if (uaiRef) return uaiRef;
+    return normalizeEcoleRef(record.ecole);
+}
+
 async function loadData() {
     try {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
+        const ecoleUaiColumn = ecolesTable['$Identifiant_de_l_etablissement'] ||
+            ecolesTable.Identifiant_de_l_etablissement ||
+            ecolesTable.UAI || [];
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
-            uai: ecolesTable.UAI[index] || '',
-            nom: ecolesTable.Nom[index] || '',
-            complement: ecolesTable.Complement[index] || '',
-            commune: ecolesTable.Commune[index] || '',
-            commune_complement: ecolesTable.Commune_Complement_Nom[index] || '',
-            nom_complement_commune: ecolesTable.Nom_Complement_Commune[index] || '',
-            circonscription: ecolesTable.Circonscription[index] || '',
-            departement: ecolesTable.Departement[index] || ''
+            uai: ecoleUaiColumn[index] || '',
+            nom: (ecolesTable.Nom_etablissement || ecolesTable.Nom || [])[index] || '',
+            complement: (ecolesTable.Adresse_2 || ecolesTable.Complement || [])[index] || '',
+            commune: (ecolesTable.Nom_Commune || ecolesTable.Commune || [])[index] || '',
+            commune_complement: (ecolesTable.Commune_Nom || ecolesTable.Commune_Complement_Nom || [])[index] || '',
+            nom_complement_commune: (ecolesTable.Nom_Complement_Commune || ecolesTable.Commune_Nom || [])[index] || '',
+            circonscription: (ecolesTable.nom_irconscription || ecolesTable.Circonscription || [])[index] || '',
+            departement: (ecolesTable.Libelle_departement || ecolesTable.Departement || [])[index] || ''
         }));
 
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
@@ -112,6 +122,7 @@ async function loadData() {
             themes: cleanChoiceList(tableauTable.Theme_s_traite_s_en_formation[index]),
             annee: tableauTable.Annee[index] || '',
             ecole: tableauTable.Ecole[index],
+            uai: tableauTable.UAI ? (tableauTable.UAI[index] || '') : '',
             type_formation: tableauTable.Type_de_formation[index] || ''
         }));
 
@@ -489,7 +500,7 @@ function selectDepartement(departement) {
             );
 
             const formationsCirco = tableauBordData.filter(tb => {
-                const ecole = findEcoleByRef(tb.ecole);
+                const ecole = findEcoleByRef(getRecordEcoleRef(tb));
                 return ecole && ecole.departement === departement && ecole.circonscription === circonscription;
             });
 
@@ -506,7 +517,7 @@ function selectDepartement(departement) {
 
     // Récupérer toutes les formations du département
     const formationsDept = tableauBordData.filter(tb => {
-        const ecole = findEcoleByRef(tb.ecole);
+        const ecole = findEcoleByRef(getRecordEcoleRef(tb));
         return ecole && ecole.departement === departement;
     });
 
@@ -552,7 +563,7 @@ function displayAcademie() {
             const ecolesDept = ecolesData.filter(e => e.departement === departement);
 
             const formationsDept = tableauBordData.filter(tb => {
-                const ecole = findEcoleByRef(tb.ecole);
+                const ecole = findEcoleByRef(getRecordEcoleRef(tb));
                 return ecole && ecole.departement === departement;
             });
 
@@ -1560,7 +1571,7 @@ function exportToCSV(type) {
         const ecolesDept = ecolesData.filter(e => e.departement === departement);
 
         ecolesDept.forEach(ecole => {
-            const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
+            const formations = tableauBordData.filter(tb => isSameEcoleRef(getRecordEcoleRef(tb), ecole));
 
             formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
                 csvContent += `"${sanitizeCSVValue(ecole.circonscription || '')}";`;
@@ -1579,7 +1590,7 @@ function exportToCSV(type) {
         csvContent = 'Département;Circonscription;Année scolaire;École;Type de formation;Modalité constitution;Objets transversaux;Thèmes\n';
 
         ecolesData.forEach(ecole => {
-            const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
+            const formations = tableauBordData.filter(tb => isSameEcoleRef(getRecordEcoleRef(tb), ecole));
 
             formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
                 csvContent += `"${sanitizeCSVValue(ecole.departement || '')}";`;

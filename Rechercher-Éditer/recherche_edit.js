@@ -84,6 +84,22 @@ function parseEcoleRef(raw, index) {
     return parseGristValue(raw);
 }
 
+function normalizeEcoleRef(ref) {
+    if (ref === null || ref === undefined) return '';
+    return String(ref).trim();
+}
+
+function isSameEcoleRef(ref, ecole) {
+    if (!ecole) return false;
+    const normalizedRef = normalizeEcoleRef(ref);
+    return normalizedRef === normalizeEcoleRef(ecole.id)
+        || normalizedRef === normalizeEcoleRef(ecole.uai);
+}
+
+function findEcoleByRef(ref) {
+    return ecolesData.find(e => isSameEcoleRef(ref, e));
+}
+
 /**
  * Normalise une chaîne pour la comparaison (minuscules, sans accents).
  */
@@ -159,12 +175,20 @@ async function loadData() {
 
         // Chargement de la table Ecoles
         const ec = await grist.docApi.fetchTable('Ecoles');
+        const ecoleUaiColumn = ec['$Identifiant_de_l_etablissement']
+            || ec.Identifiant_de_l_etablissement
+            || ec.UAI
+            || [];
+        const ecoleNomCommuneColumn = ec['$Commune_Nom']
+            || ec.Commune_Nom
+            || ec.Commune_Complement_Nom
+            || [];
         ecolesData = ec.id.map((id, i) => ({
             id,
-            nom: sanitizeGristValue(ec.Nom_etablissement[i]),
-            nomCompletCommune: ec.Commune_Nom ? sanitizeGristValue(ec.Commune_Nom[i]) : '',
-            uai: ec.Identifiant_de_l_etablissement ? sanitizeGristValue(ec.Identifiant_de_l_etablissement[i]) : '',
-            circonscription: ec.nom_circonscription ? sanitizeGristValue(ec.nom_circonscription[i]) : '',
+            nom: sanitizeGristValue((ec.Nom_etablissement || ec.Nom || [])[i]),
+            nomCompletCommune: sanitizeGristValue(ecoleNomCommuneColumn[i]),
+            uai: sanitizeGristValue(ecoleUaiColumn[i]),
+            circonscription: sanitizeGristValue((ec.nom_irconscription || ec.nom_circonscription || ec.Circonscription || [])[i]),
             departement: (ec.Code_departement ? sanitizeGristValue(ec.Code_departement[i]) : '')
                 + (ec.Libelle_departement ? ' ' + sanitizeGristValue(ec.Libelle_departement[i]) : ''),
         })).filter(e => e.nom);
@@ -516,15 +540,13 @@ function populateEditForm(record) {
     updateMailLink(record.Mail || '');
 
     // École (référence par UAI dans Liste_PE)
-    const recordUAI = record.UAI === null || record.UAI === undefined
-        ? ''
-        : String(record.UAI);
-    const ecoleObj = ecolesData.find(e => String(e.id) === recordUAI || e.uai === recordUAI);
+    const recordUAI = normalizeEcoleRef(record.UAI);
+    const ecoleObj = findEcoleByRef(recordUAI);
     const ecoleName = ecoleObj
         ? (ecoleObj.nomCompletCommune || ecoleObj.nom)
         : '';
     document.getElementById('edit-ecole-search').value = ecoleName;
-    document.getElementById('edit-ecole').value = ecoleObj?.uai || recordUAI || '';
+    document.getElementById('edit-ecole').value = normalizeEcoleRef(ecoleObj?.uai || '');
     document.getElementById('clear-ecole').hidden = !ecoleName;
     document.getElementById('edit-ecole-uai').value = ecoleObj?.uai || '';
     document.getElementById('edit-ecole-circo').value = ecoleObj?.circonscription || '';
@@ -698,6 +720,7 @@ function handleEcoleInput() {
     const normalized = normalizeStr(query);
     ecoleSearchResults = ecolesData.filter(e =>
         normalizeStr(e.nomCompletCommune || e.nom).includes(normalized)
+        || normalizeStr(e.uai).includes(normalized)
     ).slice(0, 10);
 
     activeEcoleIdx = -1;
@@ -732,7 +755,7 @@ function renderEcoleResults(ecoles) {
 function selectEcole(ecole) {
     const name = ecole.nomCompletCommune || ecole.nom;
     document.getElementById('edit-ecole-search').value = name;
-    document.getElementById('edit-ecole').value = ecole.uai || '';
+    document.getElementById('edit-ecole').value = normalizeEcoleRef(ecole.uai);
     document.getElementById('clear-ecole').hidden = false;
     document.getElementById('edit-ecole-uai').value = ecole.uai || '';
     document.getElementById('edit-ecole-circo').value = ecole.circonscription || '';
@@ -798,10 +821,21 @@ async function handleSubmit(e) {
         return;
     }
 
+    const ecoleSearchText = validateInput(document.getElementById('edit-ecole-search').value.trim(), 200);
     const ecoleUAI = validateInput(document.getElementById('edit-ecole').value.trim(), 100);
 
-    const ecoleRow = ecoleUAI ? ecolesData.find(e => e.uai === ecoleUAI) : null;
-    const ecoleRef = ecoleRow ? ecoleRow.id : 0;
+    if (ecoleSearchText && !ecoleUAI) {
+        showStatus('Veuillez sélectionner une école dans la liste proposée.', 'error');
+        document.getElementById('edit-ecole-search').focus();
+        return;
+    }
+
+    const ecoleRow = ecoleUAI ? findEcoleByRef(ecoleUAI) : null;
+    if (ecoleUAI && !ecoleRow) {
+        showStatus('École non reconnue: enregistrement annulé pour éviter une référence invalide.', 'error');
+        document.getElementById('edit-ecole-search').focus();
+        return;
+    }
 
     const data = {
         Civilite: validateInput(document.getElementById('edit-civilite').value, 20),
@@ -809,8 +843,8 @@ async function handleSubmit(e) {
         Prenom: prenom,
         ID_PE: validateInput(document.getElementById('edit-id-pe').value.trim(), 100),
         Mail: mail,
-        // Référence École stockée par UAI dans Liste_PE
-        UAI: ecoleRef,
+        // La colonne UAI de Liste_PE est un Ref Ecoles: on enregistre l'ID ligne résolu depuis l'UAI.
+        UAI: ecoleRow ? ecoleRow.id : null,
         Fonction: validateInput(document.getElementById('edit-fonction').value, 100),
         Quotite_de_service: validateInput(document.getElementById('edit-quotite').value, 100),
         D_dir: collectChoiceList('edit-d-dir'),
