@@ -101,6 +101,25 @@ function stripCirconscriptionPrefix(nom) {
     return nom;
 }
 
+function normalizeEcoleRef(ref) {
+    if (ref === null || ref === undefined) return '';
+    return String(ref).trim();
+}
+
+function isSameEcoleRef(ref, ecole) {
+    if (!ecole) return false;
+    const normalizedRef = normalizeEcoleRef(ref);
+    return normalizedRef === normalizeEcoleRef(ecole.id) ||
+        (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
+}
+
+function getRecordEcoleRef(record) {
+    if (!record) return '';
+    const uaiRef = normalizeEcoleRef(record.uai);
+    if (uaiRef) return uaiRef;
+    return normalizeEcoleRef(record.ecole);
+}
+
 async function loadData() {
     try {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
