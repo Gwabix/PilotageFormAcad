@@ -61,6 +61,20 @@ function cleanChoiceList(choiceList) {
     return choiceList.filter(item => item !== 'L' && item !== null && item !== '');
 }
 
+function validateInput(input, maxLength = 1000) {
+    if (!input) return '';
+    let sanitized = String(input).substring(0, maxLength);
+    sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    return sanitized;
+}
+
+function sanitizeGristData(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return validateInput(value, 5000);
+    if (Array.isArray(value)) return value.map(v => sanitizeGristData(v));
+    return value;
+}
+
 function findEcoleByRowId(rowId) {
     const n = Number(rowId);
     if (!Number.isInteger(n) || n <= 0) return null;
@@ -108,17 +122,17 @@ async function loadData() {
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
             id: id,
-            id_pe: enseignantsTable.ID_PE[index] || '',
-            civilite: enseignantsTable.Civilite[index] || '',
-            nom: enseignantsTable.Nom[index] || '',
-            prenom: enseignantsTable.Prenom[index] || '',
-            mail: enseignantsTable.Mail[index] || '',
+            id_pe: sanitizeGristData(enseignantsTable.ID_PE[index]) || '',
+            civilite: sanitizeGristData(enseignantsTable.Civilite[index]) || '',
+            nom: sanitizeGristData(enseignantsTable.Nom[index]) || '',
+            prenom: sanitizeGristData(enseignantsTable.Prenom[index]) || '',
+            mail: sanitizeGristData(enseignantsTable.Mail[index]) || '',
             ecole_rowid: Number(enseignantsTable.UAI[index]) || null,
-            ecole_label: enseignantsTable.Ecole[index] || '',
-            fonction: enseignantsTable.Fonction[index] || '',
-            quotite: enseignantsTable.Quotite_de_service[index] || '',
+            ecole_label: sanitizeGristData(enseignantsTable.Ecole[index]) || '',
+            fonction: sanitizeGristData(enseignantsTable.Fonction[index]) || '',
+            quotite: sanitizeGristData(enseignantsTable.Quotite_de_service[index]) || '',
             niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index]),
-            annee_scolaire: enseignantsTable.Annee_scolaire[index] || ''
+            annee_scolaire: sanitizeGristData(enseignantsTable.Annee_scolaire[index]) || ''
         }));
 
         const formateursTable = await grist.docApi.fetchTable('Formateurs');
