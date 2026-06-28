@@ -114,7 +114,7 @@ async function loadData() {
             prenom: enseignantsTable.Prenom[index] || '',
             mail: enseignantsTable.Mail[index] || '',
             ecole_rowid: Number(enseignantsTable.UAI[index]) || null,
-            ecole_label: sanitizeGristData(enseignantsTable.Ecole[index]) || '',
+            ecole_label: enseignantsTable.Ecole[index] || '',
             fonction: enseignantsTable.Fonction[index] || '',
             quotite: enseignantsTable.Quotite_de_service[index] || '',
             niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index]),
