@@ -73,6 +73,20 @@ function findEcoleByUaiOrId(ref) {
     return ecolesData.find(e => e.uai === refStr || String(e.id) === refStr) || null;
 }
 
+function stripCirconscriptionPrefix(nom) {
+    if (!nom) return '';
+    const prefixes = [
+        "Circonscription d'inspection du 1er degré d'",
+        "Circonscription d'inspection du 1er degré de ",
+        "Circonscription d'inspection du 1er degré du ",
+        "Circonscription d'inspection du 1er degré "
+    ];
+    for (const prefix of prefixes) {
+        if (nom.startsWith(prefix)) return nom.slice(prefix.length);
+    }
+    return nom;
+}
+
 async function loadData() {
     try {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
@@ -87,7 +101,7 @@ async function loadData() {
             commune: (ecolesTable.Nom_Commune || ecolesTable.Commune || [])[index] || '',
             commune_complement: (ecolesTable.Commune_Nom || ecolesTable.Commune_Complement_Nom || [])[index] || '',
             nom_complement_commune: (ecolesTable.Nom_Complement_Commune || ecolesTable.Commune_Nom || [])[index] || '',
-            circonscription: (ecolesTable.nom_circonscription || ecolesTable.Circonscription || [])[index] || '',
+            circonscription: stripCirconscriptionPrefix((ecolesTable.nom_circonscription || [])[index] || ''),
             departement: (ecolesTable.Libelle_departement || ecolesTable.Departement || [])[index] || ''
         }));
 
