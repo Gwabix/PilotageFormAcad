@@ -2040,7 +2040,7 @@ function displayEditForm(ficheRecords) {
             const ensParEcole = new Map();
             ecoleIds.forEach(ecoleId => ensParEcole.set(normalizeEcoleRef(ecoleId), { selected: [], unselected: [] }));
             allEnseignants.forEach(ens => {
-                const group = ensParEcole.get(normalizeEcoleRef(ens.ecole));
+                const group = ensParEcole.get(normalizeEcoleRef(ens.ecole_rowid));
                 if (!group) return;
                 const isSelected = ficheRecords.some(rec => rec.idPE === ens.id);
                 (isSelected ? group.selected : group.unselected).push(ens);
