@@ -427,7 +427,7 @@ async function loadData() {
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
             uai: sanitizeGristData(ecoleUaiColumn[index]),
-            nom: sanitizeGristData((ecolesTable.Nom_etablissement || ecolesTable.Nom || [])[index]),
+            nom: sanitizeGristData((ecolesTable.Commune_Nom || ecolesTable.Nom || [])[index]),
             complement: sanitizeGristData((ecolesTable.Adresse_2 || ecolesTable.Complement || [])[index]),
             commune: sanitizeGristData((ecolesTable.Nom_Commune || ecolesTable.Commune || [])[index]),
             commune_complement: sanitizeGristData((ecolesTable.Commune_Nom || ecolesTable.Commune_Complement_Nom || [])[index]),
