@@ -416,7 +416,7 @@ async function loadData() {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
-            uai: sanitizeGristData(ecolesTable.identifiant_de_l-etablissement[index]),
+            uai: sanitizeGristData(ecolesTable.identifiant_de_l - etablissement[index]),
             nom: sanitizeGristData(ecolesTable.Nom_etablissement[index]),
             complement: sanitizeGristData(ecolesTable.Adresse_2[index]),
             commune: sanitizeGristData(ecolesTable.Nom_Commune[index]),
@@ -3242,8 +3242,8 @@ function updateFilteredRecordsTechnique() {
 
     container.innerHTML = fiches.map(ficheRecords => {
         const firstRecord = ficheRecords[0];
-const ecoleIds = [...new Set(ficheRecords.map(r => normalizeEcoleRef(r.ecole)))];
-    const ecoles = ecoleIds.map(id => findEcoleByRef(id)?.commune_nom).filter(n => n);
+        const ecoleIds = [...new Set(ficheRecords.map(r => normalizeEcoleRef(r.ecole)))];
+        const ecoles = ecoleIds.map(id => findEcoleByRef(id)?.commune_nom).filter(n => n);
 
         const ecolesText = ecoles.length === 0
             ? 'N/A'
@@ -4449,112 +4449,112 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
             // Créer le tableau des stagiaires
             const stagiaireRows = enseignants.map(ens => {
-                    const ecole = findEcoleByRef(ens.ecole);
+                const ecole = findEcoleByRef(ens.ecole);
                     ? ens.niveauClasse.join(', ')
-                    : '';
-                const decharge = ens.decharge || '';
+                : '';
+            const decharge = ens.decharge || '';
 
-                return [
-                    `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'}`,
-                    ecole?.nom || ecole?.commune_nom || 'N/A',
-                    ens.circonscription || '',
-                    niveaux,
-                    decharge
-                ];
-            });
+            return [
+                `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'}`,
+                ecole?.nom || ecole?.commune_nom || 'N/A',
+                ens.circonscription || '',
+                niveaux,
+                decharge
+            ];
+        });
+
+        pdf.autoTable({
+            startY: y,
+            head: [['Nom Prénom', 'École', 'Circonscription', 'Niveau(x)', 'Décharge']],
+            body: stagiaireRows,
+            theme: 'striped',
+            styles: {
+                fontSize: 7,
+                cellPadding: 2,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [52, 152, 219],
+                textColor: 255,
+                fontStyle: 'bold',
+                fontSize: 8,
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { cellWidth: 40 },  // Nom Prénom
+                1: { cellWidth: 40 },  // École
+                2: { cellWidth: 30 },  // Circonscription
+                3: { cellWidth: 30 },  // Niveau(x)
+                4: { cellWidth: 30 }   // Décharge
+            },
+            margin: { left: 20, right: 20 }
+        });
+
+        y = pdf.lastAutoTable.finalY + 10;
+
+        // Créer le tableau des formateurs (seulement ceux présents pour ces dates)
+        pdf.setFontSize(12);
+        pdf.text(`Nombre de formateurs : ${group.formateurs.length}`, 20, y);
+        y += 8;
+
+        if (group.formateurs.length > 0) {
+            const formateurRows = group.formateurs.map(form => [
+                form.nom,
+                form.fonction || ''
+            ]);
 
             pdf.autoTable({
                 startY: y,
-                head: [['Nom Prénom', 'École', 'Circonscription', 'Niveau(x)', 'Décharge']],
-                body: stagiaireRows,
+                head: [['Nom', 'Fonction']],
+                body: formateurRows,
                 theme: 'striped',
                 styles: {
-                    fontSize: 7,
-                    cellPadding: 2,
+                    fontSize: 9,
+                    cellPadding: 3,
                     overflow: 'linebreak'
                 },
                 headStyles: {
-                    fillColor: [52, 152, 219],
+                    fillColor: [46, 204, 113],
                     textColor: 255,
                     fontStyle: 'bold',
-                    fontSize: 8,
-                    halign: 'center'
+                    fontSize: 10
                 },
                 columnStyles: {
-                    0: { cellWidth: 40 },  // Nom Prénom
-                    1: { cellWidth: 40 },  // École
-                    2: { cellWidth: 30 },  // Circonscription
-                    3: { cellWidth: 30 },  // Niveau(x)
-                    4: { cellWidth: 30 }   // Décharge
+                    0: { cellWidth: 60 },  // Nom
+                    1: { cellWidth: 110 }  // Fonction
                 },
                 margin: { left: 20, right: 20 }
             });
 
             y = pdf.lastAutoTable.finalY + 10;
+        }
 
-            // Créer le tableau des formateurs (seulement ceux présents pour ces dates)
+        if (commentaire && commentaire.trim() !== '') {
+            y += 6;
             pdf.setFontSize(12);
-            pdf.text(`Nombre de formateurs : ${group.formateurs.length}`, 20, y);
-            y += 8;
-
-            if (group.formateurs.length > 0) {
-                const formateurRows = group.formateurs.map(form => [
-                    form.nom,
-                    form.fonction || ''
-                ]);
-
-                pdf.autoTable({
-                    startY: y,
-                    head: [['Nom', 'Fonction']],
-                    body: formateurRows,
-                    theme: 'striped',
-                    styles: {
-                        fontSize: 9,
-                        cellPadding: 3,
-                        overflow: 'linebreak'
-                    },
-                    headStyles: {
-                        fillColor: [46, 204, 113],
-                        textColor: 255,
-                        fontStyle: 'bold',
-                        fontSize: 10
-                    },
-                    columnStyles: {
-                        0: { cellWidth: 60 },  // Nom
-                        1: { cellWidth: 110 }  // Fonction
-                    },
-                    margin: { left: 20, right: 20 }
-                });
-
-                y = pdf.lastAutoTable.finalY + 10;
-            }
-
-            if (commentaire && commentaire.trim() !== '') {
-                y += 6;
-                pdf.setFontSize(12);
-                pdf.text('Informations complémentaires :', 20, y);
-                y += 6;
-                pdf.setFontSize(10);
-                const lines = pdf.splitTextToSize(commentaire, 170);
-                pdf.text(lines, 20, y);
-            }
+            pdf.text('Informations complémentaires :', 20, y);
+            y += 6;
+            pdf.setFontSize(10);
+            const lines = pdf.splitTextToSize(commentaire, 170);
+            pdf.text(lines, 20, y);
         }
     }
+}
 
-    // Générer le nom de fichier pour l'ensemble de la fiche technique
-    const fileName = generatePDFFileName(record, dates);
-    pdf.save(fileName);
+// Générer le nom de fichier pour l'ensemble de la fiche technique
+const fileName = generatePDFFileName(record, dates);
+pdf.save(fileName);
 
-    // Mettre à jour la colonne Edite à True pour toutes les lignes de la fiche technique
-    try {
-        const updateActions = currentTechniqueFiche.map(rec => [
-            'UpdateRecord', 'Tableau_de_bord', rec.id, { Edite: true }
-        ]);
-        await grist.docApi.applyUserActions(updateActions);
-        console.log('Colonne "Edite" mise à jour pour la fiche technique');
-    } catch (error) {
-        console.error('Erreur lors de la mise à jour de la colonne Edite:', error);
-    }
+// Mettre à jour la colonne Edite à True pour toutes les lignes de la fiche technique
+try {
+    const updateActions = currentTechniqueFiche.map(rec => [
+        'UpdateRecord', 'Tableau_de_bord', rec.id, { Edite: true }
+    ]);
+    await grist.docApi.applyUserActions(updateActions);
+    console.log('Colonne "Edite" mise à jour pour la fiche technique');
+} catch (error) {
+    console.error('Erreur lors de la mise à jour de la colonne Edite:', error);
+}
 }
 
 /**

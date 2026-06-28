@@ -2267,7 +2267,7 @@ function exportToCSV(type) {
         const formations = tableauBordData.filter(tb => allEnsRowIds.includes(tb.id_pe));
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
-const ecole = findEcoleByRef(formation.ecole);
+            const ecole = findEcoleByRef(formation.ecole);
             const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
                 ? formation.niveau_x_.join(', ')
                 : enseignant.niveaux.join(', ');
