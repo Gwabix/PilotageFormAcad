@@ -113,6 +113,35 @@ function sanitizeGristData(value) {
     return value;
 }
 
+function normalizeEcoleRef(ref) {
+    if (ref === null || ref === undefined) return '';
+    return String(ref);
+}
+
+function isSameEcoleRef(ref, ecole) {
+    if (!ecole) return false;
+    const normalizedRef = normalizeEcoleRef(ref);
+    return normalizedRef === normalizeEcoleRef(ecole.id) ||
+        (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
+}
+
+function findEcoleByRef(ref) {
+    return ecolesData.find(e => isSameEcoleRef(ref, e));
+}
+
+function getEcoleRefsFromSelectedEcoles(ecoles) {
+    const refs = new Set();
+    ecoles.forEach(e => {
+        if (e.id !== null && e.id !== undefined) {
+            refs.add(String(e.id));
+        }
+        if (e.uai) {
+            refs.add(String(e.uai));
+        }
+    });
+    return refs;
+}
+
 /**
  * Valide et parse un entier de manière sécurisée
  * @param {any} value - Valeur à parser
@@ -387,16 +416,15 @@ async function loadData() {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
-            uai: sanitizeGristData(ecolesTable.UAI[index]),
-            nom: sanitizeGristData(ecolesTable.Nom[index]),
-            complement: sanitizeGristData(ecolesTable.Complement[index]),
-            commune: sanitizeGristData(ecolesTable.Commune[index]),
-            commune_complement: sanitizeGristData(ecolesTable.Commune_Complement_Nom[index]),
-            nom_complement_commune: sanitizeGristData(ecolesTable.Nom_Complement_Commune[index]),
+            uai: sanitizeGristData(ecolesTable.identifiant_de_l-etablissement[index]),
+            nom: sanitizeGristData(ecolesTable.Nom_etablissement[index]),
+            complement: sanitizeGristData(ecolesTable.Adresse_2[index]),
+            commune: sanitizeGristData(ecolesTable.Nom_Commune[index]),
+            commune_nom: sanitizeGristData(ecolesTable.Commune_Nom[index]),
             code_postal: ecolesTable.Code_postal[index],
-            departement: sanitizeGristData(ecolesTable.Departement[index]),
-            circonscription: sanitizeGristData(ecolesTable.Circonscription[index])
-        })).filter(e => e.commune_complement || e.nom);
+            departement: sanitizeGristData(ecolesTable.Libelle_departement[index]),
+            circonscription: sanitizeGristData(ecolesTable.nom_irconscription[index])
+        })).filter(e => e.commune_nom || e.nom);
 
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
@@ -656,7 +684,7 @@ function searchEcoles(event) {
         !selectedEcoles.find(se => se.id === e.id) &&
         (e.nom?.toLowerCase().includes(searchTerm) ||
             e.commune?.toLowerCase().includes(searchTerm) ||
-            e.commune_complement?.toLowerCase().includes(searchTerm) ||
+            e.commune_nom?.toLowerCase().includes(searchTerm) ||
             e.uai?.toLowerCase().includes(searchTerm))
     ).slice(0, 10);
 
@@ -674,7 +702,7 @@ function searchEcoles(event) {
         `<div class="search-result-item ${index === 0 ? 'active' : ''}" 
               data-ecole-id="${escapeHtmlAttribute(ecole.id)}"
               data-index="${index}">
-          <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+          <strong>${escapeHtml(ecole.nom || ecole.commune_nom)}</strong><br>
           <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
         </div>`
     ).join('');
@@ -734,7 +762,7 @@ function displaySelectedEcoles() {
     // SÉCURITÉ : Toutes les données sont échappées via escapeHtml()
     container.innerHTML = selectedEcoles.map(ecole =>
         `<span class="school-tag">
-          ${escapeHtml(ecole.nom || ecole.commune_complement)} ${ecole.uai ? '- ' + escapeHtml(ecole.uai) : ''}
+          ${escapeHtml(ecole.nom || ecole.commune_nom)} ${ecole.uai ? '- ' + escapeHtml(ecole.uai) : ''}
           <button data-ecole-id="${escapeHtmlAttribute(ecole.id)}">×</button>
         </span>`
     ).join('');
@@ -771,9 +799,9 @@ function updateEnseignantsList() {
         return;
     }
 
-    const selectedEcoleIds = selectedEcoles.map(e => e.id);
+    const selectedEcoleRefs = getEcoleRefsFromSelectedEcoles(selectedEcoles);
     const filteredEnseignants = enseignantsData.filter(ens =>
-        selectedEcoleIds.includes(ens.ecole) && ens.annee_scolaire === anneeScolaire
+        selectedEcoleRefs.has(normalizeEcoleRef(ens.ecole)) && ens.annee_scolaire === anneeScolaire
     );
 
     if (filteredEnseignants.length === 0) {
@@ -795,7 +823,7 @@ function updateEnseignantsList() {
     // IMPORTANT : Lors de l'ajout de nouvelles variables, utiliser escapeHtml() pour le contenu
     // et escapeHtmlAttribute() pour les attributs HTML.
     container.innerHTML = filteredEnseignants.map(ens => {
-        const ecole = selectedEcoles.find(e => e.id === ens.ecole);
+        const ecole = findEcoleByRef(ens.ecole);
         const currentNiveaux = enseignantsMap.get(ens.id)?.niveaux || [];
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
             const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
@@ -809,7 +837,7 @@ function updateEnseignantsList() {
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
                      checked>
               <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
-              <span class="enseignant-school">${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : ''}</span>
+              <span class="enseignant-school">${ecole ? escapeHtml(ecole.nom || ecole.commune_nom) : ''}</span>
             </div>
             <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
               <span class="enseignant-niveaux-label">Niveaux :</span>
@@ -1573,8 +1601,8 @@ function getFilteredRecords() {
 
         // Filtrer par école
         if (editFilters.ecole) {
-            const ecole = ecolesData.find(e => e.commune_complement === editFilters.ecole);
-            if (!ecole || record.ecole !== ecole.id) {
+            const ecole = ecolesData.find(e => e.commune_nom === editFilters.ecole);
+            if (!ecole || !isSameEcoleRef(record.ecole, ecole)) {
                 return false;
             }
         }
@@ -1620,10 +1648,10 @@ function getAvailableAnnees() {
 
 function getAvailableEcoles() {
     const filtered = getFilteredRecords();
-    const ecoleIds = new Set(filtered.map(r => r.ecole));
+    const ecoleRefs = new Set(filtered.map(r => normalizeEcoleRef(r.ecole)));
     return ecolesData
-        .filter(e => ecoleIds.has(e.id))
-        .map(e => e.commune_complement)
+        .filter(e => ecoleRefs.has(normalizeEcoleRef(e.id)) || (e.uai && ecoleRefs.has(normalizeEcoleRef(e.uai))))
+        .map(e => e.commune_nom)
         .sort();
 }
 
@@ -1871,7 +1899,7 @@ function updateFilteredRecords() {
         // afin d'afficher le nombre réel d'écoles de la formation
         const allFicheRecords = tableauDeBordData.filter(r => r.idFiche === firstRecord.idFiche);
         const ecoleIds = [...new Set(allFicheRecords.map(r => r.ecole))];
-        const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)?.commune_complement).filter(n => n);
+        const ecoles = ecoleIds.map(id => findEcoleByRef(id)?.commune_nom).filter(n => n);
 
         // Afficher les noms des écoles avec bullet points
         const ecolesText = ecoles.length === 0
@@ -1926,14 +1954,14 @@ function displayEditForm(ficheRecords) {
     if (selectedEcoles && selectedEcoles.length > 0) {
         // Écoles modifiées via le modal
         ecoles = selectedEcoles;
-        ecoleIds = ecoles.map(e => e.id);
+        ecoleIds = Array.from(getEcoleRefsFromSelectedEcoles(ecoles));
     } else {
         // Écoles d'origine de la fiche
-        ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
-        ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+        ecoleIds = [...new Set(ficheRecords.map(r => normalizeEcoleRef(r.ecole)))];
+        ecoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
     }
 
-    // Mémoriser les IDs d'écoles pour la fonction de rafraîchissement des enseignants
+    // Mémoriser les références d'écoles pour la fonction de rafraîchissement des enseignants
     currentEditEcoleIds = ecoleIds;
 
     // Récupérer les formateurs
@@ -1967,7 +1995,7 @@ function displayEditForm(ficheRecords) {
                 <div class="edit-info-block">
                     ${ecoles.length === 0
             ? '<div class="no-data-placeholder">Aucune école</div>'
-            : ecoles.map(e => `• ${escapeHtml(e.nom || e.commune_complement)} ${e.uai ? '(' + escapeHtml(e.uai) + ')' : ''}`).join('<br>')}
+            : ecoles.map(e => `• ${escapeHtml(e.nom || e.commune_nom)} ${e.uai ? '(' + escapeHtml(e.uai) + ')' : ''}`).join('<br>')}
                 </div>
                 <button type="button" class="btnValider edit-btn-modifier" id="btnModifierEcoles">Modifier les écoles</button>
             </div>
@@ -1978,15 +2006,16 @@ function displayEditForm(ficheRecords) {
                     ${(() => {
             // Récupérer les enseignants des écoles concernées pour l'année de la fiche
             const ficheAnnee = firstRecord.annee || '';
+            const ecoleRefsSet = new Set(ecoleIds.map(normalizeEcoleRef));
             const allEnseignants = enseignantsData.filter(ens =>
-                ecoleIds.includes(ens.ecole) && (!ficheAnnee || ens.annee_scolaire === ficheAnnee)
+                ecoleRefsSet.has(normalizeEcoleRef(ens.ecole)) && (!ficheAnnee || ens.annee_scolaire === ficheAnnee)
             );
 
             // Grouper par école, sélectionnés en tête de chaque groupe
             const ensParEcole = new Map();
-            ecoleIds.forEach(ecoleId => ensParEcole.set(ecoleId, { selected: [], unselected: [] }));
+            ecoleIds.forEach(ecoleId => ensParEcole.set(normalizeEcoleRef(ecoleId), { selected: [], unselected: [] }));
             allEnseignants.forEach(ens => {
-                const group = ensParEcole.get(ens.ecole);
+                const group = ensParEcole.get(normalizeEcoleRef(ens.ecole));
                 if (!group) return;
                 const isSelected = ficheRecords.some(rec => rec.idPE === ens.id);
                 (isSelected ? group.selected : group.unselected).push(ens);
@@ -1994,8 +2023,8 @@ function displayEditForm(ficheRecords) {
 
             let globalIdx = 0;
             return ecoleIds.map(ecoleId => {
-                const ecoleObj = ecolesData.find(e => e.id === ecoleId);
-                const ecoleName = ecoleObj ? escapeHtml(ecoleObj.nom || ecoleObj.commune_complement) : 'N/A';
+                const ecoleObj = findEcoleByRef(ecoleId);
+                const ecoleName = ecoleObj ? escapeHtml(ecoleObj.nom || ecoleObj.commune_nom) : 'N/A';
                 const { selected, unselected } = ensParEcole.get(ecoleId);
                 const orderedEns = [...selected, ...unselected];
 
@@ -2237,8 +2266,9 @@ function refreshEditEnseignants() {
     });
 
     // Filtrer les enseignants pour la nouvelle année ET les écoles actuelles
+    const currentEditEcoleRefs = new Set(currentEditEcoleIds.map(normalizeEcoleRef));
     const allEnseignants = enseignantsData.filter(ens =>
-        currentEditEcoleIds.includes(ens.ecole) && ens.annee_scolaire === newAnnee
+        currentEditEcoleRefs.has(normalizeEcoleRef(ens.ecole)) && ens.annee_scolaire === newAnnee
     );
 
     const container = document.getElementById('editEnseignantsContainer');
@@ -2254,7 +2284,7 @@ function refreshEditEnseignants() {
     container.innerHTML = allEnseignants.map((ens, idx) => {
         // Conserver la sélection grâce à l'identifiant texte ID_PE (pont inter-années)
         const isSelected = ens.idPE && selectedIdPETexts.has(ens.idPE);
-        const ecole = ecolesData.find(e => e.id === ens.ecole);
+        const ecole = findEcoleByRef(ens.ecole);
         const opacity = isSelected ? '1' : '0.5';
         const currentNiveaux = (ens.niveaux || []).filter(n => n !== 'L');
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
@@ -2270,7 +2300,7 @@ function refreshEditEnseignants() {
                        data-ens-id="${escapeHtmlAttribute(ens.id)}"
                        data-idx="${idx}"
                        ${isSelected ? 'checked' : ''}>
-                <label for="editEns_${idx}" class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement) : 'N/A'}</label>
+                <label for="editEns_${idx}" class="enseignant-edit-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)} - ${ecole ? escapeHtml(ecole.nom || ecole.commune_nom) : 'N/A'}</label>
             </div>
             <div class="enseignant-niveaux-section" id="editNiveaux_${idx}">
                 <span class="enseignant-niveaux-label">Niveaux :</span>
@@ -2307,7 +2337,7 @@ function openEcolesModal(ficheRecords) {
 
     // Récupérer les écoles actuelles de la fiche
     const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
-    modalSelectedEcoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+    modalSelectedEcoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
 
     // Créer le modal s'il n'existe pas
     let modal = document.getElementById('ecolesModal');
@@ -2564,8 +2594,8 @@ function searchEcolesModal(event) {
         !modalSelectedEcoles.find(se => se.id === e.id) &&
         (e.nom?.toLowerCase().includes(searchTerm) ||
             e.commune?.toLowerCase().includes(searchTerm) ||
-            e.commune_complement?.toLowerCase().includes(searchTerm) ||
-            e.nom_complement_commune?.toLowerCase().includes(searchTerm) ||
+            e.commune_nom?.toLowerCase().includes(searchTerm) ||
+            e.nom?.toLowerCase().includes(searchTerm) ||
             e.uai?.toLowerCase().includes(searchTerm))
     ).slice(0, 10);
 
@@ -2583,7 +2613,7 @@ function searchEcolesModal(event) {
         const div = document.createElement('div');
         div.className = 'search-result-item' + (index === modalActiveResultIndex ? ' active' : '');
         div.innerHTML = `
-            <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+            <strong>${escapeHtml(ecole.nom || ecole.commune_nom)}</strong><br>
             <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
         `;
         div.addEventListener('click', () => selectModalEcole(ecole.id));
@@ -2667,7 +2697,7 @@ function displayModalSelectedEcoles() {
         <div class="selected-school-item">
             <button type="button" class="remove-school" title="Supprimer l'école" onclick="removeModalEcole(${ecole.id})">&times;</button>
             <div>
-                <strong>${escapeHtml(ecole.nom || ecole.commune_complement)}</strong><br>
+                <strong>${escapeHtml(ecole.nom || ecole.commune_nom)}</strong><br>
                 <small>${escapeHtml(ecole.commune || '')} ${ecole.uai ? '- UAI : ' + escapeHtml(ecole.uai) : ''}</small>
             </div>
         </div>
@@ -3154,8 +3184,8 @@ function getFilteredRecordsTechnique() {
         }
 
         if (techniqueFilters.ecole) {
-            const ecole = ecolesData.find(e => e.commune_complement === techniqueFilters.ecole);
-            if (!ecole || record.ecole !== ecole.id) {
+            const ecole = ecolesData.find(e => e.commune_nom === techniqueFilters.ecole);
+            if (!ecole || !isSameEcoleRef(record.ecole, ecole)) {
                 return false;
             }
         }
@@ -3212,8 +3242,8 @@ function updateFilteredRecordsTechnique() {
 
     container.innerHTML = fiches.map(ficheRecords => {
         const firstRecord = ficheRecords[0];
-        const ecoleIds = [...new Set(ficheRecords.map(r => r.ecole))];
-        const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)?.commune_complement).filter(n => n);
+const ecoleIds = [...new Set(ficheRecords.map(r => normalizeEcoleRef(r.ecole)))];
+    const ecoles = ecoleIds.map(id => findEcoleByRef(id)?.commune_nom).filter(n => n);
 
         const ecolesText = ecoles.length === 0
             ? 'N/A'
@@ -3618,12 +3648,12 @@ function renderTechniqueModalContent(firstRecord) {
         html += '<div class="enseignants-list">';
 
         currentTechniqueFiche.forEach(record => {
-            const ecole = ecolesData.find(e => e.id === record.ecole);
+            const ecole = findEcoleByRef(record.ecole);
             const enseignant = enseignantsData.find(e => e.id === record.idPE);
 
             html += '<div class="enseignant-info-item">';
             html += `<strong>${escapeHtml(record.nomPE || 'N/A')} ${escapeHtml(record.prenomPE || 'N/A')}</strong>`;
-            html += `<div>École : ${ecole ? escapeHtml(ecole.nom || ecole.commune_complement || 'N/A') : 'N/A'}</div>`;
+            html += `<div>École : ${ecole ? escapeHtml(ecole.nom || ecole.commune_nom || 'N/A') : 'N/A'}</div>`;
             html += `<div>Circonscription : ${escapeHtml(record.circonscription || 'N/A')}</div>`;
             html += `<div>Niveau : ${escapeHtml(record.niveau || 'N/A')}</div>`;
             if (record.niveauClasse && Array.isArray(record.niveauClasse) && record.niveauClasse.length > 0) {
@@ -4352,7 +4382,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
     // Récupérer les écoles uniques
     const ecoleIds = [...new Set(enseignants.map(r => r.ecole))];
-    const ecoles = ecoleIds.map(id => ecolesData.find(e => e.id === id)).filter(e => e);
+    const ecoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
 
     // Créer un seul PDF pour toutes les fiches
     const pdf = new jsPDF();
@@ -4419,15 +4449,14 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
 
             // Créer le tableau des stagiaires
             const stagiaireRows = enseignants.map(ens => {
-                const ecole = ecolesData.find(e => e.id === ens.ecole);
-                const niveaux = ens.niveauClasse && Array.isArray(ens.niveauClasse) && ens.niveauClasse.length > 0
+                    const ecole = findEcoleByRef(ens.ecole);
                     ? ens.niveauClasse.join(', ')
                     : '';
                 const decharge = ens.decharge || '';
 
                 return [
                     `${ens.nomPE || 'N/A'} ${ens.prenomPE || 'N/A'}`,
-                    ecole?.nom || ecole?.commune_complement || 'N/A',
+                    ecole?.nom || ecole?.commune_nom || 'N/A',
                     ens.circonscription || '',
                     niveaux,
                     decharge

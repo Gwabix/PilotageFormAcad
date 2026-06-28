@@ -61,6 +61,22 @@ function cleanChoiceList(choiceList) {
     return choiceList.filter(item => item !== 'L' && item !== null && item !== '');
 }
 
+function normalizeEcoleRef(ref) {
+    if (ref === null || ref === undefined) return '';
+    return String(ref).trim();
+}
+
+function isSameEcoleRef(ref, ecole) {
+    if (!ecole) return false;
+    const normalizedRef = normalizeEcoleRef(ref);
+    return normalizedRef === normalizeEcoleRef(ecole.id) ||
+        (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
+}
+
+function findEcoleByRef(ref) {
+    return ecolesData.find(e => isSameEcoleRef(ref, e));
+}
+
 async function loadData() {
     try {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
@@ -345,7 +361,7 @@ function navigateToEcole(ecoleId) {
     selectEcole(ecoleId);
 
     // Remplir le champ de recherche
-    const ecole = ecolesData.find(e => e.id === ecoleId);
+    const ecole = findEcoleByRef(ecoleId);
     if (ecole) {
         document.getElementById('searchEcole').value = ecole.nom_complement_commune;
     }
@@ -415,7 +431,7 @@ function searchEnseignants(event) {
     }
 
     resultsDiv.innerHTML = filteredEnseignants.map((ens, index) => {
-        const ecole = ecolesData.find(e => e.id === ens.ecole);
+        const ecole = findEcoleByRef(ens.ecole);
         const ecoleNom = ecole ? ecole.nom_complement_commune : 'École non renseignée';
         const highlightClass = index === selectedIndexEnseignant ? ' highlighted' : '';
         return `
@@ -488,7 +504,7 @@ function selectEnseignant(ensId) {
     if (years.length === 0) {
         html += '<div class="no-results">Aucune formation enregistrée pour cet enseignant.</div>';
     } else {
-        const ecole = ecolesData.find(e => e.id === enseignant.ecole);
+        const ecole = findEcoleByRef(enseignant.ecole);
         const ecoleNom = ecole ? ecole.nom_complement_commune : 'École non renseignée';
 
         html += `
@@ -511,7 +527,7 @@ function selectEnseignant(ensId) {
             const ensAnnee = enseignantsData.find(e => (e.id_pe || String(e.id)) === idPeText && e.annee_scolaire === year);
             let yearSubtitle = '';
             if (ensAnnee) {
-                const ecoleAnnee = ecolesData.find(e => e.id === ensAnnee.ecole);
+                const ecoleAnnee = findEcoleByRef(ensAnnee.ecole);
                 const ecoleNomAnnee = ecoleAnnee ? ecoleAnnee.nom_complement_commune : '';
                 const parts = [ensAnnee.fonction, ecoleNomAnnee].filter(p => p && p.trim());
                 yearSubtitle = parts.join(' – ');
@@ -1799,16 +1815,16 @@ function selectEcole(ecoleId) {
     document.getElementById('searchResultsEcole').style.display = 'none';
     currentSelection = { type: 'ecole', id: ecoleId };
 
-    const ecole = ecolesData.find(e => e.id === ecoleId);
+    const ecole = findEcoleByRef(ecoleId);
     if (!ecole) return;
 
     // Remplir le champ de recherche avec le nom complet
     document.getElementById('searchEcole').value = ecole.nom_complement_commune;
 
-    const enseignantsEcole = enseignantsData.filter(e => e.ecole === ecoleId);
+    const enseignantsEcole = enseignantsData.filter(e => isSameEcoleRef(e.ecole, ecole));
     const enseignantIds = enseignantsEcole.map(e => e.id);
 
-    const formations = tableauBordData.filter(tb => tb.ecole === ecoleId);
+    const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
 
     const formationsByYear = {};
     formations.forEach(formation => {
@@ -2051,7 +2067,7 @@ function selectCirconscription(circonscription) {
     }
 
     ecolesCirco.forEach(ecole => {
-        const formations = tableauBordData.filter(tb => tb.ecole === ecole.id);
+        const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
 
         const formationsByYear = {};
         formations.forEach(formation => {
@@ -2104,7 +2120,7 @@ function selectCirconscription(circonscription) {
     // Récupérer toutes les formations de toutes les écoles de la circonscription
     const allFormations = [];
     ecolesCirco.forEach(ecole => {
-        const formations = tableauBordData.filter(tb => tb.ecole === ecole.id);
+        const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
         allFormations.push(...formations);
     });
 
@@ -2251,7 +2267,7 @@ function exportToCSV(type) {
         const formations = tableauBordData.filter(tb => allEnsRowIds.includes(tb.id_pe));
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
-            const ecole = ecolesData.find(e => e.id === formation.ecole);
+const ecole = findEcoleByRef(formation.ecole);
             const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
                 ? formation.niveau_x_.join(', ')
                 : enseignant.niveaux.join(', ');
@@ -2267,13 +2283,13 @@ function exportToCSV(type) {
         });
 
     } else if (type === 'ecole') {
-        const ecole = ecolesData.find(e => e.id === currentSelection.id);
+        const ecole = findEcoleByRef(currentSelection.id);
         if (!ecole) return;
 
         filename = `formations_${ecole.nom.replace(/[^a-z0-9]/gi, '_')}.csv`;
         csvContent = 'Année scolaire;Enseignant;Niveau(x);Type de formation;Modalité constitution;Objets transversaux;Thèmes\n';
 
-        const formations = tableauBordData.filter(tb => tb.ecole === currentSelection.id);
+        const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
             const enseignant = enseignantsData.find(e => e.id === formation.id_pe);
@@ -2299,7 +2315,7 @@ function exportToCSV(type) {
         const ecolesCirco = ecolesData.filter(e => e.circonscription === circonscription);
 
         ecolesCirco.forEach(ecole => {
-            const formations = tableauBordData.filter(tb => tb.ecole === ecole.id);
+            const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
 
             formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
                 csvContent += `"${sanitizeCSV(formation.annee || '')}";`;

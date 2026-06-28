@@ -61,6 +61,22 @@ function cleanChoiceList(choiceList) {
     return choiceList.filter(item => item !== 'L' && item !== null && item !== '');
 }
 
+function normalizeEcoleRef(ref) {
+    if (ref === null || ref === undefined) return '';
+    return String(ref).trim();
+}
+
+function isSameEcoleRef(ref, ecole) {
+    if (!ecole) return false;
+    const normalizedRef = normalizeEcoleRef(ref);
+    return normalizedRef === normalizeEcoleRef(ecole.id) ||
+        (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
+}
+
+function findEcoleByRef(ref) {
+    return ecolesData.find(e => isSameEcoleRef(ref, e));
+}
+
 async function loadData() {
     try {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
@@ -473,7 +489,7 @@ function selectDepartement(departement) {
             );
 
             const formationsCirco = tableauBordData.filter(tb => {
-                const ecole = ecolesData.find(e => e.id === tb.ecole);
+                const ecole = findEcoleByRef(tb.ecole);
                 return ecole && ecole.departement === departement && ecole.circonscription === circonscription;
             });
 
@@ -490,7 +506,7 @@ function selectDepartement(departement) {
 
     // Récupérer toutes les formations du département
     const formationsDept = tableauBordData.filter(tb => {
-        const ecole = ecolesData.find(e => e.id === tb.ecole);
+        const ecole = findEcoleByRef(tb.ecole);
         return ecole && ecole.departement === departement;
     });
 
@@ -536,7 +552,7 @@ function displayAcademie() {
             const ecolesDept = ecolesData.filter(e => e.departement === departement);
 
             const formationsDept = tableauBordData.filter(tb => {
-                const ecole = ecolesData.find(e => e.id === tb.ecole);
+                const ecole = findEcoleByRef(tb.ecole);
                 return ecole && ecole.departement === departement;
             });
 
@@ -1544,7 +1560,7 @@ function exportToCSV(type) {
         const ecolesDept = ecolesData.filter(e => e.departement === departement);
 
         ecolesDept.forEach(ecole => {
-            const formations = tableauBordData.filter(tb => tb.ecole === ecole.id);
+            const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
 
             formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
                 csvContent += `"${sanitizeCSVValue(ecole.circonscription || '')}";`;
@@ -1563,7 +1579,7 @@ function exportToCSV(type) {
         csvContent = 'Département;Circonscription;Année scolaire;École;Type de formation;Modalité constitution;Objets transversaux;Thèmes\n';
 
         ecolesData.forEach(ecole => {
-            const formations = tableauBordData.filter(tb => tb.ecole === ecole.id);
+            const formations = tableauBordData.filter(tb => isSameEcoleRef(tb.ecole, ecole));
 
             formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
                 csvContent += `"${sanitizeCSVValue(ecole.departement || '')}";`;
