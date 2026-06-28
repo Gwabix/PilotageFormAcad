@@ -87,7 +87,7 @@ async function loadData() {
             commune: (ecolesTable.Nom_Commune || ecolesTable.Commune || [])[index] || '',
             commune_complement: (ecolesTable.Commune_Nom || ecolesTable.Commune_Complement_Nom || [])[index] || '',
             nom_complement_commune: (ecolesTable.Nom_Complement_Commune || ecolesTable.Commune_Nom || [])[index] || '',
-            circonscription: (ecolesTable.nom_irconscription || ecolesTable.Circonscription || [])[index] || '',
+            circonscription: (ecolesTable.nom_circonscription || ecolesTable.Circonscription || [])[index] || '',
             departement: (ecolesTable.Libelle_departement || ecolesTable.Departement || [])[index] || ''
         }));
 
