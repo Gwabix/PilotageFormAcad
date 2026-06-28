@@ -125,8 +125,10 @@ function isSameEcoleRef(ref, ecole) {
         (ecole.uai && normalizedRef === normalizeEcoleRef(ecole.uai));
 }
 
-function findEcoleByRef(ref) {
-    return ecolesData.find(e => isSameEcoleRef(ref, e));
+function findEcoleByRef(rowId) {
+    const n = Number(rowId);
+    if (!Number.isInteger(n) || n <= 0) return undefined;
+    return ecolesData.find(e => Number(e.id) === n);
 }
 
 function getEcoleDisplayName(ecole) {
@@ -134,17 +136,13 @@ function getEcoleDisplayName(ecole) {
     return ecole.commune_nom || ecole.nom || ecole.commune || '';
 }
 
-function getEcoleRefsFromSelectedEcoles(ecoles) {
-    const refs = new Set();
+function getEcoleRowIdsFromSelectedEcoles(ecoles) {
+    const ids = new Set();
     ecoles.forEach(e => {
-        if (e.id !== null && e.id !== undefined) {
-            refs.add(String(e.id));
-        }
-        if (e.uai) {
-            refs.add(String(e.uai));
-        }
+        const n = Number(e.id);
+        if (Number.isInteger(n) && n > 0) ids.add(n);
     });
-    return refs;
+    return ids;
 }
 
 function getRecordEcoleRef(record) {
@@ -447,7 +445,8 @@ async function loadData() {
             idPE: sanitizeGristData(enseignantsTable.ID_PE[index]),
             nom: sanitizeGristData(enseignantsTable.Nom[index]),
             prenom: sanitizeGristData(enseignantsTable.Prenom[index]),
-            ecole: enseignantsTable.Ecole[index],
+            ecole_rowid: (enseignantsTable.UAI || [])[index],
+            ecole_label: sanitizeGristData((enseignantsTable.Ecole || [])[index]) || '',
             niveaux: sanitizeGristData(enseignantsTable.Niveau_x_[index]) || [],
             annee_scolaire: sanitizeGristData(enseignantsTable.Annee_scolaire[index]) || ''
         }));
@@ -815,9 +814,9 @@ function updateEnseignantsList() {
         return;
     }
 
-    const selectedEcoleRefs = getEcoleRefsFromSelectedEcoles(selectedEcoles);
+    const selectedRowIds = getEcoleRowIdsFromSelectedEcoles(selectedEcoles);
     const filteredEnseignants = enseignantsData.filter(ens =>
-        selectedEcoleRefs.has(normalizeEcoleRef(ens.ecole)) && ens.annee_scolaire === anneeScolaire
+        selectedRowIds.has(Number(ens.ecole_rowid)) && ens.annee_scolaire === anneeScolaire
     );
 
     if (filteredEnseignants.length === 0) {
@@ -839,7 +838,7 @@ function updateEnseignantsList() {
     // IMPORTANT : Lors de l'ajout de nouvelles variables, utiliser escapeHtml() pour le contenu
     // et escapeHtmlAttribute() pour les attributs HTML.
     container.innerHTML = filteredEnseignants.map(ens => {
-        const ecole = findEcoleByRef(ens.ecole);
+        const ecole = findEcoleByRef(ens.ecole_rowid);
         const currentNiveaux = enseignantsMap.get(ens.id)?.niveaux || [];
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
             const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
@@ -1970,10 +1969,16 @@ function displayEditForm(ficheRecords) {
     if (selectedEcoles && selectedEcoles.length > 0) {
         // Écoles modifiées via le modal
         ecoles = selectedEcoles;
-        ecoleIds = Array.from(getEcoleRefsFromSelectedEcoles(ecoles));
+        ecoleIds = ecoles
+            .map(e => Number(e.id))
+            .filter(n => Number.isInteger(n) && n > 0);
     } else {
         // Écoles d'origine de la fiche
-        ecoleIds = [...new Set(ficheRecords.map(r => getRecordEcoleRef(r)))];
+        ecoleIds = [...new Set(
+            ficheRecords
+                .map(r => Number(getRecordEcoleRef(r)))
+                .filter(n => Number.isInteger(n) && n > 0)
+        )];
         ecoles = ecoleIds.map(id => findEcoleByRef(id)).filter(e => e);
     }
 
@@ -2022,9 +2027,13 @@ function displayEditForm(ficheRecords) {
                     ${(() => {
             // Récupérer les enseignants des écoles concernées pour l'année de la fiche
             const ficheAnnee = firstRecord.annee || '';
-            const ecoleRefsSet = new Set(ecoleIds.map(normalizeEcoleRef));
+            const ecoleRowIdsSet = new Set(
+                ecoleIds
+                    .map(Number)
+                    .filter(n => Number.isInteger(n) && n > 0)
+            );
             const allEnseignants = enseignantsData.filter(ens =>
-                ecoleRefsSet.has(normalizeEcoleRef(ens.ecole)) && (!ficheAnnee || ens.annee_scolaire === ficheAnnee)
+                ecoleRowIdsSet.has(Number(ens.ecole_rowid)) && (!ficheAnnee || ens.annee_scolaire === ficheAnnee)
             );
 
             // Grouper par école, sélectionnés en tête de chaque groupe
@@ -2284,7 +2293,7 @@ function refreshEditEnseignants() {
     // Filtrer les enseignants pour la nouvelle année ET les écoles actuelles
     const currentEditEcoleRefs = new Set(currentEditEcoleIds.map(normalizeEcoleRef));
     const allEnseignants = enseignantsData.filter(ens =>
-        currentEditEcoleRefs.has(normalizeEcoleRef(ens.ecole)) && ens.annee_scolaire === newAnnee
+        currentEditEcoleRefs.has(normalizeEcoleRef(ens.ecole_rowid)) && ens.annee_scolaire === newAnnee
     );
 
     const container = document.getElementById('editEnseignantsContainer');
@@ -2300,7 +2309,7 @@ function refreshEditEnseignants() {
     container.innerHTML = allEnseignants.map((ens, idx) => {
         // Conserver la sélection grâce à l'identifiant texte ID_PE (pont inter-années)
         const isSelected = ens.idPE && selectedIdPETexts.has(ens.idPE);
-        const ecole = findEcoleByRef(ens.ecole);
+        const ecole = findEcoleByRef(ens.ecole_rowid);
         const opacity = isSelected ? '1' : '0.5';
         const currentNiveaux = (ens.niveaux || []).filter(n => n !== 'L');
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
