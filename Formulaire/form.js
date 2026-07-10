@@ -442,7 +442,8 @@ async function loadData() {
             commune_nom: sanitizeGristData((ecolesTable.Commune_Nom || [])[index]),
             code_postal: (ecolesTable.Code_postal || [])[index],
             departement: sanitizeGristData((ecolesTable.Libelle_departement || [])[index]),
-            circonscription: sanitizeGristData((ecolesTable.nom_circonscription || [])[index])
+            nom_circonscription: sanitizeGristData((ecolesTable.nom_circonscription || [])[index]),
+            circonscription: sanitizeGristData((ecolesTable.Circonscription || [])[index]),
         })).filter(e => e.commune_nom || e.nom);
 
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
