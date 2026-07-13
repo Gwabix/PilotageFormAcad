@@ -45,6 +45,8 @@ let techniqueDates = [];
 let techniqueFormateurs = [];
 let techniqueFormateurSearchResults = [];
 let activeTechniqueFormateurResultIndex = -1;
+let formateursDepartementChoices = [];
+let currentUserSousCategorieText = '';
 
 // Variables pour la recherche de formateurs dans l'onglet édition
 let activeEditFormateurResultIndex = -1;
@@ -111,6 +113,243 @@ function sanitizeGristData(value) {
         return value.map(v => sanitizeGristData(v));
     }
     return value;
+}
+
+function parseJsonSafely(value, fallback = null) {
+    if (!value || typeof value !== 'string') return fallback;
+    try {
+        return JSON.parse(value);
+    } catch (_error) {
+        return fallback;
+    }
+}
+
+function getTableColumn(table, candidateNames) {
+    for (const name of candidateNames) {
+        if (table && Object.prototype.hasOwnProperty.call(table, name)) {
+            return table[name];
+        }
+    }
+    return [];
+}
+
+function parseGristList(value) {
+    if (Array.isArray(value)) {
+        return value.filter(v => v !== 'L' && v !== null && v !== undefined);
+    }
+    if (value === null || value === undefined || value === '') return [];
+    return [value];
+}
+
+function normalizeDepartmentLabel(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function extractMatchingDepartementsFromText(text, availableDepartements) {
+    const normalizedText = normalizeDepartmentLabel(text);
+    if (!normalizedText) return [];
+
+    const matches = availableDepartements.filter(departement => {
+        const normalizedDepartement = normalizeDepartmentLabel(departement);
+        return normalizedDepartement && normalizedText.includes(normalizedDepartement);
+    });
+
+    return [...new Set(matches)];
+}
+
+function getNestedValue(source, path) {
+    return path.reduce((value, key) => {
+        if (value === null || value === undefined) return undefined;
+        return value[key];
+    }, source);
+}
+
+function inferCurrentUserSousCategorieText() {
+    const sources = [
+        window.grist,
+        grist,
+        window.grist?.currentUser,
+        grist?.currentUser,
+        window.grist?.user,
+        grist?.user,
+        window.user
+    ].filter(Boolean);
+
+    const paths = [
+        ['Utilisateurices', 'Sous_categorieTXT'],
+        ['Utilisateurices', 'Sous-categorieTXT'],
+        ['Sous_categorieTXT'],
+        ['Sous-categorieTXT']
+    ];
+
+    for (const source of sources) {
+        for (const path of paths) {
+            const value = getNestedValue(source, path);
+            if (Array.isArray(value) && value.length > 0) {
+                return value.map(v => sanitizeGristData(v)).filter(Boolean).join(' | ');
+            }
+            if (typeof value === 'string' && value.trim()) {
+                return sanitizeGristData(value);
+            }
+        }
+    }
+
+    return '';
+}
+
+async function loadFormateursDepartementChoices() {
+    if (formateursDepartementChoices.length > 0) {
+        return formateursDepartementChoices;
+    }
+
+    try {
+        const tablesMeta = await grist.docApi.fetchTable('_grist_Tables');
+        const columnsMeta = await grist.docApi.fetchTable('_grist_Tables_column');
+        const tableNames = getTableColumn(tablesMeta, ['tableId', 'TableId', 'name']);
+        const formateursTableIndex = tableNames.findIndex(name => name === 'Formateurs');
+
+        if (formateursTableIndex >= 0) {
+            const formateursTableRowId = tablesMeta.id[formateursTableIndex];
+            const parentIds = getTableColumn(columnsMeta, ['parentId', 'ParentId']);
+            const colIds = getTableColumn(columnsMeta, ['colId', 'ColId']);
+            const widgetOptionsColumn = getTableColumn(columnsMeta, ['widgetOptions', 'WidgetOptions']);
+            const departementColumnIndex = colIds.findIndex((colId, index) =>
+                colId === '$Departement' && Number(parentIds[index]) === Number(formateursTableRowId)
+            );
+
+            if (departementColumnIndex >= 0) {
+                const widgetOptions = parseJsonSafely(widgetOptionsColumn[departementColumnIndex], {});
+                const choices = Array.isArray(widgetOptions?.choices)
+                    ? widgetOptions.choices.map(choice => sanitizeGristData(choice)).filter(Boolean)
+                    : [];
+                if (choices.length > 0) {
+                    formateursDepartementChoices = [...new Set(choices)].sort((a, b) => a.localeCompare(b));
+                    return formateursDepartementChoices;
+                }
+            }
+        }
+    } catch (error) {
+        console.info('Impossible de charger les choix de $Departement via les tables internes :', error?.message || error);
+    }
+
+    formateursDepartementChoices = [...new Set(
+        formateursData.map(formateur => sanitizeGristData(formateur.departement)).filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+    return formateursDepartementChoices;
+}
+
+async function promptDepartementForFormateur(formateurNom, departements) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'formateur-modal-overlay';
+
+        const content = document.createElement('div');
+        content.className = 'formateur-modal-content';
+        content.innerHTML = `
+            <h3 class="formateur-modal-header">Sélection du département</h3>
+            <p class="formateur-modal-intro">
+                Veuillez sélectionner un département pour la création du nouveau formateur :
+                <strong>${escapeHtml(formateurNom)}</strong>
+            </p>
+            <div class="formateur-modal-actions" style="display:block;">
+                <label for="departementSelectFormateur">Département</label>
+                <select id="departementSelectFormateur" class="search-input" style="margin-top:8px;">
+                    <option value="">Choisir un département</option>
+                    ${departements.map(departement => `<option value="${escapeHtmlAttribute(departement)}">${escapeHtml(departement)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="formateur-modal-actions">
+                <button class="formateur-modal-btn-create" data-action="validate">Valider</button>
+                <button class="formateur-modal-btn-cancel" data-action="cancel">Annuler</button>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        const close = (value) => {
+            document.body.removeChild(modal);
+            resolve(value);
+        };
+
+        content.addEventListener('click', (event) => {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+
+            const action = btn.getAttribute('data-action');
+            if (action === 'cancel') {
+                close(null);
+                return;
+            }
+
+            if (action === 'validate') {
+                const select = document.getElementById('departementSelectFormateur');
+                const value = sanitizeGristData(select?.value || '');
+                if (!value) {
+                    alert('Veuillez sélectionner un département.');
+                    return;
+                }
+                close(value);
+            }
+        });
+    });
+}
+
+async function resolveDepartementForNewFormateur(formateurNom) {
+    const departements = await loadFormateursDepartementChoices();
+    if (departements.length === 0) return '';
+
+    currentUserSousCategorieText = currentUserSousCategorieText || inferCurrentUserSousCategorieText();
+    const matchedDepartements = extractMatchingDepartementsFromText(currentUserSousCategorieText, departements);
+
+    if (matchedDepartements.length === 1) {
+        return matchedDepartements[0];
+    }
+
+    return promptDepartementForFormateur(formateurNom, departements);
+}
+
+async function createFormateurRecord(formateurNom, { fonction = '' } = {}) {
+    const departement = await resolveDepartementForNewFormateur(formateurNom);
+    if (departement === null) return null;
+
+    const recordData = { Formateur: formateurNom };
+    const fonctionClean = sanitizeGristData(fonction);
+    if (fonctionClean) recordData.Fonction = fonctionClean;
+    if (departement) recordData['$Departement'] = departement;
+
+    const result = await grist.docApi.applyUserActions([
+        ['AddRecord', 'Formateurs', null, recordData]
+    ]);
+    const newId = result.retValues[0];
+    const newFormateur = {
+        id: newId,
+        nom: formateurNom,
+        fonction: fonctionClean,
+        departement: departement || '',
+        autoLoad: false,
+        lister: true
+    };
+    formateursData.push(newFormateur);
+    return newFormateur;
+}
+
+function resolveDepartmentFromReferenceValues(rawValues, referenceMap, departmentChoices) {
+    const labels = rawValues
+        .map(value => typeof value === 'number' ? referenceMap[value] : sanitizeGristData(value))
+        .filter(Boolean);
+    const matches = new Set();
+
+    labels.forEach(label => {
+        extractMatchingDepartementsFromText(label, departmentChoices).forEach(match => matches.add(match));
+    });
+
+    return matches.size === 1 ? [...matches][0] : '';
 }
 
 function normalizeEcoleRef(ref) {
@@ -429,6 +668,7 @@ class QuantityInput {
 
 async function loadData() {
     try {
+        currentUserSousCategorieText = inferCurrentUserSousCategorieText();
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
         const ecoleUaiColumn = ecolesTable['$Identifiant_de_l_etablissement'] ||
             ecolesTable.Identifiant_de_l_etablissement ||
@@ -463,9 +703,13 @@ async function loadData() {
             id: id,
             nom: sanitizeGristData(formateursTable.Formateur[index]),
             fonction: sanitizeGristData(formateursTable.Fonction[index]) || '',
+            departement: sanitizeGristData(((formateursTable['$Departement'] || formateursTable.Departement) || [])[index]) || '',
             autoLoad: formateursTable.AutoLoad ? formateursTable.AutoLoad[index] === true : false,
             lister: formateursTable.Lister ? formateursTable.Lister[index] !== false : true
         })).filter(f => f.nom);
+
+        formateursDepartementChoices = [];
+        await loadFormateursDepartementChoices();
 
         const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
         tableauDeBordData = tableauTable.id.map((id, index) => ({
@@ -535,6 +779,21 @@ async function syncFormateursFromPersonnes() {
             console.info('Synchro Formateurs : table Categories inaccessible, Categorie traitée comme ChoiceList.');
         }
 
+        let sousCategoriesMap = {};
+        try {
+            const sousCategoriesTable = await grist.docApi.fetchTable('Sous_categories');
+            const sousCategoriesLabels = getTableColumn(sousCategoriesTable, ['Sous-catégorie', 'Sous_categorie', 'Nom', 'Label', 'Name']);
+            sousCategoriesTable.id.forEach((id, index) => {
+                const label = sanitizeGristData(sousCategoriesLabels[index]);
+                if (label) sousCategoriesMap[id] = label;
+            });
+        } catch (e) {
+            console.info('Synchro Formateurs : table Sous_categories inaccessible, département non dérivé depuis Personnes.');
+        }
+
+        const departementChoices = await loadFormateursDepartementChoices();
+        const sousCategorieColumn = getTableColumn(personnesTable, ['Sous-catégorie', 'Sous_categorie', 'Sous-categorie']);
+
         const targetCategories = new Set(['CPC', 'CPD', 'Formateur']);
         const fonctionCategories = new Set(['CPC', 'CPD']);
 
@@ -545,6 +804,7 @@ async function syncFormateursFromPersonnes() {
 
         // Construire l'ensemble des personnes éligibles (pour add + soft-remove)
         const eligibleNormalized = new Set();
+        const eligibleFormateursByKey = new Map();
         const toAdd = [];
 
         personnesTable.id.forEach((_, index) => {
@@ -585,10 +845,18 @@ async function syncFormateursFromPersonnes() {
             const normKey = normalizeFormateurName(formateurNom);
             eligibleNormalized.add(normKey);
 
+            const sousCategorieRaw = sousCategorieColumn[index];
+            const departement = resolveDepartmentFromReferenceValues(
+                parseGristList(sousCategorieRaw),
+                sousCategoriesMap,
+                departementChoices
+            );
+            eligibleFormateursByKey.set(normKey, { departement, fonctionCat });
+
             // Planifier l'ajout si absent de Formateurs (comparaison normalisée)
             if (!existingNormalized.has(normKey)) {
                 const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
-                toAdd.push({ formateurNom, fonctionCat });
+                toAdd.push({ formateurNom, fonctionCat, departement });
                 // Marquer comme existant pour éviter les doublons intra-lot
                 existingNormalized.add(normKey);
             }
@@ -597,9 +865,10 @@ async function syncFormateursFromPersonnes() {
         const actions = [];
 
         // ADD : personnes éligibles absentes de Formateurs
-        toAdd.forEach(({ formateurNom, fonctionCat }) => {
+        toAdd.forEach(({ formateurNom, fonctionCat, departement }) => {
             const recordData = { Formateur: formateurNom, AutoLoad: true, Lister: true };
             if (fonctionCat) recordData.Fonction = fonctionCat;
+            if (departement) recordData['$Departement'] = departement;
             actions.push(['AddRecord', 'Formateurs', null, recordData]);
         });
 
@@ -609,6 +878,18 @@ async function syncFormateursFromPersonnes() {
                 const normKey = normalizeFormateurName(f.nom);
                 if (!eligibleNormalized.has(normKey)) {
                     actions.push(['UpdateRecord', 'Formateurs', f.id, { Lister: false }]);
+                } else {
+                    const eligibleData = eligibleFormateursByKey.get(normKey);
+                    const updateData = {};
+                    if (eligibleData?.departement && eligibleData.departement !== f.departement) {
+                        updateData['$Departement'] = eligibleData.departement;
+                    }
+                    if (eligibleData?.fonctionCat && eligibleData.fonctionCat !== f.fonction) {
+                        updateData.Fonction = eligibleData.fonctionCat;
+                    }
+                    if (Object.keys(updateData).length > 0) {
+                        actions.push(['UpdateRecord', 'Formateurs', f.id, updateData]);
+                    }
                 }
             }
         });
@@ -621,6 +902,7 @@ async function syncFormateursFromPersonnes() {
                 id: id,
                 nom: sanitizeGristData(formateursTable.Formateur[index]),
                 fonction: sanitizeGristData(formateursTable.Fonction[index]) || '',
+                departement: sanitizeGristData(((formateursTable['$Departement'] || formateursTable.Departement) || [])[index]) || '',
                 autoLoad: formateursTable.AutoLoad ? formateursTable.AutoLoad[index] === true : false,
                 lister: formateursTable.Lister ? formateursTable.Lister[index] !== false : true
             })).filter(f => f.nom);
@@ -1381,21 +1663,13 @@ async function validerFormulaire() {
                             formateur = choice.formateur;
                         } else {
                             // Créer le nouveau formateur
-                            const result = await grist.docApi.applyUserActions([
-                                ['AddRecord', 'Formateurs', null, { Formateur: formateurNom }]
-                            ]);
-                            const newId = result.retValues[0];
-                            formateur = { id: newId, nom: formateurNom };
-                            formateursData.push(formateur);
+                            formateur = await createFormateurRecord(formateurNom);
+                            if (!formateur) return;
                         }
                     } else {
                         // Aucun formateur similaire, créer directement
-                        const result = await grist.docApi.applyUserActions([
-                            ['AddRecord', 'Formateurs', null, { Formateur: formateurNom }]
-                        ]);
-                        const newId = result.retValues[0];
-                        formateur = { id: newId, nom: formateurNom };
-                        formateursData.push(formateur);
+                        formateur = await createFormateurRecord(formateurNom);
+                        if (!formateur) return;
                     }
                 }
 
@@ -2814,12 +3088,8 @@ async function updateFiche() {
                 } else {
                     // Créer le nouveau formateur
                     try {
-                        const result = await grist.docApi.applyUserActions([
-                            ['AddRecord', 'Formateurs', null, { Formateur: nom }]
-                        ]);
-                        const newId = result.retValues[0];
-                        formateur = { id: newId, nom };
-                        formateursData.push(formateur);
+                        formateur = await createFormateurRecord(nom);
+                        if (!formateur) return;
                     } catch (error) {
                         console.error('Erreur création formateur :', error);
                         alert('Erreur lors de la création du formateur : ' + nom);
@@ -2829,12 +3099,8 @@ async function updateFiche() {
             } else {
                 // Aucun formateur similaire, créer directement
                 try {
-                    const result = await grist.docApi.applyUserActions([
-                        ['AddRecord', 'Formateurs', null, { Formateur: nom }]
-                    ]);
-                    const newId = result.retValues[0];
-                    formateur = { id: newId, nom };
-                    formateursData.push(formateur);
+                    formateur = await createFormateurRecord(nom);
+                    if (!formateur) return;
                 } catch (error) {
                     console.error('Erreur création formateur :', error);
                     alert('Erreur lors de la création du formateur : ' + nom);
@@ -4049,9 +4315,8 @@ async function addNewFormateurTechnique(nom) {
     const fonctionClean = validateInput(fonction || '', 100);
 
     try {
-        const result = await grist.docApi.applyUserActions([
-            ['AddRecord', 'Formateurs', null, { Formateur: nomClean, Fonction: fonctionClean }]
-        ]);
+        const createdFormateur = await createFormateurRecord(nomClean, { fonction: fonctionClean });
+        if (!createdFormateur) return;
 
         await loadData();
 
