@@ -47,6 +47,7 @@ let techniqueFormateurSearchResults = [];
 let activeTechniqueFormateurResultIndex = -1;
 let formateursDepartementChoices = [];
 let currentUserSousCategorieText = '';
+let formateursDepartementColId = 'Departement';
 
 // Variables pour la recherche de formateurs dans l'onglet édition
 let activeEditFormateurResultIndex = -1;
@@ -202,6 +203,14 @@ function inferCurrentUserSousCategorieText() {
     return '';
 }
 
+function getVisibleFormateursDepartements() {
+    return [...new Set(
+        formateursData
+            .map(formateur => sanitizeGristData(formateur.departement))
+            .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+}
+
 async function loadFormateursDepartementChoices() {
     if (formateursDepartementChoices.length > 0) {
         return formateursDepartementChoices;
@@ -218,12 +227,15 @@ async function loadFormateursDepartementChoices() {
             const parentIds = getTableColumn(columnsMeta, ['parentId', 'ParentId']);
             const colIds = getTableColumn(columnsMeta, ['colId', 'ColId']);
             const widgetOptionsColumn = getTableColumn(columnsMeta, ['widgetOptions', 'WidgetOptions']);
-            const departementColumnIndex = colIds.findIndex((colId, index) =>
-                colId === '$Departement' && Number(parentIds[index]) === Number(formateursTableRowId)
-            );
+            const formateursColumns = colIds
+                .map((colId, index) => ({ colId, index }))
+                .filter(({ index }) => Number(parentIds[index]) === Number(formateursTableRowId));
+            const departementColumn = formateursColumns.find(({ colId }) => colId === 'Departement')
+                || formateursColumns.find(({ colId }) => colId === '$Departement');
 
-            if (departementColumnIndex >= 0) {
-                const widgetOptions = parseJsonSafely(widgetOptionsColumn[departementColumnIndex], {});
+            if (departementColumn) {
+                formateursDepartementColId = departementColumn.colId;
+                const widgetOptions = parseJsonSafely(widgetOptionsColumn[departementColumn.index], {});
                 const choices = Array.isArray(widgetOptions?.choices)
                     ? widgetOptions.choices.map(choice => sanitizeGristData(choice)).filter(Boolean)
                     : [];
@@ -237,9 +249,7 @@ async function loadFormateursDepartementChoices() {
         console.info('Impossible de charger les choix de $Departement via les tables internes :', error?.message || error);
     }
 
-    formateursDepartementChoices = [...new Set(
-        formateursData.map(formateur => sanitizeGristData(formateur.departement)).filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b));
+    formateursDepartementChoices = getVisibleFormateursDepartements();
     return formateursDepartementChoices;
 }
 
@@ -301,7 +311,12 @@ async function promptDepartementForFormateur(formateurNom, departements) {
 }
 
 async function resolveDepartementForNewFormateur(formateurNom) {
-    const departements = await loadFormateursDepartementChoices();
+    const visibleDepartements = getVisibleFormateursDepartements();
+    if (visibleDepartements.length === 1) {
+        return visibleDepartements[0];
+    }
+
+    const departements = visibleDepartements.length > 0 ? visibleDepartements : await loadFormateursDepartementChoices();
     if (departements.length === 0) return '';
 
     currentUserSousCategorieText = currentUserSousCategorieText || inferCurrentUserSousCategorieText();
@@ -321,7 +336,7 @@ async function createFormateurRecord(formateurNom, { fonction = '' } = {}) {
     const recordData = { Formateur: formateurNom };
     const fonctionClean = sanitizeGristData(fonction);
     if (fonctionClean) recordData.Fonction = fonctionClean;
-    if (departement) recordData['$Departement'] = departement;
+    if (departement) recordData[formateursDepartementColId] = departement;
 
     const result = await grist.docApi.applyUserActions([
         ['AddRecord', 'Formateurs', null, recordData]
@@ -669,6 +684,7 @@ class QuantityInput {
 async function loadData() {
     try {
         currentUserSousCategorieText = inferCurrentUserSousCategorieText();
+        formateursDepartementColId = 'Departement';
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
         const ecoleUaiColumn = ecolesTable['$Identifiant_de_l_etablissement'] ||
             ecolesTable.Identifiant_de_l_etablissement ||
@@ -851,11 +867,11 @@ async function syncFormateursFromPersonnes() {
                 sousCategoriesMap,
                 departementChoices
             );
+            const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
             eligibleFormateursByKey.set(normKey, { departement, fonctionCat });
 
             // Planifier l'ajout si absent de Formateurs (comparaison normalisée)
             if (!existingNormalized.has(normKey)) {
-                const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
                 toAdd.push({ formateurNom, fonctionCat, departement });
                 // Marquer comme existant pour éviter les doublons intra-lot
                 existingNormalized.add(normKey);
@@ -868,7 +884,7 @@ async function syncFormateursFromPersonnes() {
         toAdd.forEach(({ formateurNom, fonctionCat, departement }) => {
             const recordData = { Formateur: formateurNom, AutoLoad: true, Lister: true };
             if (fonctionCat) recordData.Fonction = fonctionCat;
-            if (departement) recordData['$Departement'] = departement;
+            if (departement) recordData[formateursDepartementColId] = departement;
             actions.push(['AddRecord', 'Formateurs', null, recordData]);
         });
 
@@ -882,7 +898,7 @@ async function syncFormateursFromPersonnes() {
                     const eligibleData = eligibleFormateursByKey.get(normKey);
                     const updateData = {};
                     if (eligibleData?.departement && eligibleData.departement !== f.departement) {
-                        updateData['$Departement'] = eligibleData.departement;
+                        updateData[formateursDepartementColId] = eligibleData.departement;
                     }
                     if (eligibleData?.fonctionCat && eligibleData.fonctionCat !== f.fonction) {
                         updateData.Fonction = eligibleData.fonctionCat;
