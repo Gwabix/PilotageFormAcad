@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDB Écoles - Suivi Enseignants</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+</head>
+
+<body>
+
+    <header id="topbar">
+        <div id="topbar-left">
+            <input type="search" id="search-input" placeholder="Rechercher une école (commune, adresse, nom)..."
+                aria-label="Rechercher une école" autocomplete="off">
+            <div id="search-results" class="search-results hidden" role="listbox"></div>
+        </div>
+
+        <div id="topbar-filters">
+            <div id="filter-departement-wrapper" class="filter-wrapper hidden">
+                <label for="filter-departement">Département</label>
+                <select id="filter-departement" aria-label="Filtrer par département"></select>
+            </div>
+            <div id="filter-circonscription-wrapper" class="filter-wrapper hidden">
+                <label for="filter-circonscription">Circonscription</label>
+                <select id="filter-circonscription" aria-label="Filtrer par circonscription"></select>
+            </div>
+        </div>
+
+        <div id="topbar-right">
+            <label for="year-select">Année scolaire</label>
+            <select id="year-select" aria-label="Sélectionner l'année scolaire"></select>
+        </div>
+    </header>
+
+    <div id="status-banner" class="hidden" role="status" aria-live="polite"></div>
+
+    <main id="ecoles-container" aria-live="polite">
+        <div id="loading-indicator">Chargement des données...</div>
+    </main>
+
+    <!-- Popup changement d'établissement -->
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-change-school" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <h2 id="modal-title">Changer d'établissement</h2>
+            <p id="modal-teacher-name"></p>
+            <label for="modal-search-input">Nouvel établissement</label>
+            <input type="search" id="modal-search-input" placeholder="Rechercher une école..." autocomplete="off">
+            <div id="modal-search-results" class="search-results hidden" role="listbox"></div>
+            <input type="hidden" id="modal-selected-uai">
+            <div id="modal-selected-display" class="hidden"></div>
+            <div class="modal-actions">
+                <button type="button" id="modal-cancel-btn">Annuler</button>
+                <button type="button" id="modal-confirm-btn" disabled>Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" aria-live="polite"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

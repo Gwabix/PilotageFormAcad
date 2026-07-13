@@ -1,0 +1,11 @@
+[
+    {
+        "widgetId": "tdb-ecoles-circonscription",
+        "name": "TDB Écoles - Suivi Enseignants",
+        "url": "https://gwabix.github.io/PilotageFormAcad/TDB-Ecoles/index.html",
+        "renderAfterReady": true,
+        "isGristUrl": false,
+        "accessLevel": "full",
+        "description": "Tableau de bord de suivi des enseignants par école, avec édition inline des fiches personnels et gestion des décharges."
+    }
+]
