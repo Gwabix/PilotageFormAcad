@@ -69,19 +69,7 @@ function normalizeStr(str) {
 
 function initGrist() {
     grist.ready({
-        requiredAccess: 'full',
-        columns: [
-            { name: 'ecolesTable', title: 'Table Écoles', type: 'Any', optional: false },
-            { name: 'personnelsTable', title: 'Table Liste_PE', type: 'Any', optional: false }
-        ]
-    });
-
-    grist.onOptions((options, settings) => {
-        // Réservé pour de futures options de configuration persistées.
-    });
-
-    grist.onRecords((records, mappings) => {
-        // Non utilisé directement : on charge via fetchSelectedTable pour gérer deux tables distinctes.
+        requiredAccess: 'full'
     });
 
     loadAllData();
