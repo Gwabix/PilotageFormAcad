@@ -665,7 +665,7 @@ function buildPersonnelRow(p, ecoleId) {
     const tr = document.createElement('tr');
     tr.dataset.personnelId = String(p.id);
 
-    tr.appendChild(buildEditableCell(p, 'Civilite', 'select', ['M.', 'Mme']));
+    tr.appendChild(buildEditableCell(p, 'Civilite', 'select', ['Monsieur', 'Madame']));
     tr.appendChild(buildEditableCell(p, 'Nom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Prenom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Mail', 'email'));
