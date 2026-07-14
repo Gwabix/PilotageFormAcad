@@ -427,7 +427,7 @@ table.personnels-table th {
     text-transform: uppercase;
     font-size: 11.5px;
     border-bottom: 2px solid var(--color-border);
-    white-space: nowrap;
+    white-space: pre-line;
     position: sticky;
     top: 0;
 }

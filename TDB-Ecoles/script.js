@@ -1005,8 +1005,7 @@ function buildNiveauxCell(record) {
                 updated.delete(niveau);
             }
             const newList = NIVEAUX_OPTIONS.filter(n => updated.has(n));
-            const newValue = newList.join(', ');
-            savePersonnelField(record.id, 'Niveau_x_', newValue, () => {
+            savePersonnelField(record.id, 'Niveau_x_', toChoiceListValue(newList), () => {
                 record.Niveau_x_ = newValue;
             });
         });
@@ -1022,7 +1021,9 @@ function buildNiveauxCell(record) {
 
 function parseNiveaux(rawValue) {
     if (!rawValue) return [];
-    if (Array.isArray(rawValue)) return rawValue;
+    if (Array.isArray(rawValue)) {
+        return rawValue.filter(v => v !== 'L');
+    }
     return String(rawValue).split(',').map(s => s.trim()).filter(Boolean);
 }
 
