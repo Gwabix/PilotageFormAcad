@@ -753,7 +753,7 @@ function buildPersonnelRow(p, ecoleId) {
     const triggerSynd = createTriggerCheckbox('D_synd_');
     const triggerAutre = createTriggerCheckbox('Autre');
 
-    trMain.append(triggerDir.td, triggerTP.td, triggerSynd.td, triggerAutre.td, triggerPreciser.td);
+    trMain.append(triggerDir.td, triggerTP.td, triggerSynd.td, triggerAutre.td);
 
     // --- LIGNE 2 : SÉLECTION DES JOURS DE DÉCHARGES (CONDITIONNELLE) ---
     const trDecharges = document.createElement('tr');
