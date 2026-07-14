@@ -580,7 +580,7 @@ table.personnels-table input[type="checkbox"] {
     border-radius: 4px;
     cursor: pointer;
     color: var(--color-primary-light);
-    white-space: nowrap;
+    white-space: pre-line;
 }
 
 .change-school-btn:hover {

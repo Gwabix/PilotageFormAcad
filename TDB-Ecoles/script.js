@@ -97,13 +97,13 @@ async function loadAllData() {
         state.personnels = tableToRecords(personnelsData);
 
         // Récupération dynamique des options de la colonne dans Grist
-        const dynamicNiveaux = await fetchColumnChoices('Liste_PE', 'Niveau_x_');
-        if (dynamicNiveaux.length > 0) {
-            NIVEAUX_OPTIONS = dynamicNiveaux;
-        } else {
-            // Valeurs de secours (fallback) au cas où l'API ou le JSON échoue
-            NIVEAUX_OPTIONS = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
-        }
+        const [dynamicNiveaux, dynamiqueFonctions] = await Promise.all([
+            fetchColumnChoices('Liste_PE', 'Niveau_x_'),
+            fetchColumnChoices('Liste_PE', 'Fonction')
+        ]);
+
+        NIVEAUX_OPTIONS = dynamicNiveaux.length > 0 ? dynamicNiveaux : ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
+        FONCTION_OPTIONS = dynamicFonctions;
 
         validateEcolesFields(state.ecoles);
         validatePersonnelsFields(state.personnels);
@@ -663,6 +663,7 @@ function buildPersonnelsTable(ecole) {
 }
 
 let NIVEAUX_OPTIONS = [];
+let FONCTION_OPTIONS = [];
 
 async function fetchColumnChoices(tableName, colId) {
     try {
@@ -706,7 +707,7 @@ function buildPersonnelRow(p, ecoleId) {
     tr.appendChild(buildEditableCell(p, 'Nom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Prenom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Mail', 'email'));
-    tr.appendChild(buildEditableCell(p, 'Fonction', 'select', []));
+    tr.appendChild(buildEditableCell(p, 'Fonction', 'select', FONCTION_OPTIONS));
     tr.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
     tr.appendChild(buildEditableCell(p, 'D_dir', 'checkbox'));
     tr.appendChild(buildEditableCell(p, 'TP', 'checkbox'));
