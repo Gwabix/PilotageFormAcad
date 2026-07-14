@@ -863,37 +863,53 @@ function buildDechargeSelectCell(record, field, options) {
 
     const currentValues = parseNiveaux(record[field]);
 
-    options.forEach(jour => {
-        const opt = document.createElement('option');
-        opt.value = jour;
-        opt.textContent = jour;
-        opt.selected = currentValues.includes(jour);
-        select.appendChild(opt);
-    });
+    function buildOptionsList(selectedValues) {
+        select.innerHTML = '';
+        const selected = options.filter(o => selectedValues.includes(o));
+        const unselected = options.filter(o => !selectedValues.includes(o));
+        [...selected, ...unselected].forEach(jour => {
+            const opt = document.createElement('option');
+            opt.value = jour;
+            opt.textContent = jour;
+            opt.selected = selectedValues.includes(jour);
+            select.appendChild(opt);
+        });
+    }
+
+    buildOptionsList(currentValues);
 
     const collapsedSize = () => {
-        const selectedCount = Array.from(select.selectedOptions).length;
+        const selectedCount = select.querySelectorAll('option:checked').length;
         return Math.max(1, selectedCount);
     };
+
+    const expandedSize = () => Math.min(Math.max(options.length, 5), 10);
 
     select.size = collapsedSize();
 
     select.addEventListener('mousedown', (evt) => {
         if (evt.target.tagName !== 'OPTION') return;
-        evt.preventDefault();
 
+        if (!select.classList.contains('expanded')) {
+            evt.preventDefault();
+            select.focus();
+            return;
+        }
+
+        evt.preventDefault();
         const option = evt.target;
         option.selected = !option.selected;
-
         select.dispatchEvent(new Event('change'));
     });
 
     select.addEventListener('focus', () => {
-        select.size = Math.min(options.length, 8);
+        select.size = expandedSize();
         select.classList.add('expanded');
     });
 
     select.addEventListener('blur', () => {
+        const selectedValues = Array.from(select.selectedOptions).map(o => o.value);
+        buildOptionsList(selectedValues);
         select.size = collapsedSize();
         select.classList.remove('expanded');
     });
@@ -902,12 +918,15 @@ function buildDechargeSelectCell(record, field, options) {
         const selectedValues = Array.from(select.selectedOptions).map(o => o.value);
         const orderedValues = options.filter(o => selectedValues.includes(o));
 
-        select.size = select.classList.contains('expanded')
-            ? Math.min(options.length, 8)
-            : Math.max(1, orderedValues.length);
+        if (select.classList.contains('expanded')) {
+            buildOptionsList(selectedValues);
+            select.size = expandedSize();
+        } else {
+            select.size = Math.max(1, orderedValues.length);
+        }
 
         savePersonnelField(record.id, field, toChoiceListValue(orderedValues), () => {
-            record[field] = orderedValues.join(', ');
+            record[field] = orderedValues;
         });
     });
 
