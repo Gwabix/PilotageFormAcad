@@ -762,7 +762,7 @@ function buildPersonnelRow(p, ecoleId) {
 
     // Espace vide sous Civilité -> Quotité (6 colonnes fusionnées)
     const tdEmpty = document.createElement('td');
-    tdEmpty.colSpan = 6;
+    tdEmpty.colSpan = 5;
     trDecharges.appendChild(tdEmpty);
 
     // Création des cellules de sélection des jours ("Lundi", "Mardi", "Jeudi", "Vendredi")
