@@ -96,6 +96,15 @@ async function loadAllData() {
         state.ecoles = tableToRecords(ecolesData);
         state.personnels = tableToRecords(personnelsData);
 
+        // Récupération dynamique des options de la colonne dans Grist
+        const dynamicNiveaux = await fetchColumnChoices('Liste_PE', 'Niveau_x_');
+        if (dynamicNiveaux.length > 0) {
+            NIVEAUX_OPTIONS = dynamicNiveaux;
+        } else {
+            // Valeurs de secours (fallback) au cas où l'API ou le JSON échoue
+            NIVEAUX_OPTIONS = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
+        }
+
         validateEcolesFields(state.ecoles);
         validatePersonnelsFields(state.personnels);
 
@@ -653,9 +662,37 @@ function buildPersonnelsTable(ecole) {
     return wrapper;
 }
 
-const NIVEAUX_OPTIONS = [
-    'TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'
-];
+let NIVEAUX_OPTIONS = [];
+
+async function fetchColumnChoices(tableName, colId) {
+    try {
+        // 1. Récupérer l'identifiant de la table ciblé
+        const tables = await grist.docApi.fetchTable('_grist_Tables');
+        const tableIndex = tables.tableId.indexOf(tableName);
+        if (tableIndex === -1) return [];
+        const tableRef = tables.id[tableIndex];
+
+        // 2. Récupérer les métadonnées des colonnes
+        const columns = await grist.docApi.fetchTable('_grist_Tables_column');
+
+        // 3. Trouver la colonne qui appartient à notre table et qui a le bon colId
+        for (let i = 0; i < columns.id.length; i++) {
+            if (columns.parentId[i] === tableRef && columns.colId[i] === colId) {
+                const widgetOptionsStr = columns.widgetOptions[i];
+                if (widgetOptionsStr) {
+                    const options = JSON.parse(widgetOptionsStr);
+                    if (Array.isArray(options.choices)) {
+                        return options.choices;
+                    }
+                }
+                break;
+            }
+        }
+    } catch (err) {
+        console.error(`Erreur lors du chargement des choix pour la colonne ${colId}:`, err);
+    }
+    return [];
+}
 
 const editingState = {
     currentSchoolChangeRecord: null
