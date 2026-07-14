@@ -21,12 +21,11 @@ const state = {
 
 const REQUIRED_ECOLE_FIELDS = [
     'Nom_etablissement', 'Adresse_2', 'Code_postal', 'Nom_commune',
-    'Libelle_departement', 'Circonscription', 'Mail', 'Telephone', 'Commune_Nom',
-    '$Identifiant_de_l_etablissement'
+    'Libelle_departement', 'Circonscription', 'Mail', 'Telephone', 'Commune_Nom'
 ];
 
 const REQUIRED_PERSONNEL_FIELDS = [
-    'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service', '$UAI'
+    'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service'
 ];
 
 const SCHOOL_YEAR_FIELDS = ['Annee_scolaire'];
@@ -365,40 +364,23 @@ function getYearFilteredPersonnels() {
     });
 }
 
-function getPersonnelUai(record) {
+function getPersonnelEcoleRowId(record) {
     const values = flattenRecordValue(record.UAI);
-
     for (const value of values) {
-        const text = sanitizeText(value);
-        if (text) return text;
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
     }
-
-    return '';
-}
-
-function getEcoleUai(ecole) {
-    const values = flattenRecordValue(ecole.Identifiant_de_l_etablissement);
-
-    for (const value of values) {
-        const text = sanitizeText(value);
-        if (text) return text;
-    }
-
-    return '';
+    return null;
 }
 
 function getYearScopedEcoles() {
-    const eligibleUais = new Set();
+    const eligibleRowIds = new Set();
 
     getYearFilteredPersonnels().forEach(record => {
-        const uai = getPersonnelUai(record);
-        if (uai) eligibleUais.add(uai);
+        const rowId = getPersonnelEcoleRowId(record);
+        if (rowId !== null) eligibleRowIds.add(rowId);
     });
 
-    return state.ecoles.filter(ecole => {
-        const ecoleUai = getEcoleUai(ecole);
-        return ecoleUai && eligibleUais.has(ecoleUai);
-    });
+    return state.ecoles.filter(ecole => eligibleRowIds.has(ecole.id));
 }
 
 function getScopeSelectionMessage() {
@@ -438,10 +420,7 @@ function getFilteredEcoles() {
 }
 
 function getPersonnelsForEcole(ecole) {
-    const ecoleUai = getEcoleUai(ecole);
-    if (!ecoleUai) return [];
-
-    return getYearFilteredPersonnels().filter(record => getPersonnelUai(record) === ecoleUai);
+    return getYearFilteredPersonnels().filter(record => getPersonnelEcoleRowId(record) === ecole.id);
 }
 
 function attachSearchListener() {
@@ -904,7 +883,7 @@ function attachModalListeners() {
             item.setAttribute('role', 'option');
             item.textContent = sanitizeText(e.Commune_Nom || e.Nom_etablissement || '');
             item.addEventListener('click', () => {
-                selectedUaiField.value = getEcoleUai(e);
+                selectedUaiField.value = String(e.id);
                 selectedDisplay.textContent = sanitizeText(e.Commune_Nom || '');
                 selectedDisplay.classList.remove('hidden');
                 resultsBox.classList.add('hidden');
@@ -936,10 +915,10 @@ function attachModalListeners() {
     });
 
     confirmBtn.addEventListener('click', async () => {
-        const newEcoleUai = sanitizeText(selectedUaiField.value);
+        const newEcoleRowId = parseInt(selectedUaiField.value, 10);
         const personnelRecord = editingState.currentSchoolChangeRecord;
 
-        if (!newEcoleUai || !personnelRecord) {
+        if (!Number.isFinite(newEcoleRowId) || !personnelRecord) {
             showToast('Veuillez sélectionner un établissement.', 'error');
             return;
         }
@@ -948,7 +927,7 @@ function attachModalListeners() {
 
         try {
             await grist.docApi.applyUserActions([
-                ['UpdateRecord', 'Liste_PE', personnelRecord.id, { 'UAI': newEcoleUai }]
+                ['UpdateRecord', 'Liste_PE', personnelRecord.id, { 'UAI': newEcoleRowId }]
             ]);
 
             showToast('Établissement modifié avec succès.', 'success');
