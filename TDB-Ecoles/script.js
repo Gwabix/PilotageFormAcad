@@ -84,6 +84,8 @@ function initGrist() {
 }
 
 async function loadAllData() {
+    console.log('Colonnes Ecoles :', Object.keys(state.ecoles[0] || {}));
+    console.log('Colonnes Liste_PE :', Object.keys(state.personnels[0] || {}));
     try {
         showStatus('Chargement des données...', false);
 
