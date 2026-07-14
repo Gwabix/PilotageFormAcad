@@ -772,7 +772,7 @@ function buildPersonnelRow(p, ecoleId) {
     const cellDaysAutre = buildDechargeSelectCell(p, 'Autre', DECHARGES_OPTIONS.Autre);
     const cellPreciser = buildPreciserCell(p);
 
-    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre);
+    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre, cellPreciser);
 
     // Met à jour la visibilité globale de la Ligne 2 et de chaque cellule de jours
     const updateDechargesVisibility = () => {
@@ -783,7 +783,7 @@ function buildPersonnelRow(p, ecoleId) {
         cellDaysTP.style.visibility = triggerTP.input.checked ? 'visible' : 'hidden';
         cellDaysSynd.style.visibility = triggerSynd.input.checked ? 'visible' : 'hidden';
         cellDaysAutre.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
-        cellPreciser.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
+        cellPreciser.style.display = triggerAutre.input.checked ? 'table-cell' : 'none';
     };
 
     updateDechargesVisibility();
