@@ -670,7 +670,7 @@ function buildPersonnelRow(p, ecoleId) {
     tr.appendChild(buildEditableCell(p, 'Prenom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Mail', 'email'));
     tr.appendChild(buildEditableCell(p, 'Fonction', 'text'));
-    tr.appendChild(buildEditableCell(p, 'Quotite_de_service', 'number'));
+    tr.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
     tr.appendChild(buildEditableCell(p, 'D_dir', 'checkbox'));
     tr.appendChild(buildEditableCell(p, 'TP', 'checkbox'));
     tr.appendChild(buildEditableCell(p, 'D_synd_', 'checkbox'));
