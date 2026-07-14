@@ -973,6 +973,9 @@ function buildNiveauxCell(record) {
     const td = document.createElement('td');
     td.className = 'niveaux-cell';
 
+    const inner = document.createElement('div');
+    inner.className = 'niveaux-cell-inner';
+
     const currentValues = parseNiveaux(record.Niveau_x_);
 
     NIVEAUX_OPTIONS.forEach(niveau => {
@@ -1000,9 +1003,10 @@ function buildNiveauxCell(record) {
 
         label.appendChild(checkbox);
         label.appendChild(document.createTextNode(' ' + niveau));
-        td.appendChild(label);
+        inner.appendChild(label);
     });
 
+    td.appendChild(inner);
     return td;
 }
 

@@ -515,13 +515,16 @@ table.personnels-table input[type="checkbox"] {
 
 /* Sélecteur de niveaux (cases à cocher multiples) */
 .niveaux-cell {
+    white-space: nowrap;
+    overflow-x: auto;
+    max-width: 600px;
+}
+
+.niveaux-cell-inner {
     display: flex;
     flex-wrap: nowrap;
     gap: 6px 10px;
     min-width: 220px;
-    white-space: nowrap;
-    overflow-x: auto;
-    max-width: 600px;
 }
 
 .niveau-checkbox {
