@@ -807,7 +807,7 @@ function buildPersonnelRow(p, ecoleId) {
     setupTriggerListener(triggerTP, 'TP', cellDaysTP);
     setupTriggerListener(triggerSynd, 'D_synd_', cellDaysSynd);
     setupTriggerListener(triggerAutre, 'Autre', cellDaysAutre);
-    SetupTriggerListener(triggerAutre, 'Preciser', cellPreciser);
+    setupTriggerListener(triggerAutre, 'Preciser', cellPreciser);
 
     // --- LIGNE 3 : NIVEAUX (NOWRAP) & BOUTON ACTION ---
     const trNiveaux = document.createElement('tr');
