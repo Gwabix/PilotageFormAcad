@@ -96,14 +96,26 @@ async function loadAllData() {
         state.ecoles = tableToRecords(ecolesData);
         state.personnels = tableToRecords(personnelsData);
 
-        // Récupération dynamique des options de la colonne dans Grist
-        const [dynamicNiveaux, dynamicFonctions] = await Promise.all([
+        // Récupération dynamique des options des colonnes Choice / ChoiceList
+        const [dynamicNiveaux, dynamicFonctions, dDir, dTP, dSynd, dAutre] = await Promise.all([
             fetchColumnChoices('Liste_PE', 'Niveau_x_'),
-            fetchColumnChoices('Liste_PE', 'Fonction')
+            fetchColumnChoices('Liste_PE', 'Fonction'),
+            fetchColumnChoices('Liste_PE', 'D_dir'),
+            fetchColumnChoices('Liste_PE', 'TP'),
+            fetchColumnChoices('Liste_PE', 'D_synd_'),
+            fetchColumnChoices('Liste_PE', 'Autre')
         ]);
 
         NIVEAUX_OPTIONS = dynamicNiveaux.length > 0 ? dynamicNiveaux : ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
         FONCTION_OPTIONS = dynamicFonctions.length > 0 ? dynamicFonctions : ['Directeur(trice)', 'Adjoint(e)', 'TR', 'Poste partagé', 'Ulis', 'UPE2A', 'ASH', 'PES'];
+
+        const defaultJours = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];
+        DECHARGES_OPTIONS = {
+            D_dir: dDir.length > 0 ? dDir : defaultJours,
+            TP: dTP.length > 0 ? dTP : defaultJours,
+            D_synd_: dSynd.length > 0 ? dSynd : defaultJours,
+            Autre: dAutre.length > 0 ? dAutre : defaultJours
+        };
 
         validateEcolesFields(state.ecoles);
         validatePersonnelsFields(state.personnels);
@@ -647,7 +659,6 @@ function buildPersonnelsTable(ecole) {
         '<thead><tr>' +
         '<th>Civilité</th><th>Nom</th><th>Prénom</th><th>Mail</th><th>Fonction</th>' +
         '<th>Quotité</th><th>Dir.</th><th>TP</th><th>Décharge synd.</th><th>Autre</th>' +
-        '<th>Préciser</th><th>Niveaux</th><th></th>' +
         '</tr></thead>';
 
     const tbody = document.createElement('tbody');
@@ -664,6 +675,12 @@ function buildPersonnelsTable(ecole) {
 
 let NIVEAUX_OPTIONS = [];
 let FONCTION_OPTIONS = [];
+let DECHARGES_OPTIONS = {
+    D_dir: [],
+    TP: [],
+    D_synd_: [],
+    Autre: []
+};
 
 async function fetchColumnChoices(tableName, colId) {
     try {
@@ -700,21 +717,106 @@ const editingState = {
 };
 
 function buildPersonnelRow(p, ecoleId) {
-    const tr = document.createElement('tr');
-    tr.dataset.personnelId = String(p.id);
+    const fragment = document.createDocumentFragment();
 
-    tr.appendChild(buildEditableCell(p, 'Civilite', 'select', ['Monsieur', 'Madame']));
-    tr.appendChild(buildEditableCell(p, 'Nom', 'text'));
-    tr.appendChild(buildEditableCell(p, 'Prenom', 'text'));
-    tr.appendChild(buildEditableCell(p, 'Mail', 'email'));
-    tr.appendChild(buildEditableCell(p, 'Fonction', 'select', FONCTION_OPTIONS));
-    tr.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
-    tr.appendChild(buildEditableCell(p, 'D_dir', 'checkbox'));
-    tr.appendChild(buildEditableCell(p, 'TP', 'checkbox'));
-    tr.appendChild(buildEditableCell(p, 'D_synd_', 'checkbox'));
-    tr.appendChild(buildEditableCell(p, 'Autre', 'checkbox'));
-    tr.appendChild(buildEditableCell(p, 'Preciser', 'text'));
-    tr.appendChild(buildNiveauxCell(p));
+    // Vérifie s'il y a des jours enregistrés dans la cellule Grist
+    const hasDecharge = (field) => {
+        const val = p[field];
+        if (Array.isArray(val)) return val.length > 0;
+        return !!val && String(val).trim().length > 0 && String(val) !== 'false' && String(val) !== '0';
+    };
+
+    // --- LIGNE 1 : INFOS ESSENTIELLES ---
+    const trMain = document.createElement('tr');
+    trMain.dataset.personnelId = String(p.id);
+    trMain.className = 'main-row';
+
+    trMain.appendChild(buildEditableCell(p, 'Civilite', 'select', ['Monsieur', 'Madame']));
+    trMain.appendChild(buildEditableCell(p, 'Nom', 'text'));
+    trMain.appendChild(buildEditableCell(p, 'Prenom', 'text'));
+    trMain.appendChild(buildEditableCell(p, 'Mail', 'email'));
+    trMain.appendChild(buildEditableCell(p, 'Fonction', 'select', FONCTION_OPTIONS));
+    trMain.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
+
+    // Création des 4 cases de contrôle (Interrupteurs UI : cochés au chargement si des jours sont présents)
+    const createTriggerCheckbox = (field) => {
+        const td = document.createElement('td');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = hasDecharge(field);
+        td.appendChild(input);
+        return { td, input };
+    };
+
+    const triggerDir = createTriggerCheckbox('D_dir');
+    const triggerTP = createTriggerCheckbox('TP');
+    const triggerSynd = createTriggerCheckbox('D_synd_');
+    const triggerAutre = createTriggerCheckbox('Autre');
+
+    trMain.append(triggerDir.td, triggerTP.td, triggerSynd.td, triggerAutre.td);
+
+    // --- LIGNE 2 : SÉLECTION DES JOURS DE DÉCHARGES (CONDITIONNELLE) ---
+    const trDecharges = document.createElement('tr');
+    trDecharges.dataset.personnelId = String(p.id);
+    trDecharges.className = 'decharges-row';
+
+    // Espace vide sous Civilité -> Quotité (6 colonnes fusionnées)
+    const tdEmpty = document.createElement('td');
+    tdEmpty.colSpan = 6;
+    trDecharges.appendChild(tdEmpty);
+
+    // Création des cellules de sélection des jours ("Lundi", "Mardi", "Jeudi", "Vendredi")
+    const cellDaysDir = buildDechargeSelectCell(p, 'D_dir', DECHARGES_OPTIONS.D_dir);
+    const cellDaysTP = buildDechargeSelectCell(p, 'TP', DECHARGES_OPTIONS.TP);
+    const cellDaysSynd = buildDechargeSelectCell(p, 'D_synd_', DECHARGES_OPTIONS.D_synd_);
+    const cellDaysAutre = buildDechargeSelectCell(p, 'Autre', DECHARGES_OPTIONS.Autre);
+    const cellPreciser = buildEditableCell(p, 'Preciser', 'text');
+
+    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre, cellPreciser);
+
+    // Met à jour la visibilité globale de la Ligne 2 et de chaque cellule de jours
+    const updateDechargesVisibility = () => {
+        const anyChecked = triggerDir.input.checked || triggerTP.input.checked || triggerSynd.input.checked || triggerAutre.input.checked;
+        trDecharges.style.display = anyChecked ? '' : 'none';
+
+        cellDaysDir.style.visibility = triggerDir.input.checked ? 'visible' : 'hidden';
+        cellDaysTP.style.visibility = triggerTP.input.checked ? 'visible' : 'hidden';
+        cellDaysSynd.style.visibility = triggerSynd.input.checked ? 'visible' : 'hidden';
+        cellDaysAutre.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
+    };
+
+    updateDechargesVisibility();
+
+    // Écouteur sur les cases de la ligne 1
+    const setupTriggerListener = (trigger, field, cellDays) => {
+        trigger.input.addEventListener('change', () => {
+            if (!trigger.input.checked) {
+                // Si on décoche la case de la ligne 1 : on décoche les jours à l'écran et on vide la cellule dans Grist
+                cellDays.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = false);
+                savePersonnelField(p.id, field, '', () => {
+                    p[field] = '';
+                });
+            }
+            updateDechargesVisibility();
+        });
+    };
+
+    setupTriggerListener(triggerDir, 'D_dir', cellDaysDir);
+    setupTriggerListener(triggerTP, 'TP', cellDaysTP);
+    setupTriggerListener(triggerSynd, 'D_synd_', cellDaysSynd);
+    setupTriggerListener(triggerAutre, 'Autre', cellDaysAutre);
+
+    // --- LIGNE 3 : NIVEAUX (NOWRAP) & BOUTON ACTION ---
+    const trNiveaux = document.createElement('tr');
+    trNiveaux.dataset.personnelId = String(p.id);
+    trNiveaux.className = 'niveaux-row';
+    trNiveaux.style.borderBottom = '2px solid #ccc'; // Sépare nettement chaque enseignant
+
+    const tdNiveaux = buildNiveauxCell(p);
+    tdNiveaux.colSpan = 9;
+    tdNiveaux.style.whiteSpace = 'nowrap';
+    tdNiveaux.style.overflowX = 'auto';
+    trNiveaux.appendChild(tdNiveaux);
 
     const actionsTd = document.createElement('td');
     const changeBtn = document.createElement('button');
@@ -723,9 +825,49 @@ function buildPersonnelRow(p, ecoleId) {
     changeBtn.textContent = "Changer\r\nd'établissement";
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
     actionsTd.appendChild(changeBtn);
-    tr.appendChild(actionsTd);
+    trNiveaux.appendChild(actionsTd);
 
-    return tr;
+    fragment.append(trMain, trDecharges, trNiveaux);
+    return fragment;
+}
+
+function buildDechargeSelectCell(record, field, options) {
+    const td = document.createElement('td');
+    const currentValues = parseNiveaux(record[field]);
+
+    if (!options || !options.length) {
+        return buildEditableCell(record, field, 'text');
+    }
+
+    options.forEach(jour => {
+        const label = document.createElement('label');
+        label.className = 'niveau-checkbox';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = jour;
+        checkbox.checked = currentValues.includes(jour);
+
+        checkbox.addEventListener('change', () => {
+            const updated = new Set(parseNiveaux(record[field]));
+            if (checkbox.checked) {
+                updated.add(jour);
+            } else {
+                updated.delete(jour);
+            }
+            const newList = options.filter(o => updated.has(o));
+            const newValue = newList.join(', ');
+            savePersonnelField(record.id, field, newValue, () => {
+                record[field] = newValue;
+            });
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(' ' + jour));
+        td.appendChild(label);
+    });
+
+    return td;
 }
 
 function buildEditableCell(record, field, type, options) {
@@ -760,35 +902,18 @@ function buildEditableCell(record, field, type, options) {
     }
 
     const input = document.createElement('input');
-    input.type = type === 'number' ? 'number' : (type === 'email' ? 'email' : 'text');
+    input.type = type === 'email' ? 'email' : 'text';
     input.value = value !== null && value !== undefined ? String(value) : '';
-    if (type === 'number') {
-        input.step = '0.05';
-        input.min = '0';
-        input.max = '1';
-    }
 
     input.addEventListener('change', () => {
-        let newValue = input.value;
-        if (type === 'number') {
-            const parsed = parseFloat(newValue.replace(',', '.'));
-            if (isNaN(parsed)) {
-                showToast('Valeur numérique invalide.', 'error');
-                input.value = value !== null && value !== undefined ? String(value) : '';
-                return;
-            }
-            newValue = parsed;
-        } else {
-            newValue = sanitizeText(newValue);
-            if (type === 'email' && newValue && !/^[a-zA-Z0-9\-._]+@ac-montpellier\.fr$/.test(newValue)) {
-                showToast('Adresse mail invalide.', 'error');
-                input.value = value !== null && value !== undefined ? String(value) : '';
-                return;
-            }
+        let newValue = sanitizeText(input.value);
+        if (type === 'email' && newValue && !/^[a-zA-Z0-9\-._]+@ac-montpellier\.fr$/.test(newValue)) {
+            showToast('Adresse mail invalide.', 'error');
+            input.value = value !== null && value !== undefined ? String(value) : '';
+            return;
         }
         savePersonnelField(record.id, field, newValue);
     });
-
     td.appendChild(input);
     return td;
 }

@@ -439,6 +439,15 @@ table.personnels-table td {
     vertical-align: middle;
 }
 
+.personnels-table tr[data-personnel-id] {
+    border-bottom: none;
+}
+
+.personnels-table tr.niveaux-row {
+    border-bottom: 2px solid #ccc;
+    /* Sépare clairement chaque enseignant */
+}
+
 table.personnels-table tbody tr:hover,
 table.personnels-table tr:hover td {
     background: #f5f8fc;
@@ -510,6 +519,9 @@ table.personnels-table input[type="checkbox"] {
     flex-wrap: wrap;
     gap: 6px 10px;
     min-width: 220px;
+    white-space: nowrap;
+    overflow-x: auto;
+    max-width: 600px;
 }
 
 .niveau-checkbox {
@@ -524,6 +536,10 @@ table.personnels-table input[type="checkbox"] {
 
 .niveau-checkbox input {
     cursor: pointer;
+}
+
+.decharges-row.hidden {
+    display: none;
 }
 
 /* ==========================================================================
