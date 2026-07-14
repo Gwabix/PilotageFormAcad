@@ -11,7 +11,12 @@ const state = {
     currentYear: null,
     yearOptions: [],
     fieldMap: {},
-    personnelFieldMap: {}
+    personnelFieldMap: {},
+    listenersAttached: {
+        year: false,
+        filters: false,
+        search: false
+    }
 };
 
 const REQUIRED_ECOLE_FIELDS = [
@@ -22,6 +27,8 @@ const REQUIRED_ECOLE_FIELDS = [
 const REQUIRED_PERSONNEL_FIELDS = [
     'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service'
 ];
+
+const SCHOOL_YEAR_FIELDS = ['$Annee_scolaire', 'Annee_scolaire'];
 
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -136,25 +143,37 @@ function validatePersonnelsFields(records) {
 
 function populateYearOptions() {
     const yearSelect = document.getElementById('year-select');
-    const currentSchoolYear = getCurrentSchoolYear();
-    const years = [];
-    for (let offset = -1; offset <= 1; offset++) {
-        const startY = currentSchoolYear.startYear + offset;
-        years.push({ startYear: startY, label: startY + '-' + (startY + 1) });
-    }
+    const currentSchoolYear = getCurrentSchoolYear().startYear;
+    const years = getAvailableSchoolYears();
+    const availableStartYears = years.map(year => year.startYear);
+    const nextYear = availableStartYears.includes(state.currentYear)
+        ? state.currentYear
+        : (availableStartYears.includes(currentSchoolYear)
+            ? currentSchoolYear
+            : (availableStartYears[0] || null));
+
     yearSelect.innerHTML = '';
     years.forEach(y => {
         const opt = document.createElement('option');
         opt.value = String(y.startYear);
         opt.textContent = y.label;
-        if (y.startYear === currentSchoolYear.startYear) opt.selected = true;
+        if (y.startYear === nextYear) opt.selected = true;
         yearSelect.appendChild(opt);
     });
-    state.currentYear = currentSchoolYear.startYear;
-    yearSelect.addEventListener('change', () => {
-        state.currentYear = parseInt(yearSelect.value, 10);
-        renderDashboard();
-    });
+
+    yearSelect.disabled = years.length <= 1;
+    state.yearOptions = years;
+    state.currentYear = nextYear;
+
+    if (!state.listenersAttached.year) {
+        yearSelect.addEventListener('change', () => {
+            state.currentYear = parseInt(yearSelect.value, 10);
+            populateDepartementFilter();
+            populateCirconscriptionFilter();
+            renderDashboard();
+        });
+        state.listenersAttached.year = true;
+    }
 }
 
 function getCurrentSchoolYear() {
@@ -162,6 +181,75 @@ function getCurrentSchoolYear() {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
     return { startYear: month >= 8 ? year : year - 1 };
+}
+
+function getAvailableSchoolYears() {
+    const years = new Set();
+
+    state.personnels.forEach(record => {
+        const startYear = getPersonnelSchoolYearStart(record);
+        if (startYear !== null) years.add(startYear);
+    });
+
+    return Array.from(years)
+        .sort((a, b) => b - a)
+        .map(startYear => ({
+            startYear,
+            label: startYear + '-' + String(startYear + 1)
+        }));
+}
+
+function getPersonnelSchoolYearStart(record) {
+    for (const field of SCHOOL_YEAR_FIELDS) {
+        const startYear = parseSchoolYearStart(record[field]);
+        if (startYear !== null) return startYear;
+    }
+    return null;
+}
+
+function parseSchoolYearStart(rawValue) {
+    const values = flattenRecordValue(rawValue);
+
+    for (const value of values) {
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 1900) {
+            return Math.trunc(value);
+        }
+
+        const text = sanitizeText(value);
+        if (!text) continue;
+
+        const rangeMatch = text.match(/(\d{4})\s*[-/]\s*(\d{2,4})/);
+        if (rangeMatch) {
+            return parseInt(rangeMatch[1], 10);
+        }
+
+        const yearMatch = text.match(/\b(\d{4})\b/);
+        if (yearMatch) {
+            return parseInt(yearMatch[1], 10);
+        }
+    }
+
+    return null;
+}
+
+function flattenRecordValue(rawValue) {
+    if (rawValue === null || rawValue === undefined || rawValue === '') return [];
+
+    if (Array.isArray(rawValue)) {
+        return rawValue.flatMap(value => flattenRecordValue(value));
+    }
+
+    if (typeof rawValue === 'object') {
+        if ('label' in rawValue) return flattenRecordValue(rawValue.label);
+        if ('displayValue' in rawValue) return flattenRecordValue(rawValue.displayValue);
+        if ('value' in rawValue) return flattenRecordValue(rawValue.value);
+        if ('values' in rawValue) return flattenRecordValue(rawValue.values);
+        if ('id' in rawValue) return flattenRecordValue(rawValue.id);
+        if ('rowId' in rawValue) return flattenRecordValue(rawValue.rowId);
+        if ('recordId' in rawValue) return flattenRecordValue(rawValue.recordId);
+    }
+
+    return [rawValue];
 }
 
 function getUniqueValues(records, field) {
@@ -174,80 +262,165 @@ function getUniqueValues(records, field) {
 }
 
 function populateDepartementFilter() {
-    const values = getUniqueValues(state.ecoles, 'Libelle_departement');
+    const values = getUniqueValues(getYearScopedEcoles(), 'Libelle_departement');
     const wrapper = document.getElementById('filter-departement-wrapper');
     const select = document.getElementById('filter-departement');
 
     if (values.length <= 1) {
         wrapper.classList.add('hidden');
         state.currentDepartement = values[0] || null;
+        select.innerHTML = '';
         return;
     }
 
     wrapper.classList.remove('hidden');
-    select.innerHTML = '<option value="">Tous</option>';
+    select.disabled = false;
+    select.innerHTML = '<option value="">Sélectionner</option>';
     values.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v;
         opt.textContent = v;
         select.appendChild(opt);
     });
-    state.currentDepartement = null;
+
+    if (!values.includes(state.currentDepartement)) {
+        state.currentDepartement = null;
+    }
+    select.value = state.currentDepartement || '';
 }
 
 function populateCirconscriptionFilter() {
-    const relevant = state.currentDepartement
-        ? state.ecoles.filter(e => e.Libelle_departement === state.currentDepartement)
-        : state.ecoles;
-
-    const values = getUniqueValues(relevant, 'Circonscription');
+    const yearScopedEcoles = getYearScopedEcoles();
+    const departements = getUniqueValues(yearScopedEcoles, 'Libelle_departement');
     const wrapper = document.getElementById('filter-circonscription-wrapper');
     const select = document.getElementById('filter-circonscription');
+
+    if (departements.length > 1 && !state.currentDepartement) {
+        wrapper.classList.remove('hidden');
+        select.disabled = true;
+        select.innerHTML = '<option value="">Sélectionnez d\'abord un département</option>';
+        state.currentCirconscription = null;
+        return;
+    }
+
+    const relevant = state.currentDepartement
+        ? yearScopedEcoles.filter(e => e.Libelle_departement === state.currentDepartement)
+        : yearScopedEcoles;
+
+    const values = getUniqueValues(relevant, 'Circonscription');
 
     if (values.length <= 1) {
         wrapper.classList.add('hidden');
         state.currentCirconscription = values[0] || null;
+        select.disabled = false;
+        select.innerHTML = '';
         return;
     }
 
     wrapper.classList.remove('hidden');
-    select.innerHTML = '<option value="">Toutes</option>';
+    select.disabled = false;
+    select.innerHTML = '<option value="">Sélectionner</option>';
     values.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v;
         opt.textContent = v;
         select.appendChild(opt);
     });
-    state.currentCirconscription = null;
+
+    if (!values.includes(state.currentCirconscription)) {
+        state.currentCirconscription = null;
+    }
+    select.value = state.currentCirconscription || '';
 }
 
 function attachFilterListeners() {
+    if (state.listenersAttached.filters) return;
+
     const depSelect = document.getElementById('filter-departement');
     const circSelect = document.getElementById('filter-circonscription');
 
     depSelect.addEventListener('change', () => {
         state.currentDepartement = depSelect.value || null;
         populateCirconscriptionFilter();
-        attachCirconscriptionListenerOnly();
         renderDashboard();
     });
 
     circSelect.addEventListener('change', () => {
         state.currentCirconscription = circSelect.value || null;
         renderDashboard();
+    });
+
+    state.listenersAttached.filters = true;
+}
+
+function getYearFilteredPersonnels() {
+    return state.personnels.filter(record => {
+        if (state.currentYear === null) return true;
+        return getPersonnelSchoolYearStart(record) === state.currentYear;
     });
 }
 
-function attachCirconscriptionListenerOnly() {
-    const circSelect = document.getElementById('filter-circonscription');
-    circSelect.addEventListener('change', () => {
-        state.currentCirconscription = circSelect.value || null;
-        renderDashboard();
+function extractLinkedEcoleIds(record) {
+    const linkValue = record.Ecoles || record.Ecole || record.Etablissement;
+    const ids = new Set();
+
+    flattenRecordValue(linkValue).forEach(value => {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            ids.add(value);
+            return;
+        }
+
+        const text = sanitizeText(value);
+        if (!text) return;
+
+        if (/^\d+$/.test(text)) {
+            ids.add(parseInt(text, 10));
+            return;
+        }
+
+        const bracketRefMatch = text.match(/^\w+\[(\d+)\]$/);
+        if (bracketRefMatch) {
+            ids.add(parseInt(bracketRefMatch[1], 10));
+        }
     });
+
+    return Array.from(ids);
+}
+
+function getYearScopedEcoles() {
+    const eligibleIds = new Set();
+
+    getYearFilteredPersonnels().forEach(record => {
+        extractLinkedEcoleIds(record).forEach(id => eligibleIds.add(id));
+    });
+
+    return state.ecoles.filter(ecole => eligibleIds.has(ecole.id));
+}
+
+function getScopeSelectionMessage() {
+    const yearScopedEcoles = getYearScopedEcoles();
+    const departements = getUniqueValues(yearScopedEcoles, 'Libelle_departement');
+
+    if (departements.length > 1 && !state.currentDepartement) {
+        return 'Sélectionnez un département pour afficher les établissements.';
+    }
+
+    const relevant = state.currentDepartement
+        ? yearScopedEcoles.filter(e => e.Libelle_departement === state.currentDepartement)
+        : yearScopedEcoles;
+    const circonscriptions = getUniqueValues(relevant, 'Circonscription');
+
+    if (circonscriptions.length > 1 && !state.currentCirconscription) {
+        return 'Sélectionnez une circonscription pour afficher les établissements.';
+    }
+
+    return '';
 }
 
 function getFilteredEcoles() {
-    return state.ecoles.filter(e => {
+    if (getScopeSelectionMessage()) return [];
+
+    return getYearScopedEcoles().filter(e => {
         if (state.currentDepartement && e.Libelle_departement !== state.currentDepartement) return false;
         if (state.currentCirconscription && e.Circonscription !== state.currentCirconscription) return false;
         return true;
@@ -261,14 +434,12 @@ function getFilteredEcoles() {
 }
 
 function getPersonnelsForEcole(ecoleId) {
-    return state.personnels.filter(p => {
-        const link = p.Ecoles || p.Ecole || p.Etablissement;
-        if (Array.isArray(link)) return link.includes(ecoleId);
-        return link === ecoleId;
-    });
+    return getYearFilteredPersonnels().filter(record => extractLinkedEcoleIds(record).includes(ecoleId));
 }
 
 function attachSearchListener() {
+    if (state.listenersAttached.search) return;
+
     const input = document.getElementById('search-input');
     const resultsBox = document.getElementById('search-results');
     let activeIndex = -1;
@@ -335,6 +506,8 @@ function attachSearchListener() {
             resultsBox.classList.add('hidden');
         }
     });
+
+    state.listenersAttached.search = true;
 }
 
 function updateActiveItem(items, index) {
@@ -346,21 +519,19 @@ function selectSearchResult(ecoleId) {
     const ecole = state.ecoles.find(e => e.id === ecoleId);
     if (!ecole) return;
 
-    if (state.currentDepartement && ecole.Libelle_departement !== state.currentDepartement) {
+    const depWrapper = document.getElementById('filter-departement-wrapper');
+    if (!depWrapper.classList.contains('hidden')) {
         const depSelect = document.getElementById('filter-departement');
-        if (!depSelect.classList.contains('hidden')) {
-            depSelect.value = ecole.Libelle_departement;
-            state.currentDepartement = ecole.Libelle_departement;
-            populateCirconscriptionFilter();
-            attachCirconscriptionListenerOnly();
-        }
+        depSelect.value = ecole.Libelle_departement;
+        state.currentDepartement = ecole.Libelle_departement;
+        populateCirconscriptionFilter();
     }
-    if (state.currentCirconscription && ecole.Circonscription !== state.currentCirconscription) {
+
+    const circWrapper = document.getElementById('filter-circonscription-wrapper');
+    if (!circWrapper.classList.contains('hidden')) {
         const circSelect = document.getElementById('filter-circonscription');
-        if (!circSelect.classList.contains('hidden')) {
-            circSelect.value = ecole.Circonscription;
-            state.currentCirconscription = ecole.Circonscription;
-        }
+        circSelect.value = ecole.Circonscription;
+        state.currentCirconscription = ecole.Circonscription;
     }
 
     renderDashboard();
@@ -380,10 +551,20 @@ function selectSearchResult(ecoleId) {
 
 function renderDashboard() {
     const container = document.getElementById('ecoles-container');
+    const scopeSelectionMessage = getScopeSelectionMessage();
+
+    if (scopeSelectionMessage) {
+        container.innerHTML = '<div class="no-results">' + escapeHtml(scopeSelectionMessage) + '</div>';
+        return;
+    }
+
     const filtered = getFilteredEcoles();
 
     if (!filtered.length) {
-        container.innerHTML = '<div class="no-results">Aucune école ne correspond aux filtres sélectionnés.</div>';
+        const yearLabel = state.currentYear !== null
+            ? ' pour l\'année scolaire ' + state.currentYear + '-' + (state.currentYear + 1)
+            : '';
+        container.innerHTML = '<div class="no-results">Aucun établissement avec enseignant' + yearLabel + ' ne correspond aux filtres sélectionnés.</div>';
         return;
     }
 
