@@ -21,11 +21,12 @@ const state = {
 
 const REQUIRED_ECOLE_FIELDS = [
     'Nom_etablissement', 'Adresse_2', 'Code_postal', 'Nom_commune',
-    'Libelle_departement', 'Circonscription', 'Mail', 'Telephone', 'Commune_Nom'
+    'Libelle_departement', 'Circonscription', 'Mail', 'Telephone', 'Commune_Nom',
+    '$Identifiant_de_l_etablissement'
 ];
 
 const REQUIRED_PERSONNEL_FIELDS = [
-    'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service'
+    'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service', '$UAI'
 ];
 
 const SCHOOL_YEAR_FIELDS = ['$Annee_scolaire', 'Annee_scolaire'];
@@ -360,41 +361,40 @@ function getYearFilteredPersonnels() {
     });
 }
 
-function extractLinkedEcoleIds(record) {
-    const linkValue = record.Ecoles || record.Ecole || record.Etablissement;
-    const ids = new Set();
+function getPersonnelUai(record) {
+    const values = flattenRecordValue(record.$UAI || record.UAI);
 
-    flattenRecordValue(linkValue).forEach(value => {
-        if (typeof value === 'number' && Number.isFinite(value)) {
-            ids.add(value);
-            return;
-        }
-
+    for (const value of values) {
         const text = sanitizeText(value);
-        if (!text) return;
+        if (text) return text;
+    }
 
-        if (/^\d+$/.test(text)) {
-            ids.add(parseInt(text, 10));
-            return;
-        }
+    return '';
+}
 
-        const bracketRefMatch = text.match(/^\w+\[(\d+)\]$/);
-        if (bracketRefMatch) {
-            ids.add(parseInt(bracketRefMatch[1], 10));
-        }
-    });
+function getEcoleUai(ecole) {
+    const values = flattenRecordValue(ecole.$Identifiant_de_l_etablissement || ecole.Identifiant_de_l_etablissement);
 
-    return Array.from(ids);
+    for (const value of values) {
+        const text = sanitizeText(value);
+        if (text) return text;
+    }
+
+    return '';
 }
 
 function getYearScopedEcoles() {
-    const eligibleIds = new Set();
+    const eligibleUais = new Set();
 
     getYearFilteredPersonnels().forEach(record => {
-        extractLinkedEcoleIds(record).forEach(id => eligibleIds.add(id));
+        const uai = getPersonnelUai(record);
+        if (uai) eligibleUais.add(uai);
     });
 
-    return state.ecoles.filter(ecole => eligibleIds.has(ecole.id));
+    return state.ecoles.filter(ecole => {
+        const ecoleUai = getEcoleUai(ecole);
+        return ecoleUai && eligibleUais.has(ecoleUai);
+    });
 }
 
 function getScopeSelectionMessage() {
@@ -433,8 +433,11 @@ function getFilteredEcoles() {
     });
 }
 
-function getPersonnelsForEcole(ecoleId) {
-    return getYearFilteredPersonnels().filter(record => extractLinkedEcoleIds(record).includes(ecoleId));
+function getPersonnelsForEcole(ecole) {
+    const ecoleUai = getEcoleUai(ecole);
+    if (!ecoleUai) return [];
+
+    return getYearFilteredPersonnels().filter(record => getPersonnelUai(record) === ecoleUai);
 }
 
 function attachSearchListener() {
@@ -639,7 +642,7 @@ function buildEcoleCard(ecole) {
 
 function buildPersonnelsTable(ecole) {
     const wrapper = document.createElement('div');
-    const personnels = getPersonnelsForEcole(ecole.id);
+    const personnels = getPersonnelsForEcole(ecole);
 
     if (!personnels.length) {
         wrapper.innerHTML = '<div class="personnels-empty">Aucun enseignant renseigné pour cette école.</div>';
@@ -897,7 +900,7 @@ function attachModalListeners() {
             item.setAttribute('role', 'option');
             item.textContent = sanitizeText(e.Commune_Nom || e.Nom_etablissement || '');
             item.addEventListener('click', () => {
-                selectedUaiField.value = String(e.id);
+                selectedUaiField.value = getEcoleUai(e);
                 selectedDisplay.textContent = sanitizeText(e.Commune_Nom || '');
                 selectedDisplay.classList.remove('hidden');
                 resultsBox.classList.add('hidden');
@@ -929,10 +932,10 @@ function attachModalListeners() {
     });
 
     confirmBtn.addEventListener('click', async () => {
-        const newEcoleId = parseInt(selectedUaiField.value, 10);
+        const newEcoleUai = sanitizeText(selectedUaiField.value);
         const personnelRecord = editingState.currentSchoolChangeRecord;
 
-        if (!newEcoleId || !personnelRecord) {
+        if (!newEcoleUai || !personnelRecord) {
             showToast('Veuillez sélectionner un établissement.', 'error');
             return;
         }
@@ -941,7 +944,7 @@ function attachModalListeners() {
 
         try {
             await grist.docApi.applyUserActions([
-                ['UpdateRecord', 'Liste_PE', personnelRecord.id, { Ecoles: newEcoleId }]
+                ['UpdateRecord', 'Liste_PE', personnelRecord.id, { '$UAI': newEcoleUai }]
             ]);
 
             showToast('Établissement modifié avec succès.', 'success');
