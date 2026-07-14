@@ -658,7 +658,7 @@ function buildPersonnelsTable(ecole) {
     table.innerHTML =
         '<thead><tr>' +
         '<th>Civilité</th><th>Nom</th><th>Prénom</th><th>Mail</th><th>Fonction</th>' +
-        '<th>Quotité</th><th>Dir.</th><th>TP</th><th>Décharge synd.</th><th>Autre</th>' +
+        '<th>Quotité</th><th>Décharge\r\nDir.</th><th>TP</th><th>Décharge\r\nsynd.</th><th>Autre</th>' +
         '</tr></thead>';
 
     const tbody = document.createElement('tbody');
