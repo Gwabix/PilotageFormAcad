@@ -719,7 +719,7 @@ function buildPersonnelRow(p, ecoleId) {
     const changeBtn = document.createElement('button');
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
-    changeBtn.textContent = "Changer d'établissement";
+    changeBtn.textContent = "Changer"<br>"d'établissement";
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
     actionsTd.appendChild(changeBtn);
     tr.appendChild(actionsTd);
