@@ -828,10 +828,11 @@ function buildPersonnelRow(p, ecoleId) {
     trNiveaux.style.borderBottom = '2px solid #ccc'; // Sépare nettement chaque enseignant
 
     const tdNiveaux = buildNiveauxCell(p);
-    tdNiveaux.colSpan = 9;
+    tdNiveaux.colSpan = 6;
     trNiveaux.appendChild(tdNiveaux);
 
     const actionsTd = document.createElement('td');
+    actionsTd.colSpan = 4;
     const changeBtn = document.createElement('button');
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
