@@ -658,7 +658,7 @@ function buildPersonnelsTable(ecole) {
     table.innerHTML =
         '<thead><tr>' +
         '<th>Civilité</th><th>Nom</th><th>Prénom</th><th>Mail</th><th>Fonction</th>' +
-        '<th>Quotité</th><th>Dir.</th><th>TP</th><th>Décharge synd.</th><th>Autre</th><th>Préciser</th>' +
+        '<th>Quotité</th><th>Dir.</th><th>TP</th><th>Décharge synd.</th><th>Autre</th>' +
         '</tr></thead>';
 
     const tbody = document.createElement('tbody');
@@ -762,7 +762,7 @@ function buildPersonnelRow(p, ecoleId) {
 
     // Espace vide sous Civilité -> Quotité (6 colonnes fusionnées)
     const tdEmpty = document.createElement('td');
-    tdEmpty.colSpan = 6;
+    tdEmpty.colSpan = 5;
     trDecharges.appendChild(tdEmpty);
 
     // Création des cellules de sélection des jours ("Lundi", "Mardi", "Jeudi", "Vendredi")
@@ -818,9 +818,7 @@ function buildPersonnelRow(p, ecoleId) {
     trNiveaux.style.borderBottom = '2px solid #ccc'; // Sépare nettement chaque enseignant
 
     const tdNiveaux = buildNiveauxCell(p);
-    tdNiveaux.colSpan = 10;
-    tdNiveaux.style.whiteSpace = 'nowrap';
-    tdNiveaux.style.overflowX = 'auto';
+    tdNiveaux.colSpan = 9;
     trNiveaux.appendChild(tdNiveaux);
 
     const actionsTd = document.createElement('td');
