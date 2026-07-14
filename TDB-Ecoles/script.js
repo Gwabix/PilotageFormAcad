@@ -97,7 +97,7 @@ async function loadAllData() {
         state.personnels = tableToRecords(personnelsData);
 
         // Récupération dynamique des options de la colonne dans Grist
-        const [dynamicNiveaux, dynamiqueFonctions] = await Promise.all([
+        const [dynamicNiveaux, dynamicFonctions] = await Promise.all([
             fetchColumnChoices('Liste_PE', 'Niveau_x_'),
             fetchColumnChoices('Liste_PE', 'Fonction')
         ]);
