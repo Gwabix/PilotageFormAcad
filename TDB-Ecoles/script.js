@@ -29,7 +29,7 @@ const REQUIRED_PERSONNEL_FIELDS = [
     'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service', '$UAI'
 ];
 
-const SCHOOL_YEAR_FIELDS = ['$Annee_scolaire', 'Annee_scolaire'];
+const SCHOOL_YEAR_FIELDS = ['Annee_scolaire'];
 
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -362,7 +362,7 @@ function getYearFilteredPersonnels() {
 }
 
 function getPersonnelUai(record) {
-    const values = flattenRecordValue(record.$UAI || record.UAI);
+    const values = flattenRecordValue(record.UAI);
 
     for (const value of values) {
         const text = sanitizeText(value);
@@ -373,7 +373,7 @@ function getPersonnelUai(record) {
 }
 
 function getEcoleUai(ecole) {
-    const values = flattenRecordValue(ecole.$Identifiant_de_l_etablissement || ecole.Identifiant_de_l_etablissement);
+    const values = flattenRecordValue(ecole.Identifiant_de_l_etablissement);
 
     for (const value of values) {
         const text = sanitizeText(value);
@@ -944,7 +944,7 @@ function attachModalListeners() {
 
         try {
             await grist.docApi.applyUserActions([
-                ['UpdateRecord', 'Liste_PE', personnelRecord.id, { '$UAI': newEcoleUai }]
+                ['UpdateRecord', 'Liste_PE', personnelRecord.id, { 'UAI': newEcoleUai }]
             ]);
 
             showToast('Établissement modifié avec succès.', 'success');
