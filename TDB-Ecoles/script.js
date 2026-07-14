@@ -783,6 +783,7 @@ function buildPersonnelRow(p, ecoleId) {
         cellDaysTP.style.visibility = triggerTP.input.checked ? 'visible' : 'hidden';
         cellDaysSynd.style.visibility = triggerSynd.input.checked ? 'visible' : 'hidden';
         cellDaysAutre.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
+        cellPreciser.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
     };
 
     updateDechargesVisibility();
@@ -805,6 +806,7 @@ function buildPersonnelRow(p, ecoleId) {
     setupTriggerListener(triggerTP, 'TP', cellDaysTP);
     setupTriggerListener(triggerSynd, 'D_synd_', cellDaysSynd);
     setupTriggerListener(triggerAutre, 'Autre', cellDaysAutre);
+    SetupTriggerListener(triggerAutre, 'Preciser', cellPreciser);
 
     // --- LIGNE 3 : NIVEAUX (NOWRAP) & BOUTON ACTION ---
     const trNiveaux = document.createElement('tr');

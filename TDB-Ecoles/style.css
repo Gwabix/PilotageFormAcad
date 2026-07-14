@@ -516,7 +516,7 @@ table.personnels-table input[type="checkbox"] {
 /* Sélecteur de niveaux (cases à cocher multiples) */
 .niveaux-cell {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 6px 10px;
     min-width: 220px;
     white-space: nowrap;
