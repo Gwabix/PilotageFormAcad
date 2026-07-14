@@ -770,7 +770,7 @@ function buildPersonnelRow(p, ecoleId) {
     const cellDaysTP = buildDechargeSelectCell(p, 'TP', DECHARGES_OPTIONS.TP);
     const cellDaysSynd = buildDechargeSelectCell(p, 'D_synd_', DECHARGES_OPTIONS.D_synd_);
     const cellDaysAutre = buildDechargeSelectCell(p, 'Autre', DECHARGES_OPTIONS.Autre);
-    const cellPreciser = buildEditableCell(p, 'Preciser', 'text');
+    const cellPreciser = buildPreciserCell(p);
 
     trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre, cellPreciser);
 
@@ -792,9 +792,12 @@ function buildPersonnelRow(p, ecoleId) {
     const setupTriggerListener = (trigger, field, cellDays) => {
         trigger.input.addEventListener('change', () => {
             if (!trigger.input.checked) {
-                // Si on décoche la case de la ligne 1 : on décoche les jours à l'écran et on vide la cellule dans Grist
-                cellDays.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = false);
-                savePersonnelField(p.id, field, '', () => {
+                const select = cellDays.querySelector('select');
+                if (select) {
+                    Array.from(select.options).forEach(opt => { opt.selected = false; });
+                    select.size = 1;
+                }
+                savePersonnelField(p.id, field, toChoiceListValue([]), () => {
                     p[field] = '';
                 });
             }
@@ -833,46 +836,78 @@ function buildPersonnelRow(p, ecoleId) {
     return fragment;
 }
 
+function toChoiceListValue(values) {
+    const clean = Array.isArray(values) ? values.filter(v => v !== null && v !== undefined && v !== '') : [];
+    return ['L', ...clean];
+}
+
 function buildDechargeSelectCell(record, field, options) {
     const td = document.createElement('td');
-    const currentValues = parseNiveaux(record[field]);
+    td.className = 'decharge-select-cell';
 
     if (!options || !options.length) {
         return buildEditableCell(record, field, 'text');
     }
 
+    const select = document.createElement('select');
+    select.multiple = true;
+    select.className = 'decharge-multiselect';
+
+    const currentValues = parseNiveaux(record[field]);
+
     options.forEach(jour => {
-        const label = document.createElement('label');
-        label.className = 'niveau-checkbox';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = jour;
-        checkbox.checked = currentValues.includes(jour);
-
-        checkbox.addEventListener('change', () => {
-            const updated = new Set(parseNiveaux(record[field]));
-            if (checkbox.checked) {
-                updated.add(jour);
-            } else {
-                updated.delete(jour);
-            }
-            const newList = options.filter(o => updated.has(o));
-            const newValue = newList.join(', ');
-            savePersonnelField(record.id, field, newValue, () => {
-                record[field] = newValue;
-            });
-        });
-
-        label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(' ' + jour));
-        td.appendChild(label);
+        const opt = document.createElement('option');
+        opt.value = jour;
+        opt.textContent = jour;
+        opt.selected = currentValues.includes(jour);
+        select.appendChild(opt);
     });
 
+    const collapsedSize = () => {
+        const selectedCount = Array.from(select.selectedOptions).length;
+        return Math.max(1, selectedCount);
+    };
+
+    select.size = collapsedSize();
+
+    select.addEventListener('mousedown', (evt) => {
+        if (evt.target.tagName !== 'OPTION') return;
+        evt.preventDefault();
+
+        const option = evt.target;
+        option.selected = !option.selected;
+
+        select.dispatchEvent(new Event('change'));
+    });
+
+    select.addEventListener('focus', () => {
+        select.size = Math.min(options.length, 8);
+        select.classList.add('expanded');
+    });
+
+    select.addEventListener('blur', () => {
+        select.size = collapsedSize();
+        select.classList.remove('expanded');
+    });
+
+    select.addEventListener('change', () => {
+        const selectedValues = Array.from(select.selectedOptions).map(o => o.value);
+        const orderedValues = options.filter(o => selectedValues.includes(o));
+
+        select.size = select.classList.contains('expanded')
+            ? Math.min(options.length, 8)
+            : Math.max(1, orderedValues.length);
+
+        savePersonnelField(record.id, field, toChoiceListValue(orderedValues), () => {
+            record[field] = orderedValues.join(', ');
+        });
+    });
+
+    td.appendChild(select);
     return td;
 }
 
-function buildEditableCell(record, field, type, options) {
+function buildEditableCell(record, field, type, options, inputId) {
     const td = document.createElement('td');
     const value = record[field];
 
@@ -906,6 +941,7 @@ function buildEditableCell(record, field, type, options) {
     const input = document.createElement('input');
     input.type = type === 'email' ? 'email' : 'text';
     input.value = value !== null && value !== undefined ? String(value) : '';
+    if (inputId) input.id = inputId;
 
     input.addEventListener('change', () => {
         let newValue = sanitizeText(input.value);
@@ -917,6 +953,21 @@ function buildEditableCell(record, field, type, options) {
         savePersonnelField(record.id, field, newValue);
     });
     td.appendChild(input);
+    return td;
+}
+
+function buildPreciserCell(p) {
+    const inputId = 'preciser-input-' + String(p.id);
+
+    const label = document.createElement('label');
+    label.setAttribute('for', inputId);
+    label.textContent = 'Préciser';
+    label.className = 'preciser-label';
+
+    const td = buildEditableCell(p, 'Preciser', 'text', null, inputId);
+    td.classList.add('preciser-cell');
+    td.insertBefore(label, td.firstChild);
+
     return td;
 }
 
