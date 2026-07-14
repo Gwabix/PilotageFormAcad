@@ -570,7 +570,7 @@ table.personnels-table input[type="checkbox"] {
     cursor: not-allowed;
 }
 
-.btn-change-school {
+.change-school-btn {
     margin-left: 8px;
     font-size: 12px;
     padding: 4px 8px;
@@ -582,7 +582,7 @@ table.personnels-table input[type="checkbox"] {
     white-space: nowrap;
 }
 
-.btn-change-school:hover {
+.change-school-btn:hover {
     background: var(--color-primary-light);
 }
 
