@@ -780,7 +780,7 @@ function buildEditableCell(record, field, type, options) {
             newValue = parsed;
         } else {
             newValue = sanitizeText(newValue);
-            if (type === 'email' && newValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newValue)) {
+            if (type === 'email' && newValue && !/^[a-zA-Z0-9\-._]+@ac-montpellier\.fr$/.test(newValue)) {
                 showToast('Adresse mail invalide.', 'error');
                 input.value = value !== null && value !== undefined ? String(value) : '';
                 return;
