@@ -514,7 +514,7 @@ table.personnels-table input[type="checkbox"] {
 }
 
 input[type="checkbox"] not .niveau-checkbox {
-    display: inline-block;
+    display: block;
     margin: auto;
 }
 
