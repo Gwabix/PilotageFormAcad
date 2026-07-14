@@ -762,7 +762,7 @@ function buildPersonnelRow(p, ecoleId) {
 
     // Espace vide sous Civilité -> Quotité (6 colonnes fusionnées)
     const tdEmpty = document.createElement('td');
-    tdEmpty.colSpan = 5;
+    tdEmpty.colSpan = 6;
     trDecharges.appendChild(tdEmpty);
 
     // Création des cellules de sélection des jours ("Lundi", "Mardi", "Jeudi", "Vendredi")
@@ -789,6 +789,7 @@ function buildPersonnelRow(p, ecoleId) {
     updateDechargesVisibility();
 
     // Écouteur sur les cases de la ligne 1
+    // Écouteur sur les cases de la ligne 1
     const setupTriggerListener = (trigger, field, cellDays) => {
         trigger.input.addEventListener('change', () => {
             if (!trigger.input.checked) {
@@ -809,7 +810,16 @@ function buildPersonnelRow(p, ecoleId) {
     setupTriggerListener(triggerTP, 'TP', cellDaysTP);
     setupTriggerListener(triggerSynd, 'D_synd_', cellDaysSynd);
     setupTriggerListener(triggerAutre, 'Autre', cellDaysAutre);
-    setupTriggerListener(triggerAutre, 'Preciser', cellPreciser);
+
+    triggerAutre.input.addEventListener('change', () => {
+        if (!triggerAutre.input.checked) {
+            const input = cellPreciser.querySelector('input');
+            if (input) input.value = '';
+            savePersonnelField(p.id, 'Preciser', '', () => {
+                p.Preciser = '';
+            });
+        }
+    });
 
     // --- LIGNE 3 : NIVEAUX (NOWRAP) & BOUTON ACTION ---
     const trNiveaux = document.createElement('tr');
