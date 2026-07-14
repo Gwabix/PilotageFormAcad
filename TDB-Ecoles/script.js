@@ -1006,7 +1006,7 @@ function buildNiveauxCell(record) {
             }
             const newList = NIVEAUX_OPTIONS.filter(n => updated.has(n));
             savePersonnelField(record.id, 'Niveau_x_', toChoiceListValue(newList), () => {
-                record.Niveau_x_ = newValue;
+                record.Niveau_x_ = newList;
             });
         });
 
