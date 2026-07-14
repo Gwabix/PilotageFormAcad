@@ -103,7 +103,7 @@ async function loadAllData() {
         ]);
 
         NIVEAUX_OPTIONS = dynamicNiveaux.length > 0 ? dynamicNiveaux : ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
-        FONCTION_OPTIONS = dynamicFonctions;
+        FONCTION_OPTIONS = dynamicFonctions.length > 0 ? dynamicFonctions : ['Directeur(trice)', 'Adjoint(e)', 'TR', 'Poste partagé', 'Ulis', 'UPE2A', 'ASH', 'PES'];
 
         validateEcolesFields(state.ecoles);
         validatePersonnelsFields(state.personnels);
