@@ -706,7 +706,7 @@ function buildPersonnelRow(p, ecoleId) {
     tr.appendChild(buildEditableCell(p, 'Nom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Prenom', 'text'));
     tr.appendChild(buildEditableCell(p, 'Mail', 'email'));
-    tr.appendChild(buildEditableCell(p, 'Fonction', 'text'));
+    tr.appendChild(buildEditableCell(p, 'Fonction', 'select', []));
     tr.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
     tr.appendChild(buildEditableCell(p, 'D_dir', 'checkbox'));
     tr.appendChild(buildEditableCell(p, 'TP', 'checkbox'));
@@ -719,7 +719,7 @@ function buildPersonnelRow(p, ecoleId) {
     const changeBtn = document.createElement('button');
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
-    changeBtn.textContent = "Changer"<br>"d'établissement";
+    changeBtn.textContent = "Changer\r\nd'établissement";
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
     actionsTd.appendChild(changeBtn);
     tr.appendChild(actionsTd);
