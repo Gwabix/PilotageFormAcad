@@ -513,7 +513,7 @@ table.personnels-table input[type="checkbox"] {
     background: var(--color-border);
 }
 
-input[type="checkbox"] not .niveau-checkbox {
+table.personnels-table input[type="checkbox"] not .niveau-checkbox {
     display: block;
     margin: auto;
 }
