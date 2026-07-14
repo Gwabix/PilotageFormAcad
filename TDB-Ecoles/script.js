@@ -772,7 +772,7 @@ function buildPersonnelRow(p, ecoleId) {
     const cellDaysAutre = buildDechargeSelectCell(p, 'Autre', DECHARGES_OPTIONS.Autre);
     const cellPreciser = buildPreciserCell(p);
 
-    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre, cellPreciser);
+    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre);
 
     // Met à jour la visibilité globale de la Ligne 2 et de chaque cellule de jours
     const updateDechargesVisibility = () => {
@@ -788,7 +788,6 @@ function buildPersonnelRow(p, ecoleId) {
 
     updateDechargesVisibility();
 
-    // Écouteur sur les cases de la ligne 1
     // Écouteur sur les cases de la ligne 1
     const setupTriggerListener = (trigger, field, cellDays) => {
         trigger.input.addEventListener('change', () => {
