@@ -96,15 +96,12 @@ async function loadAllData() {
         state.ecoles = tableToRecords(ecolesData);
         state.personnels = tableToRecords(personnelsData);
 
-        // Récupération dynamique des options des colonnes Choice / ChoiceList
-        const [dynamicNiveaux, dynamicFonctions, dDir, dTP, dSynd, dAutre] = await Promise.all([
-            fetchColumnChoices('Liste_PE', 'Niveau_x_'),
-            fetchColumnChoices('Liste_PE', 'Fonction'),
-            fetchColumnChoices('Liste_PE', 'D_dir'),
-            fetchColumnChoices('Liste_PE', 'TP'),
-            fetchColumnChoices('Liste_PE', 'D_synd_'),
-            fetchColumnChoices('Liste_PE', 'Autre')
-        ]);
+        const dynamicNiveaux = inferColumnChoices(state.personnels, 'Niveau_x_');
+        const dynamicFonctions = inferColumnChoices(state.personnels, 'Fonction');
+        const dDir = inferColumnChoices(state.personnels, 'D_dir');
+        const dTP = inferColumnChoices(state.personnels, 'TP');
+        const dSynd = inferColumnChoices(state.personnels, 'D_synd_');
+        const dAutre = inferColumnChoices(state.personnels, 'Autre');
 
         NIVEAUX_OPTIONS = dynamicNiveaux.length > 0 ? dynamicNiveaux : ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
         FONCTION_OPTIONS = dynamicFonctions.length > 0 ? dynamicFonctions : ['Directeur(trice)', 'Adjoint(e)', 'TR', 'Poste partagé', 'Ulis', 'UPE2A', 'ASH', 'PES'];
@@ -682,34 +679,21 @@ let DECHARGES_OPTIONS = {
     Autre: []
 };
 
-async function fetchColumnChoices(tableName, colId) {
-    try {
-        // 1. Récupérer l'identifiant de la table ciblé
-        const tables = await grist.docApi.fetchTable('_grist_Tables');
-        const tableIndex = tables.tableId.indexOf(tableName);
-        if (tableIndex === -1) return [];
-        const tableRef = tables.id[tableIndex];
-
-        // 2. Récupérer les métadonnées des colonnes
-        const columns = await grist.docApi.fetchTable('_grist_Tables_column');
-
-        // 3. Trouver la colonne qui appartient à notre table et qui a le bon colId
-        for (let i = 0; i < columns.id.length; i++) {
-            if (columns.parentId[i] === tableRef && columns.colId[i] === colId) {
-                const widgetOptionsStr = columns.widgetOptions[i];
-                if (widgetOptionsStr) {
-                    const options = JSON.parse(widgetOptionsStr);
-                    if (Array.isArray(options.choices)) {
-                        return options.choices;
-                    }
-                }
-                break;
+function inferColumnChoices(records, colId) {
+    const choices = new Set();
+    for (const rec of records) {
+        const value = rec[colId];
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; i++) {
+                const v = value[i];
+                if (i === 0 && v === 'L') continue;
+                if (typeof v === 'string' && v.trim()) choices.add(v.trim());
             }
+        } else if (typeof value === 'string' && value.trim()) {
+            choices.add(value.trim());
         }
-    } catch (err) {
-        console.error(`Erreur lors du chargement des choix pour la colonne ${colId}:`, err);
     }
-    return [];
+    return Array.from(choices);
 }
 
 const editingState = {
