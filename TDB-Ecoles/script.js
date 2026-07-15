@@ -86,6 +86,10 @@ async function loadAllData() {
     try {
         showStatus('Chargement des données...', false);
 
+        const colRes = await fetch(`/api/docs/${grist.getDocId()}/tables/Liste_PE/columns`);
+        const colData = await colRes.json();
+        console.log('Colonnes accessibles :', colData.columns);
+
         const ecolesData = await grist.docApi.fetchTable('Ecoles');
         const personnelsData = await grist.docApi.fetchTable('Liste_PE');
 
