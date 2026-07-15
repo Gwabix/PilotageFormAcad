@@ -83,10 +83,6 @@ function initGrist() {
 }
 
 async function loadAllData() {
-    console.log('Colonnes Ecoles :', Object.keys(state.ecoles[0] || {}));
-    console.log('Colonnes Liste_PE :', Object.keys(state.personnels[0] || {}));
-    const tables = await grist.docApi.fetchTable('_grist_Tables');
-    console.log('IDs de tables réels :', tables.tableId);
     try {
         showStatus('Chargement des données...', false);
 
@@ -122,7 +118,6 @@ async function loadAllData() {
         populateCirconscriptionFilter();
         attachFilterListeners();
         attachSearchListener();
-
         renderDashboard();
         hideStatus();
     } catch (err) {
@@ -256,7 +251,6 @@ function parseSchoolYearStart(rawValue) {
 
 function flattenRecordValue(rawValue) {
     if (rawValue === null || rawValue === undefined || rawValue === '') return [];
-
     if (Array.isArray(rawValue)) {
         return rawValue.flatMap(value => flattenRecordValue(value));
     }
