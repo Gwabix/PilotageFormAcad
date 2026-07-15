@@ -85,6 +85,7 @@ function initGrist() {
 async function loadAllData() {
     console.log('Colonnes Ecoles :', Object.keys(state.ecoles[0] || {}));
     console.log('Colonnes Liste_PE :', Object.keys(state.personnels[0] || {}));
+    const tables = await grist.docApi.fetchTable('_grist_Tables');
     console.log('IDs de tables réels :', tables.tableId);
     try {
         showStatus('Chargement des données...', false);
