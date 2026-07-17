@@ -86,16 +86,13 @@ async function loadAllData() {
     try {
         showStatus('Chargement des données...', false);
 
-        const colRes = await fetch(`/api/docs/${grist.getDocId()}/tables/Liste_PE/columns`);
-        const colData = await colRes.json();
-        console.log('Colonnes accessibles :', colData.columns);
-
         const ecolesData = await grist.docApi.fetchTable('Ecoles');
         const personnelsData = await grist.docApi.fetchTable('Liste_PE');
 
         state.ecoles = tableToRecords(ecolesData);
         state.personnels = tableToRecords(personnelsData);
 
+        const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
         const dynamicNiveaux = inferColumnChoices(state.personnels, 'Niveau_x_');
         const dynamicFonctions = inferColumnChoices(state.personnels, 'Fonction');
         const dDir = inferColumnChoices(state.personnels, 'D_dir');
@@ -676,6 +673,41 @@ let DECHARGES_OPTIONS = {
     D_synd_: [],
     Autre: []
 };
+
+async function fetchColumnChoices(tableId, colIds) {
+    const result = {};
+    try {
+        const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(tableId)}/columns?auth=${encodeURIComponent(tokenInfo.token)}`;
+        const response = await fetch(url, { method: 'GET' });
+        if (!response.ok) {
+            throw new Error(`Statut HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const columns = Array.isArray(data.columns) ? data.columns : [];
+        for (const colId of colIds) {
+            const column = columns.find(c => c.id === colId);
+            let choices = [];
+            if (column && column.fields && column.fields.widgetOptions) {
+                try {
+                    const opts = JSON.parse(column.fields.widgetOptions);
+                    if (Array.isArray(opts.choices)) {
+                        choices = opts.choices.filter(v => typeof v === 'string' && v.trim());
+                    }
+                } catch (e) {
+                    choices = [];
+                }
+            }
+            result[colId] = choices;
+        }
+    } catch (err) {
+        console.error('fetchColumnChoices :', err);
+        for (const colId of colIds) {
+            if (!(colId in result)) result[colId] = [];
+        }
+    }
+    return result;
+}
 
 function inferColumnChoices(records, colId) {
     const choices = new Set();
