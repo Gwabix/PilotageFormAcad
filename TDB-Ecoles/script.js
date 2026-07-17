@@ -93,6 +93,9 @@ async function loadAllData() {
         state.personnels = tableToRecords(personnelsData);
 
         const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
+
+        console.log('choicesByCol (REST) :', JSON.parse(JSON.stringify(choicesByCol)));
+
         const dynamicNiveaux = inferColumnChoices(state.personnels, 'Niveau_x_');
         const dynamicFonctions = inferColumnChoices(state.personnels, 'Fonction');
         const dDir = inferColumnChoices(state.personnels, 'D_dir');
