@@ -1195,12 +1195,16 @@ function createGraphs(formations, countMode = 'enseignants') {
         html += '</div>';
     }
 
-    // Toggle comptage à droite
-    html += '<div class="toggle-container">';
-    html += `<span class="toggle-label" id="count-label-${graphsId}">Compter : Enseignants</span>`;
-    html += '<label class="toggle-switch">';
-    html += `<input type="checkbox" id="count-mode-${graphsId}" onchange="toggleGraphsCountMode('${graphsId}')">`;
-    html += '<span class="toggle-slider"></span>';
+    // Sélecteur de comptage explicite (options toujours visibles)
+    html += '<div class="count-mode-selector">';
+    html += '<span class="count-mode-title">Compter :</span>';
+    html += '<label class="count-mode-option">';
+    html += `<input type="radio" name="count-mode-${graphsId}" value="enseignants" checked onchange="toggleGraphsCountMode('${graphsId}', 'enseignants')">`;
+    html += '<span>Enseignants</span>';
+    html += '</label>';
+    html += '<label class="count-mode-option">';
+    html += `<input type="radio" name="count-mode-${graphsId}" value="formations" onchange="toggleGraphsCountMode('${graphsId}', 'formations')">`;
+    html += '<span>Formations</span>';
     html += '</label>';
     html += '</div>';
 
@@ -1627,19 +1631,14 @@ function filterMatrixByYear(matrixId) {
     });
 }
 
-function toggleGraphsCountMode(graphsId) {
-    const checkbox = document.getElementById(`count-mode-${graphsId}`);
-    const label = document.getElementById(`count-label-${graphsId}`);
+function toggleGraphsCountMode(graphsId, mode = 'enseignants') {
     const graphsData = graphsDataStore[graphsId];
 
     if (!graphsData) return;
 
-    // Basculer le mode
-    const newMode = checkbox.checked ? 'formations' : 'enseignants';
+    // Basculer le mode depuis l'option explicite choisie
+    const newMode = mode === 'formations' ? 'formations' : 'enseignants';
     graphsData.countMode = newMode;
-
-    // Mettre à jour le label
-    label.textContent = checkbox.checked ? 'Compter : Formations' : 'Compter : Enseignants';
 
     // Recalculer les graphiques avec le nouveau mode
     const graphsContainer = document.getElementById(graphsId);

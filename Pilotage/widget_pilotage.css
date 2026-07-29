@@ -1086,6 +1086,48 @@ body {
     transform: translateX(26px);
 }
 
+.count-mode-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 180px;
+}
+
+.count-mode-title {
+    font-size: 13px;
+    color: #555;
+    font-weight: 500;
+}
+
+.count-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+}
+
+.count-mode-option input[type="radio"] {
+    cursor: pointer;
+}
+
+.count-mode-option span::before {
+    content: "- ";
+    color: #7a7a7a;
+}
+
+.count-mode-option:has(input[type="radio"]:checked) span {
+    font-weight: 700;
+}
+
+.count-mode-option:has(input[type="radio"]:checked) span::before {
+    content: "→ ";
+    color: #3498db;
+}
+
 .matrix-table tr.empty-row.hidden {
     max-height: 0 !important;
     height: 0 !important;

@@ -1751,7 +1751,7 @@ async function validerFormulaire() {
             await grist.docApi.applyUserActions(niveauxActions);
         }
 
-        alert(`✓ ${records.length} ligne(s) créée(s) avec succès dans le Tableau de bord !`);
+        alert(`✓ ${records.length} ligne(s) créée(s) avec succès dans le tableau des formations.`);
 
         resetForm();
 
