@@ -1766,7 +1766,7 @@ function getAnneeScolaireEnCours() {
     const mois = now.getMonth() + 1; // 1-12
     const annee = now.getFullYear();
 
-    if (mois >= 7) {
+    if (mois >= 8) {
         return `${annee}-${annee + 1}`;
     }
     return `${annee - 1}-${annee}`;
