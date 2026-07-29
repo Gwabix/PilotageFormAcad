@@ -8,6 +8,7 @@ let currentSelection = {
     type: null,
     id: null
 };
+let ecolesAvecEnseignantData = [];
 
 // Variables pour la navigation au clavier dans les résultats
 let selectedIndexEnseignant = 0;
@@ -193,6 +194,8 @@ async function loadData() {
             type_formation: tableauTable.Type_de_formation[index] || '',
             formateurs: cleanChoiceList(tableauTable.Formateur_s_[index])
         }));
+
+        ecolesAvecEnseignantData = ecolesData.filter(ecoleHasEnseignant);
 
         console.log('Données chargées:', {
             ecoles: ecolesData.length,
@@ -1831,7 +1834,7 @@ function searchEcoles(event) {
     }
 
     // Filtrer les résultats
-    filteredEcoles = ecolesData.filter(e =>
+    filteredEcoles = ecolesAvecEnseignantData.filter(e =>
         e.nom.toLowerCase().includes(searchTerm) ||
         e.commune.toLowerCase().includes(searchTerm) ||
         e.commune_complement.toLowerCase().includes(searchTerm) ||
@@ -2098,7 +2101,7 @@ function selectCirconscription(circonscription) {
 
     const ecolesCirco = ecolesData
         .filter(e => e.circonscription === circonscription)
-        .filter(ecoleHasEnseignant);
+        .filter(ecoleHasEnseignant)
         .sort((a, b) => a.nom_complement_commune.localeCompare(b.nom_complement_commune, 'fr'));
 
     let html = `
@@ -2374,8 +2377,10 @@ function exportToCSV(type) {
         filename = `formations_${circonscription.replace(/[^a-z0-9]/gi, '_')}.csv`;
         csvContent = 'Année scolaire;École;Type de formation;Modalité constitution;Objets transversaux;Thèmes\n';
 
-        const ecolesCirco = ecolesData.filter(e => e.circonscription === circonscription);
-
+        const ecolesCirco = ecolesData
+            .filter(e => e.circonscription === circonscription)
+            .filter(ecoleHasEnseignant);
+        
         ecolesCirco.forEach(ecole => {
             const formations = tableauBordData.filter(tb => isSameEcoleRef(getRecordEcoleRef(tb), ecole));
 
