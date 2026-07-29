@@ -1133,7 +1133,7 @@ body {
 }
 
 .count-mode-option:has(input[type="radio"]:checked) span::before {
-    content: "→ ";
+    content: "► ";
     color: #3498db;
 }
 
