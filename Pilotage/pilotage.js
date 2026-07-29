@@ -120,6 +120,15 @@ function getRecordEcoleRef(record) {
     return normalizeEcoleRef(record.ecole);
 }
 
+function ecoleHasEnseignant(ecole) {
+    if (!ecole) return false;
+    return enseignantsData.some(ens => {
+        if (ens.ecole_rowid && ens.ecole_rowid === ecole.id) return true;
+        if (ens.ecole_label && isSameEcoleRef(ens.ecole_label, ecole)) return true;
+        return false;
+    });
+}
+
 async function loadData() {
     try {
         const ecolesTable = await grist.docApi.fetchTable('Ecoles');
@@ -2089,6 +2098,7 @@ function selectCirconscription(circonscription) {
 
     const ecolesCirco = ecolesData
         .filter(e => e.circonscription === circonscription)
+        .filter(ecoleHasEnseignant);
         .sort((a, b) => a.nom_complement_commune.localeCompare(b.nom_complement_commune, 'fr'));
 
     let html = `
