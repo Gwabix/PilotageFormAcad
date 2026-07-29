@@ -2088,7 +2088,7 @@ function selectCirconscription(circonscription) {
     const ecolesCirco = ecolesData
         .filter(e => e.circonscription === circonscription)
         .sort((a, b) => a.nom_complement_commune.localeCompare(b.nom_complement_commune, 'fr'));
-    
+
     let html = `
         <div class="export-buttons">
             <div class="left-buttons">
