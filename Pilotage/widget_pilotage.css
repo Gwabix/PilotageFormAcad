@@ -1090,14 +1090,16 @@ body {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 4px;
+    gap: 20px;
     min-width: 180px;
+    margin: 0 50px;
 }
 
 .count-mode-title {
     font-size: 13px;
     color: #555;
     font-weight: 500;
+    align-self: center;
 }
 
 .count-mode-option {
@@ -1126,6 +1128,7 @@ body {
 .count-mode-option span::before {
     content: "- ";
     color: #7a7a7a;
+    font-family: initial;
 }
 
 .count-mode-option:has(input[type="radio"]:checked) span {
@@ -1135,6 +1138,7 @@ body {
 .count-mode-option:has(input[type="radio"]:checked) span::before {
     content: "► ";
     color: #3498db;
+    font-family: initial;
 }
 
 .count-mode-option:has(input[type="radio"]:focus-visible) span {

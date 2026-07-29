@@ -468,14 +468,16 @@ body {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 4px;
+    gap: 20px;
     min-width: 180px;
+    margin: 0 50px;
 }
 
 .count-mode-title {
     font-size: 13px;
     color: #555;
     font-weight: 500;
+    align-self: center;
 }
 
 .count-mode-option {
