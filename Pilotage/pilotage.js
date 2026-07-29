@@ -1198,6 +1198,7 @@ function createGraphs(formations, countMode = 'enseignants') {
     // Sélecteur de comptage explicite (options toujours visibles)
     html += '<div class="count-mode-selector">';
     html += '<span class="count-mode-title">Compter :</span>';
+    html += '<div class="count-mode-options">';
     html += '<label class="count-mode-option">';
     html += `<input type="radio" name="count-mode-${graphsId}" value="enseignants" checked onchange="toggleGraphsCountMode('${graphsId}', 'enseignants')">`;
     html += '<span>Enseignants</span>';
@@ -1206,6 +1207,7 @@ function createGraphs(formations, countMode = 'enseignants') {
     html += `<input type="radio" name="count-mode-${graphsId}" value="formations" onchange="toggleGraphsCountMode('${graphsId}', 'formations')">`;
     html += '<span>Formations</span>';
     html += '</label>';
+    html += '</div>';
     html += '</div>';
 
     html += '</div>';
