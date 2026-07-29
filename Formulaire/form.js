@@ -1761,9 +1761,32 @@ async function validerFormulaire() {
     }
 }
 
-function resetForm() {
+function getAnneeScolaireEnCours() {
+    const now = new Date();
+    const mois = now.getMonth() + 1; // 1-12
+    const annee = now.getFullYear();
+
+    if (mois >= 7) {
+        return `${annee}-${annee + 1}`;
+    }
+    return `${annee - 1}-${annee}`;
+}
+
+function preremplirAnneeScolaire() {
     const anneeScolaireEl = document.getElementById('anneeScolaire');
-    if (anneeScolaireEl) anneeScolaireEl.value = '';
+    if (!anneeScolaireEl) return;
+
+    const anneeCourante = getAnneeScolaireEnCours();
+    const optionExiste = Array.from(anneeScolaireEl.options)
+        .some(opt => opt.value === anneeCourante);
+
+    if (optionExiste) {
+        anneeScolaireEl.value = anneeCourante;
+    }
+}
+
+function resetForm() {
+    preremplirAnneeScolaire();
     const anneeErrorEl = document.getElementById('anneeError');
     if (anneeErrorEl) anneeErrorEl.style.display = 'none';
     const nbEcolesEl = document.getElementById('nbEcoles');
@@ -1847,6 +1870,7 @@ document.getElementById('anneeScolaire').addEventListener('change', updateEnseig
 loadData().then(() => syncFormateursFromPersonnes());
 filterThemes();
 addFormateurField();
+preremplirAnneeScolaire();
 
 // ===== GESTION DU BOUTON RETOUR EN HAUT =====
 
