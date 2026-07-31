@@ -833,8 +833,13 @@ function buildPersonnelRow(p, ecoleId) {
             if (!trigger.input.checked) {
                 const select = cellDays.querySelector('select');
                 if (select) {
-                    Array.from(select.options).forEach(opt => { opt.selected = false; });
-                    select.size = 1;
+                    if (typeof select._collapse === 'function') select._collapse();
+                    if (typeof select._reset === 'function') {
+                        select._reset();
+                    } else {
+                        Array.from(select.options).forEach(opt => { opt.selected = false; });
+                        select.size = 1;
+                    }
                 }
                 savePersonnelField(p.id, field, toChoiceListValue([]), () => {
                     p[field] = '';
@@ -998,6 +1003,11 @@ function buildDechargeSelectCell(record, field, options) {
         select.style.left = '';
         select.style.maxHeight = '';
         select.style.minWidth = '';
+        select.size = collapsedSize();
+    };
+
+    select._reset = () => {
+        buildOptionsList([]);
         select.size = collapsedSize();
     };
 
