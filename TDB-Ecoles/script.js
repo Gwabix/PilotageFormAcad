@@ -94,24 +94,24 @@ async function loadAllData() {
 
         const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
 
-        console.log('choicesByCol (REST) :', JSON.parse(JSON.stringify(choicesByCol)));
-
-        const dynamicNiveaux = inferColumnChoices(state.personnels, 'Niveau_x_');
-        const dynamicFonctions = inferColumnChoices(state.personnels, 'Fonction');
-        const dDir = inferColumnChoices(state.personnels, 'D_dir');
-        const dTP = inferColumnChoices(state.personnels, 'TP');
-        const dSynd = inferColumnChoices(state.personnels, 'D_synd_');
-        const dAutre = inferColumnChoices(state.personnels, 'Autre');
-
-        NIVEAUX_OPTIONS = dynamicNiveaux.length > 0 ? dynamicNiveaux : ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre'];
-        FONCTION_OPTIONS = dynamicFonctions.length > 0 ? dynamicFonctions : ['Directeur(trice)', 'Adjoint(e)', 'TR', 'Poste partagé', 'Ulis', 'UPE2A', 'ASH', 'PES'];
+        const resolveOptions = (colId, fallback) => {
+            const fromColumn = Array.isArray(choicesByCol[colId]) ? choicesByCol[colId] : [];
+            if (fromColumn.length > 0) return fromColumn;
+            const fromData = inferColumnChoices(state.personnels, colId);
+            if (fromData.length > 0) return fromData;
+            return fallback.slice();
+        };
 
         const defaultJours = ['Lundi', 'Mardi', 'Jeudi', 'Vendredi'];
+
+        NIVEAUX_OPTIONS = resolveOptions('Niveau_x_', ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', 'ULIS', 'Autre']);
+        FONCTION_OPTIONS = resolveOptions('Fonction', ['Directeur(trice)', 'Adjoint(e)', 'TR', 'Poste partagé', 'Ulis', 'UPE2A', 'ASH', 'PES']);
+
         DECHARGES_OPTIONS = {
-            D_dir: dDir.length > 0 ? dDir : defaultJours,
-            TP: dTP.length > 0 ? dTP : defaultJours,
-            D_synd_: dSynd.length > 0 ? dSynd : defaultJours,
-            Autre: dAutre.length > 0 ? dAutre : defaultJours
+            D_dir: resolveOptions('D_dir', defaultJours),
+            TP: resolveOptions('TP', defaultJours),
+            D_synd_: resolveOptions('D_synd_', defaultJours),
+            Autre: resolveOptions('Autre', defaultJours)
         };
 
         validateEcolesFields(state.ecoles);
@@ -679,36 +679,60 @@ let DECHARGES_OPTIONS = {
 
 async function fetchColumnChoices(tableId, colIds) {
     const result = {};
+    for (const colId of colIds) result[colId] = [];
+
     try {
         const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
-        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(tableId)}/columns?auth=${encodeURIComponent(tokenInfo.token)}`;
-        const response = await fetch(url, { method: 'GET' });
+        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(tableId)}/columns`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${tokenInfo.token}`,
+                'Accept': 'application/json'
+            }
+        });
+
         if (!response.ok) {
             throw new Error(`Statut HTTP ${response.status}`);
         }
+
         const data = await response.json();
-        const columns = Array.isArray(data.columns) ? data.columns : [];
+        const columns = Array.isArray(data && data.columns) ? data.columns : [];
+
         for (const colId of colIds) {
-            const column = columns.find(c => c.id === colId);
-            let choices = [];
-            if (column && column.fields && column.fields.widgetOptions) {
+            const column = columns.find(c => c && c.id === colId);
+            const fields = column && column.fields ? column.fields : null;
+            if (!fields) continue;
+
+            let opts = null;
+            if (typeof fields.widgetOptions === 'string' && fields.widgetOptions.trim()) {
                 try {
-                    const opts = JSON.parse(column.fields.widgetOptions);
-                    if (Array.isArray(opts.choices)) {
-                        choices = opts.choices.filter(v => typeof v === 'string' && v.trim());
-                    }
+                    opts = JSON.parse(fields.widgetOptions);
                 } catch (e) {
-                    choices = [];
+                    opts = null;
                 }
+            } else if (fields.widgetOptions && typeof fields.widgetOptions === 'object') {
+                opts = fields.widgetOptions;
+            }
+
+            if (!opts || !Array.isArray(opts.choices)) continue;
+
+            const seen = new Set();
+            const choices = [];
+            for (const raw of opts.choices) {
+                if (typeof raw !== 'string') continue;
+                const label = raw.trim();
+                if (!label || seen.has(label)) continue;
+                seen.add(label);
+                choices.push(label);
             }
             result[colId] = choices;
         }
     } catch (err) {
         console.error('fetchColumnChoices :', err);
-        for (const colId of colIds) {
-            if (!(colId in result)) result[colId] = [];
-        }
     }
+
     return result;
 }
 
@@ -881,14 +905,20 @@ function buildDechargeSelectCell(record, field, options) {
     const currentValues = parseNiveaux(record[field]);
 
     function buildOptionsList(selectedValues) {
-        select.innerHTML = '';
-        const selected = options.filter(o => selectedValues.includes(o));
-        const unselected = options.filter(o => !selectedValues.includes(o));
+        select.textContent = '';
+        const orphans = selectedValues.filter(v => !options.includes(v));
+        const allOptions = [...options, ...orphans];
+        const selected = allOptions.filter(o => selectedValues.includes(o));
+        const unselected = allOptions.filter(o => !selectedValues.includes(o));
         [...selected, ...unselected].forEach(jour => {
             const opt = document.createElement('option');
             opt.value = jour;
             opt.textContent = jour;
             opt.selected = selectedValues.includes(jour);
+            if (!options.includes(jour)) {
+                opt.classList.add('option-orphan');
+                opt.title = 'Valeur absente de la liste de choix de la colonne';
+            }
             select.appendChild(opt);
         });
     }

@@ -567,6 +567,11 @@ not .niveau-checkbox {
     max-width: fit-content;
 }
 
+.decharge-multiselect .option-orphan {
+    color: var(--color-danger);
+    font-style: italic;
+}
+
 .decharge-select-cell {
     position: relative;
 }
