@@ -593,6 +593,15 @@ not .niveau-checkbox {
     font-style: italic;
 }
 
+.decharge-multiselect .decharge-placeholder {
+    color: #888;
+    font-style: italic;
+}
+
+.decharge-multiselect.expanded .decharge-placeholder {
+    display: none;
+}
+
 .decharge-select-cell {
     position: relative;
 }

@@ -919,6 +919,19 @@ function buildDechargeSelectCell(record, field, options) {
 
     function buildOptionsList(selectedValues) {
         select.textContent = '';
+        
+        const hasSelection = Array.isArray(selectedValues) && selectedValues.length > 0;
+
+        if (!hasSelection) {
+            const placeholder = document.createElement('option');
+            placeholder.textContent = 'Sélectionner';
+            placeholder.value = '';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            placeholder.className = 'decharge-placeholder';
+            select.appendChild(placeholder);
+        }
+
         const orphans = selectedValues.filter(v => !options.includes(v));
         const allOptions = [...options, ...orphans];
         const selected = allOptions.filter(o => selectedValues.includes(o));
@@ -1018,13 +1031,17 @@ function buildDechargeSelectCell(record, field, options) {
     });
 
     select.addEventListener('blur', () => {
-        const selectedValues = Array.from(select.selectedOptions).map(o => o.value);
+        const selectedValues = Array.from(select.selectedOptions)
+            .map(o => o.value)
+            .filter(v => v !== '');
         buildOptionsList(selectedValues);
         collapse();
     });
 
     select.addEventListener('change', () => {
-        const selectedValues = Array.from(select.selectedOptions).map(o => o.value);
+        const selectedValues = Array.from(select.selectedOptions)
+            .map(o => o.value)
+            .filter(v => v !== '');
         const orderedValues = options.filter(o => selectedValues.includes(o));
 
         if (select.classList.contains('expanded')) {
