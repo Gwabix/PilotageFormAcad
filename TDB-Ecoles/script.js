@@ -1112,21 +1112,6 @@ function buildEditableCell(record, field, type, options, inputId) {
     return td;
 }
 
-function buildPreciserCell(p) {
-    const inputId = 'preciser-input-' + String(p.id);
-
-    const label = document.createElement('label');
-    label.setAttribute('for', inputId);
-    label.textContent = 'Préciser';
-    label.className = 'preciser-label';
-
-    const td = buildEditableCell(p, 'Preciser', 'text', null, inputId);
-    td.classList.add('preciser-cell');
-    td.insertBefore(label, td.firstChild);
-
-    return td;
-}
-
 function parseNiveaux(rawValue) {
     if (!rawValue) return [];
     if (Array.isArray(rawValue)) {
@@ -1337,7 +1322,7 @@ function buildPreciserCell(p) {
 
     const label = document.createElement('label');
     label.setAttribute('for', inputId);
-    label.textContent = 'Préciser';
+    label.textContent = 'Préciser "autre"';
     label.className = 'preciser-label';
 
     const td = buildEditableCell(p, 'Preciser', 'text', null, inputId);
