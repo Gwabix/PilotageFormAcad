@@ -276,9 +276,9 @@ main#ecoles-container,
     border-bottom: 2px solid var(--color-primary-light);
     padding-bottom: var(--spacing-xs);
     position: sticky;
-    top: 56px;
     background: var(--color-bg);
     z-index: 10;
+    margin-bottom: 0;
 }
 
 /* ==========================================================================
