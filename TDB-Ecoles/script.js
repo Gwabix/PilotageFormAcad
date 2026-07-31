@@ -15,7 +15,7 @@ const state = {
     listenersAttached: {
         year: false,
         filters: false,
-        search: false
+        search: false,
         collapse: false
     }
 };
@@ -1040,6 +1040,269 @@ function buildDechargeSelectCell(record, field, options) {
     td.appendChild(select);
 
     select._collapse = collapse;
+ 
+    return td;
+}
+
+    function buildEditableCell(record, field, type, options, inputId) {
+        const td = document.createElement('td');
+        const value = record[field];
+
+        if (type === 'checkbox') {
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = !!value;
+            input.addEventListener('change', () => {
+                savePersonnelField(record.id, field, input.checked);
+            });
+            td.appendChild(input);
+            return td;
+        }
+
+        if (type === 'select') {
+            const select = document.createElement('select');
+            (options || []).forEach(opt => {
+                const optionEl = document.createElement('option');
+                optionEl.value = opt;
+                optionEl.textContent = opt;
+                if (value === opt) optionEl.selected = true;
+                select.appendChild(optionEl);
+            });
+            select.addEventListener('change', () => {
+                savePersonnelField(record.id, field, select.value);
+            });
+            td.appendChild(select);
+            return td;
+        }
+
+        const input = document.createElement('input');
+        input.type = type === 'email' ? 'email' : 'text';
+        input.value = value !== null && value !== undefined ? String(value) : '';
+        if (inputId) input.id = inputId;
+
+        input.addEventListener('change', () => {
+            let newValue = sanitizeText(input.value);
+            if (type === 'email' && newValue && !/^[a-zA-Z0-9\-._]+@ac-montpellier\.fr$/.test(newValue)) {
+                showToast('Adresse mail invalide.', 'error');
+                input.value = value !== null && value !== undefined ? String(value) : '';
+                return;
+            }
+            savePersonnelField(record.id, field, newValue);
+        });
+        td.appendChild(input);
+        return td;
+    }
+
+    function buildPreciserCell(p) {
+        const inputId = 'preciser-input-' + String(p.id);
+
+        const label = document.createElement('label');
+        label.setAttribute('for', inputId);
+        label.textContent = 'Préciser';
+        label.className = 'preciser-label';
+
+        const td = buildEditableCell(p, 'Preciser', 'text', null, inputId);
+        td.classList.add('preciser-cell');
+        td.insertBefore(label, td.firstChild);
+
+        return td;
+    }
+
+    function buildNiveauxCell(record) {
+        const td = document.createElement('td');
+        td.className = 'niveaux-cell';
+
+        const inner = document.createElement('div');
+        inner.className = 'niveaux-cell-inner';
+
+        const currentValues = parseNiveaux(record.Niveau_x_);
+
+        NIVEAUX_OPTIONS.forEach(niveau => {
+            const label = document.createElement('label');
+            label.className = 'niveau-checkbox';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = niveau;
+            checkbox.checked = currentValues.includes(niveau);
+
+            checkbox.addEventListener('change', () => {
+                const updated = new Set(currentValues);
+                if (checkbox.checked) {
+                    updated.add(niveau);
+                } else {
+                    updated.delete(niveau);
+                }
+                const newList = NIVEAUX_OPTIONS.filter(n => updated.has(n));
+                savePersonnelField(record.id, 'Niveau_x_', toChoiceListValue(newList), () => {
+                    record.Niveau_x_ = newList;
+                });
+            });
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(' ' + niveau));
+            inner.appendChild(label);
+        });
+
+        td.appendChild(inner);
+        return td;
+    }
+
+    function parseNiveaux(rawValue) {
+        if (!rawValue) return [];
+        if (Array.isArray(rawValue)) {
+            return rawValue.filter(v => v !== 'L');
+        }
+        return String(rawValue).split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    async function savePersonnelField(personnelId, field, value, onSuccessLocal) {
+        try {
+            await grist.docApi.applyUserActions([
+                ['UpdateRecord', 'Liste_PE', personnelId, { [field]: value }]
+            ]);
+
+            const record = state.personnels.find(p => p.id === personnelId);
+            if (record) record[field] = value;
+            if (onSuccessLocal) onSuccessLocal();
+
+            showToast('Modification enregistrée.', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast("Erreur lors de l'enregistrement. Modification annulée.", 'error');
+            renderDashboard();
+        }
+    }
+
+    function openChangeSchoolModal(personnelRecord) {
+        editingState.currentSchoolChangeRecord = personnelRecord;
+
+        const overlay = document.getElementById('modal-overlay');
+        const nameEl = document.getElementById('modal-teacher-name');
+        const input = document.getElementById('modal-search-input');
+        const resultsBox = document.getElementById('modal-search-results');
+        const selectedDisplay = document.getElementById('modal-selected-display');
+        const selectedUaiField = document.getElementById('modal-selected-uai');
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+
+        nameEl.textContent = 'Enseignant concerné : ' +
+            sanitizeText(personnelRecord.Civilite || '') + ' ' +
+            sanitizeText(personnelRecord.Prenom || '') + ' ' +
+            sanitizeText(personnelRecord.Nom || '');
+
+        input.value = '';
+        resultsBox.innerHTML = '';
+        resultsBox.classList.add('hidden');
+        selectedDisplay.classList.add('hidden');
+        selectedDisplay.textContent = '';
+        selectedUaiField.value = '';
+        confirmBtn.disabled = true;
+
+        overlay.classList.remove('hidden');
+        input.focus();
+    }
+
+    function closeChangeSchoolModal() {
+        document.getElementById('modal-overlay').classList.add('hidden');
+        editingState.currentSchoolChangeRecord = null;
+    }
+
+    function attachModalListeners() {
+        const input = document.getElementById('modal-search-input');
+        const resultsBox = document.getElementById('modal-search-results');
+        const cancelBtn = document.getElementById('modal-cancel-btn');
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+        const selectedDisplay = document.getElementById('modal-selected-display');
+        const selectedUaiField = document.getElementById('modal-selected-uai');
+        const overlay = document.getElementById('modal-overlay');
+
+        input.addEventListener('input', () => {
+            const query = normalizeStr(input.value);
+            resultsBox.innerHTML = '';
+
+            if (!query) {
+                resultsBox.classList.add('hidden');
+                return;
+            }
+
+            const matches = state.ecoles
+                .filter(e => normalizeStr(e.Commune_Nom || '').includes(query))
+                .sort((a, b) => String(a.Commune_Nom || '').localeCompare(String(b.Commune_Nom || ''), 'fr'))
+                .slice(0, 30);
+
+            if (!matches.length) {
+                resultsBox.classList.add('hidden');
+                return;
+            }
+
+            matches.forEach(e => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.setAttribute('role', 'option');
+                item.textContent = sanitizeText(e.Commune_Nom || e.Nom_etablissement || '');
+                item.addEventListener('click', () => {
+                    selectedUaiField.value = String(e.id);
+                    selectedDisplay.textContent = sanitizeText(e.Commune_Nom || '');
+                    selectedDisplay.classList.remove('hidden');
+                    resultsBox.classList.add('hidden');
+                    input.value = '';
+                    confirmBtn.disabled = false;
+                });
+                resultsBox.appendChild(item);
+            });
+
+            resultsBox.classList.remove('hidden');
+        });
+
+        document.addEventListener('click', (evt) => {
+            if (!resultsBox.contains(evt.target) && evt.target !== input) {
+                resultsBox.classList.add('hidden');
+            }
+        });
+
+        cancelBtn.addEventListener('click', closeChangeSchoolModal);
+
+        overlay.addEventListener('click', (evt) => {
+            if (evt.target === overlay) closeChangeSchoolModal();
+        });
+
+        document.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+                closeChangeSchoolModal();
+            }
+        });
+
+        confirmBtn.addEventListener('click', async () => {
+            const newEcoleRowId = parseInt(selectedUaiField.value, 10);
+            const personnelRecord = editingState.currentSchoolChangeRecord;
+
+            if (!Number.isFinite(newEcoleRowId) || !personnelRecord) {
+                showToast('Veuillez sélectionner un établissement.', 'error');
+                return;
+            }
+
+            confirmBtn.disabled = true;
+
+            try {
+                await grist.docApi.applyUserActions([
+                    ['UpdateRecord', 'Liste_PE', personnelRecord.id, { 'UAI': newEcoleRowId }]
+                ]);
+
+                showToast('Établissement modifié avec succès.', 'success');
+                closeChangeSchoolModal();
+                await loadAllData();
+            } catch (err) {
+                console.error(err);
+                showToast("Erreur lors du changement d'établissement.", 'error');
+                confirmBtn.disabled = false;
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        attachModalListeners();
+        initGrist();
+    });
 
     function buildEditableCell(record, field, type, options, inputId) {
         const td = document.createElement('td');
