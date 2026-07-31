@@ -559,6 +559,14 @@ not .niveau-checkbox {
 .decharge-multiselect {
     width: 100%;
     box-sizing: border-box;
+    overflow: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.decharge-multiselect::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 
 .decharge-multiselect.expanded {
@@ -571,6 +579,13 @@ not .niveau-checkbox {
     background: var(--color-surface);
     border: 1px solid var(--color-primary);
     border-radius: var(--radius);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    -ms-overflow-style: auto;
+}
+
+.decharge-multiselect.expanded::-webkit-scrollbar {
+    width: 8px;
 }
 
 .decharge-multiselect .option-orphan {

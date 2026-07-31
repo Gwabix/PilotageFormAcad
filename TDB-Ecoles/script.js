@@ -890,9 +890,11 @@ function toChoiceListValue(values) {
 function attachGlobalCollapseHandler() {
     if (state.listenersAttached.collapse) return;
 
-    const collapseOpen = () => {
+    const collapseOpen = (e) => {
         const open = document.querySelector('.decharge-multiselect.expanded');
-        if (open && typeof open._collapse === 'function') open._collapse();
+        if (!open) return;
+        if (e && e.target === open) return;
+        if (typeof open._collapse === 'function') open._collapse();
     };
 
     window.addEventListener('scroll', collapseOpen, true);
