@@ -1127,46 +1127,6 @@ function buildDechargeSelectCell(record, field, options) {
         return td;
     }
 
-    function buildNiveauxCell(record) {
-        const td = document.createElement('td');
-        td.className = 'niveaux-cell';
-
-        const inner = document.createElement('div');
-        inner.className = 'niveaux-cell-inner';
-
-        const currentValues = parseNiveaux(record.Niveau_x_);
-
-        NIVEAUX_OPTIONS.forEach(niveau => {
-            const label = document.createElement('label');
-            label.className = 'niveau-checkbox';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = niveau;
-            checkbox.checked = currentValues.includes(niveau);
-
-            checkbox.addEventListener('change', () => {
-                const updated = new Set(currentValues);
-                if (checkbox.checked) {
-                    updated.add(niveau);
-                } else {
-                    updated.delete(niveau);
-                }
-                const newList = NIVEAUX_OPTIONS.filter(n => updated.has(n));
-                savePersonnelField(record.id, 'Niveau_x_', toChoiceListValue(newList), () => {
-                    record.Niveau_x_ = newList;
-                });
-            });
-
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(' ' + niveau));
-            inner.appendChild(label);
-        });
-
-        td.appendChild(inner);
-        return td;
-    }
-
     function parseNiveaux(rawValue) {
         if (!rawValue) return [];
         if (Array.isArray(rawValue)) {
