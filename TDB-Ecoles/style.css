@@ -561,6 +561,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     overflow: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    cursor: pointer;
 }
 
 .decharge-multiselect::-webkit-scrollbar {
@@ -595,7 +596,15 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 .decharge-multiselect .decharge-placeholder {
     color: #888;
     font-style: italic;
+    background-color: white;
+    border: 1px dotted lightgray;
+    border-radius: 5px;
 }
+
+.decharge-multiselect .decharge-placeholder:hover {
+    background-color: #f0f0f0;
+}
+
 
 .decharge-multiselect.expanded .decharge-placeholder {
     display: none;
