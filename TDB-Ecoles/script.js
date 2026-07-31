@@ -683,15 +683,10 @@ async function fetchColumnChoices(tableId, colIds) {
 
     try {
         const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
-        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(tableId)}/columns`;
+        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(tableId)}/columns`
+            + `?auth=${encodeURIComponent(tokenInfo.token)}`;
 
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${tokenInfo.token}`,
-                'Accept': 'application/json'
-            }
-        });
+        const response = await fetch(url, { method: 'GET' });
 
         if (!response.ok) {
             throw new Error(`Statut HTTP ${response.status}`);
