@@ -755,6 +755,99 @@ const editingState = {
     currentSchoolChangeRecord: null
 };
 
+const tooltipState = {
+    el: null
+};
+
+function ensureChangeSchoolTooltip() {
+    if (tooltipState.el) return tooltipState.el;
+
+    const tooltip = document.createElement('div');
+    tooltip.id = 'change-school-tooltip';
+    tooltip.className = 'change-school-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+
+    const line = document.createElement('div');
+    line.className = 'tooltip-line';
+    line.textContent = 'Modifier l\'établissement de rattachement de';
+
+    const identity = document.createElement('strong');
+    identity.className = 'tooltip-identity';
+
+    tooltip.append(line, identity);
+    document.body.appendChild(tooltip);
+
+    tooltipState.el = tooltip;
+    return tooltip;
+}
+
+function getPersonnelIdentity(p) {
+    return [sanitizeText(p.Civilite || ''), sanitizeText(p.Prenom || ''), sanitizeText(p.Nom || '')]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+}
+
+function positionChangeSchoolTooltip(button, tooltip) {
+    const rect = button.getBoundingClientRect();
+    const margin = 8;
+
+    tooltip.style.left = '0px';
+    tooltip.style.top = '0px';
+
+    const ttRect = tooltip.getBoundingClientRect();
+    let left = rect.left + (rect.width / 2) - (ttRect.width / 2);
+    let top = rect.top - ttRect.height - margin;
+
+    if (left < margin) left = margin;
+    const maxLeft = window.innerWidth - ttRect.width - margin;
+    if (left > maxLeft) left = Math.max(margin, maxLeft);
+
+    if (top < margin) {
+        top = rect.bottom + margin;
+    }
+
+    tooltip.style.left = Math.round(left) + 'px';
+    tooltip.style.top = Math.round(top) + 'px';
+}
+
+function bindChangeSchoolTooltip(button, personnel) {
+    const tooltip = ensureChangeSchoolTooltip();
+    const identity = getPersonnelIdentity(personnel) || 'cet enseignant';
+
+    button.removeAttribute('title');
+    button.setAttribute('aria-label', 'Modifier l\'établissement de rattachement de ' + identity + '.');
+
+    const show = () => {
+        const identityEl = tooltip.querySelector('.tooltip-identity');
+        identityEl.textContent = identity + '.';
+
+        tooltip.classList.add('visible');
+        positionChangeSchoolTooltip(button, tooltip);
+    };
+
+    const hide = () => {
+        tooltip.classList.remove('visible');
+    };
+
+    button.addEventListener('mouseenter', show);
+    button.addEventListener('focus', show);
+    button.addEventListener('mouseleave', hide);
+    button.addEventListener('blur', hide);
+
+    window.addEventListener('scroll', () => {
+        if (tooltip.classList.contains('visible')) {
+            positionChangeSchoolTooltip(button, tooltip);
+        }
+    }, true);
+
+    window.addEventListener('resize', () => {
+        if (tooltip.classList.contains('visible')) {
+            positionChangeSchoolTooltip(button, tooltip);
+        }
+    });
+}
+
 function buildPersonnelRow(p, ecoleId) {
     const fragment = document.createDocumentFragment();
 
@@ -861,13 +954,7 @@ function buildPersonnelRow(p, ecoleId) {
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
     changeBtn.textContent = "Changer d'établissement";
-    const civilite = sanitizeText(p.Civilite || '');
-    const prenom = sanitizeText(p.Prenom || '');
-    const nom = sanitizeText(p.Nom || '');
-    const identite = [civilite, prenom, nom].filter(Boolean).join(' ').trim();
-    changeBtn.title = identite
-        ? 'Modifier l\'établissement de rattachement de\r\n**' + identite + '**.'
-        : 'Modifier l\'établissement de rattachement de cet enseignant.';
+    bindChangeSchoolTooltip(changeBtn, p);
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
     actionsTd.appendChild(changeBtn);
     trNiveaux.appendChild(actionsTd);

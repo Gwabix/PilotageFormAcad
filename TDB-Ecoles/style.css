@@ -686,6 +686,42 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     color: var(--color-primary);
 }
 
+.change-school-tooltip {
+    position: fixed;
+    z-index: 1100;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(2px);
+    transition: opacity 0.08s ease, transform 0.08s ease, visibility 0s linear 0.08s;
+    background: #1f2937;
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    max-width: min(340px, calc(100vw - 16px));
+    text-align: center;
+    line-height: 1.35;
+    font-size: 12px;
+}
+
+.change-school-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: opacity 0.08s ease, transform 0.08s ease;
+}
+
+.change-school-tooltip .tooltip-line {
+    font-weight: 500;
+}
+
+.change-school-tooltip .tooltip-identity {
+    display: block;
+    margin-top: 2px;
+    font-weight: 700;
+}
+
 /* ==========================================================================
    Modal de changement d'école
    ========================================================================== */
