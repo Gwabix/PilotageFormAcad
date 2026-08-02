@@ -861,6 +861,13 @@ function buildPersonnelRow(p, ecoleId) {
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
     changeBtn.textContent = "Changer d'établissement";
+    const civilite = sanitizeText(p.Civilite || '');
+    const prenom = sanitizeText(p.Prenom || '');
+    const nom = sanitizeText(p.Nom || '');
+    const identite = [civilite, prenom, nom].filter(Boolean).join(' ').trim();
+    changeBtn.title = identite
+        ? 'Modifier l\'établissement de rattachement de\r\n**' + identite + '**.'
+        : 'Modifier l\'établissement de rattachement de cet enseignant.';
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
     actionsTd.appendChild(changeBtn);
     trNiveaux.appendChild(actionsTd);
