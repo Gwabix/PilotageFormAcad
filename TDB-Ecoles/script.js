@@ -794,35 +794,29 @@ function buildPersonnelRow(p, ecoleId) {
 
     trMain.append(triggerDir.td, triggerTP.td, triggerSynd.td, triggerAutre.td);
 
-    // --- LIGNE 2 : SÉLECTION DES JOURS DE DÉCHARGES (CONDITIONNELLE) ---
+    // --- LIGNE 2 : NIVEAUX + SÉLECTION DES JOURS DE DÉCHARGES ---
     const trDecharges = document.createElement('tr');
     trDecharges.dataset.personnelId = String(p.id);
     trDecharges.className = 'decharges-row';
 
-    // Espace vide sous Civilité -> Quotité (6 colonnes fusionnées)
-    const tdEmpty = document.createElement('td');
-    tdEmpty.colSpan = 6;
-    trDecharges.appendChild(tdEmpty);
+    const tdNiveaux = buildNiveauxCell(p);
+    tdNiveaux.colSpan = 6;
+    trDecharges.appendChild(tdNiveaux);
 
     // Création des cellules de sélection des jours ("Lundi", "Mardi", "Jeudi", "Vendredi")
     const cellDaysDir = buildDechargeSelectCell(p, 'D_dir', DECHARGES_OPTIONS.D_dir);
     const cellDaysTP = buildDechargeSelectCell(p, 'TP', DECHARGES_OPTIONS.TP);
     const cellDaysSynd = buildDechargeSelectCell(p, 'D_synd_', DECHARGES_OPTIONS.D_synd_);
     const cellDaysAutre = buildDechargeSelectCell(p, 'Autre', DECHARGES_OPTIONS.Autre);
-    const cellPreciser = buildPreciserCell(p);
 
-    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre, cellPreciser);
+    trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre);
 
-    // Met à jour la visibilité globale de la Ligne 2 et de chaque cellule de jours
+    // La ligne 2 reste affichée en permanence ; seules les cellules de décharge varient.
     const updateDechargesVisibility = () => {
-        const anyChecked = triggerDir.input.checked || triggerTP.input.checked || triggerSynd.input.checked || triggerAutre.input.checked;
-        trDecharges.style.display = anyChecked ? '' : 'none';
-
         cellDaysDir.style.visibility = triggerDir.input.checked ? 'visible' : 'hidden';
         cellDaysTP.style.visibility = triggerTP.input.checked ? 'visible' : 'hidden';
         cellDaysSynd.style.visibility = triggerSynd.input.checked ? 'visible' : 'hidden';
         cellDaysAutre.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
-        cellPreciser.style.display = triggerAutre.input.checked ? 'table-cell' : 'none';
     };
 
     updateDechargesVisibility();
@@ -854,32 +848,19 @@ function buildPersonnelRow(p, ecoleId) {
     setupTriggerListener(triggerSynd, 'D_synd_', cellDaysSynd);
     setupTriggerListener(triggerAutre, 'Autre', cellDaysAutre);
 
-    triggerAutre.input.addEventListener('change', () => {
-        if (!triggerAutre.input.checked) {
-            const input = cellPreciser.querySelector('input');
-            if (input) input.value = '';
-            savePersonnelField(p.id, 'Preciser', '', () => {
-                p.Preciser = '';
-            });
-        }
-    });
-
-    // --- LIGNE 3 : NIVEAUX (NOWRAP) & BOUTON ACTION ---
+    // --- LIGNE 3 : BOUTON ACTION ---
     const trNiveaux = document.createElement('tr');
     trNiveaux.dataset.personnelId = String(p.id);
-    trNiveaux.className = 'niveaux-row';
+    trNiveaux.className = 'action-row';
     trNiveaux.style.borderBottom = '2px solid #ccc'; // Sépare nettement chaque enseignant
 
-    const tdNiveaux = buildNiveauxCell(p);
-    tdNiveaux.colSpan = 6;
-    trNiveaux.appendChild(tdNiveaux);
-
     const actionsTd = document.createElement('td');
-    actionsTd.colSpan = 4;
+    actionsTd.colSpan = 10;
+    actionsTd.className = 'action-cell';
     const changeBtn = document.createElement('button');
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
-    changeBtn.textContent = "Changer\r\nd'établissement";
+    changeBtn.textContent = "Changer d'établissement";
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
     actionsTd.appendChild(changeBtn);
     trNiveaux.appendChild(actionsTd);
@@ -1120,21 +1101,6 @@ function buildEditableCell(record, field, type, options, inputId) {
         savePersonnelField(record.id, field, newValue);
     });
     td.appendChild(input);
-    return td;
-}
-
-function buildPreciserCell(p) {
-    const inputId = 'preciser-input-' + String(p.id);
-
-    const label = document.createElement('label');
-    label.setAttribute('for', inputId);
-    label.textContent = 'Préciser "autre"';
-    label.className = 'preciser-label';
-
-    const td = buildEditableCell(p, 'Preciser', 'text', null, inputId);
-    td.classList.add('preciser-cell');
-    td.insertBefore(label, td.firstChild);
-
     return td;
 }
 
