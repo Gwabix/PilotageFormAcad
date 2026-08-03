@@ -929,3 +929,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
         flex-direction: column;
     }
 }
+
+.preciser-input.is-hidden {
+    display: none;
+}

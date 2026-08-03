@@ -918,6 +918,9 @@ function buildPersonnelRow(p, ecoleId) {
         cellDaysTP.style.visibility = triggerTP.input.checked ? 'visible' : 'hidden';
         cellDaysSynd.style.visibility = triggerSynd.input.checked ? 'visible' : 'hidden';
         cellDaysAutre.style.visibility = triggerAutre.input.checked ? 'visible' : 'hidden';
+        if (typeof cellDaysAutre._updatePreciserVisibility === 'function') {
+            cellDaysAutre._updatePreciserVisibility();
+        }
     };
 
     updateDechargesVisibility();
@@ -1171,6 +1174,7 @@ function buildDechargeSelectCell(record, field, options) {
 function buildAutreDechargeCell(record) {
     const td = buildDechargeSelectCell(record, 'Autre', DECHARGES_OPTIONS.Autre);
     td.classList.add('decharge-with-preciser');
+    const select = td.querySelector('.decharge-multiselect');
 
     const textarea = document.createElement('textarea');
     textarea.className = 'preciser-input';
@@ -1179,9 +1183,16 @@ function buildAutreDechargeCell(record) {
     textarea.value = sanitizeMultilineText(record.Preciser || '');
 
     const autoResize = () => {
+        if (textarea.classList.contains('is-hidden')) return;
         textarea.style.height = 'auto';
         const nextHeight = Math.max(28, textarea.scrollHeight);
         textarea.style.height = nextHeight + 'px';
+    };
+
+    const updatePreciserVisibility = () => {
+        const hasSelectedOption = !!select && Array.from(select.selectedOptions).some(opt => opt.value !== '');
+        textarea.classList.toggle('is-hidden', !hasSelectedOption);
+        if (hasSelectedOption) autoResize();
     };
 
     let savedValue = sanitizeMultilineText(record.Preciser || '');
@@ -1245,7 +1256,13 @@ function buildAutreDechargeCell(record) {
     textarea._autoResize = autoResize;
 
     td.appendChild(textarea);
-    autoResize();
+    if (select) {
+        select.addEventListener('change', updatePreciserVisibility);
+        select.addEventListener('blur', updatePreciserVisibility);
+    }
+
+    td._updatePreciserVisibility = updatePreciserVisibility;
+    updatePreciserVisibility();
     return td;
 }
 
