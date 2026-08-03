@@ -1095,7 +1095,7 @@ function buildDechargeSelectCell(record, field, options) {
 
         if (closeButton) {
             const buttonSize = 18;
-            closeButton.style.top = Math.round(top - 14) + 'px';
+            closeButton.style.top = Math.round(top - 10) + 'px';
             closeButton.style.left = Math.round(left + box.width - buttonSize - 4) + 'px';
         }
     };
@@ -1185,7 +1185,10 @@ function buildDechargeSelectCell(record, field, options) {
     closeButton.type = 'button';
     closeButton.className = 'decharge-close-btn';
     closeButton.setAttribute('aria-label', 'Fermer la liste de décharges');
-    closeButton.textContent = '×';
+    const closeGlyph = document.createElement('span');
+    closeGlyph.className = 'decharge-close-glyph';
+    closeGlyph.textContent = '×';
+    closeButton.appendChild(closeGlyph);
     closeButton.addEventListener('mousedown', (evt) => {
         evt.preventDefault();
         evt.stopPropagation();
