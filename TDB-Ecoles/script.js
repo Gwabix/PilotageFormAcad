@@ -1095,7 +1095,7 @@ function buildDechargeSelectCell(record, field, options) {
 
         if (closeButton) {
             const buttonSize = 18;
-            closeButton.style.top = Math.round(top - 10) + 'px';
+            closeButton.style.top = Math.round(top - 8) + 'px';
             closeButton.style.left = Math.round(left + box.width - buttonSize - 4) + 'px';
         }
     };
