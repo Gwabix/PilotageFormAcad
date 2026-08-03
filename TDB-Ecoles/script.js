@@ -1099,7 +1099,7 @@ function buildDechargeSelectCell(record, field, options) {
             const buttonSize = 18;
             const placedBox = select.getBoundingClientRect();
             closeButton.style.top = Math.round(top - 8) + 'px';
-            closeButton.style.left = Math.round(placedBox.right - buttonSize - 4) + 'px';
+            closeButton.style.left = Math.round(placedBox.right - buttonSize) + 'px';
         }
     };
 
