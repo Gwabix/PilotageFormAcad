@@ -626,7 +626,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 }
 
 .decharge-with-preciser .decharge-multiselect {
-    width: 100%;
+    width: auto;
 }
 
 .preciser-input {
