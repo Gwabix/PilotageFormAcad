@@ -769,7 +769,7 @@ function ensureChangeSchoolTooltip() {
 
     const line = document.createElement('div');
     line.className = 'tooltip-line';
-    line.textContent = 'Modifier l\'établissement de rattachement de';
+    line.textContent = 'Modifier l\'établissement\nde rattachement de';
 
     const identity = document.createElement('strong');
     identity.className = 'tooltip-identity';

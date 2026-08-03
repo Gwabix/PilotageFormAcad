@@ -715,6 +715,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 
 .change-school-tooltip .tooltip-line {
     font-weight: 500;
+    white-space: pre-line;
 }
 
 .change-school-tooltip .tooltip-identity {
