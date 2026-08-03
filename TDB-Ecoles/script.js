@@ -47,6 +47,14 @@ function sanitizeText(str) {
     return String(str).replace(/[\u0000-\u001F\u007F]/g, '').trim();
 }
 
+function sanitizeMultilineText(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/\r\n?/g, '\n')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+        .trim();
+}
+
 function showStatus(message, isError) {
     const banner = document.getElementById('status-banner');
     banner.textContent = message;
@@ -900,7 +908,7 @@ function buildPersonnelRow(p, ecoleId) {
     const cellDaysDir = buildDechargeSelectCell(p, 'D_dir', DECHARGES_OPTIONS.D_dir);
     const cellDaysTP = buildDechargeSelectCell(p, 'TP', DECHARGES_OPTIONS.TP);
     const cellDaysSynd = buildDechargeSelectCell(p, 'D_synd_', DECHARGES_OPTIONS.D_synd_);
-    const cellDaysAutre = buildDechargeSelectCell(p, 'Autre', DECHARGES_OPTIONS.Autre);
+    const cellDaysAutre = buildAutreDechargeCell(p);
 
     trDecharges.append(cellDaysDir, cellDaysTP, cellDaysSynd, cellDaysAutre);
 
@@ -931,6 +939,17 @@ function buildPersonnelRow(p, ecoleId) {
                 savePersonnelField(p.id, field, toChoiceListValue([]), () => {
                     p[field] = '';
                 });
+
+                if (field === 'Autre') {
+                    const textarea = cellDays.querySelector('.preciser-input');
+                    if (textarea) {
+                        textarea.value = '';
+                        if (typeof textarea._autoResize === 'function') textarea._autoResize();
+                    }
+                    savePersonnelField(p.id, 'Preciser', '', () => {
+                        p.Preciser = '';
+                    });
+                }
             }
             updateDechargesVisibility();
         });
@@ -1146,6 +1165,87 @@ function buildDechargeSelectCell(record, field, options) {
 
     select._collapse = collapse;
 
+    return td;
+}
+
+function buildAutreDechargeCell(record) {
+    const td = buildDechargeSelectCell(record, 'Autre', DECHARGES_OPTIONS.Autre);
+    td.classList.add('decharge-with-preciser');
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'preciser-input';
+    textarea.rows = 1;
+    textarea.placeholder = 'Préciser';
+    textarea.value = sanitizeMultilineText(record.Preciser || '');
+
+    const autoResize = () => {
+        textarea.style.height = 'auto';
+        const nextHeight = Math.max(28, textarea.scrollHeight);
+        textarea.style.height = nextHeight + 'px';
+    };
+
+    let savedValue = sanitizeMultilineText(record.Preciser || '');
+
+    const commit = () => {
+        const nextValue = sanitizeMultilineText(textarea.value);
+        textarea.value = nextValue;
+        autoResize();
+
+        if (nextValue === savedValue) return;
+
+        savePersonnelField(record.id, 'Preciser', nextValue, () => {
+            record.Preciser = nextValue;
+            savedValue = nextValue;
+        });
+    };
+
+    const onOutsidePointerDown = (evt) => {
+        if (td.contains(evt.target)) return;
+        commit();
+        textarea.blur();
+    };
+
+    const onScrollCommit = () => {
+        commit();
+        textarea.blur();
+    };
+
+    const attachCommitListeners = () => {
+        document.addEventListener('pointerdown', onOutsidePointerDown);
+        window.addEventListener('scroll', onScrollCommit, true);
+    };
+
+    const detachCommitListeners = () => {
+        document.removeEventListener('pointerdown', onOutsidePointerDown);
+        window.removeEventListener('scroll', onScrollCommit, true);
+    };
+
+    textarea.addEventListener('input', autoResize);
+
+    textarea.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter' && !evt.shiftKey) {
+            evt.preventDefault();
+            commit();
+            textarea.blur();
+            return;
+        }
+
+        if (evt.key === 'Enter' && evt.shiftKey) {
+            requestAnimationFrame(autoResize);
+        }
+    });
+
+    textarea.addEventListener('focus', attachCommitListeners);
+
+    textarea.addEventListener('blur', () => {
+        commit();
+        detachCommitListeners();
+    });
+
+    textarea._autoResize = autoResize;
+
+    td.appendChild(textarea);
+    autoResize();
     return td;
 }
 
