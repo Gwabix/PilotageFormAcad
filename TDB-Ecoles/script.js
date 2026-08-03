@@ -1224,7 +1224,7 @@ function buildAutreDechargeCell(record) {
         saveTimer = window.setTimeout(() => {
             saveTimer = null;
             commit();
-        }, 350);
+        }, 1000);
     };
 
     const onOutsidePointerDown = (evt) => {
