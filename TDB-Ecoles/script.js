@@ -1196,8 +1196,14 @@ function buildAutreDechargeCell(record) {
     };
 
     let savedValue = sanitizeMultilineText(record.Preciser || '');
+    let saveTimer = null;
 
     const commit = () => {
+        if (saveTimer !== null) {
+            clearTimeout(saveTimer);
+            saveTimer = null;
+        }
+
         const nextValue = sanitizeMultilineText(textarea.value);
         textarea.value = nextValue;
         autoResize();
@@ -1208,6 +1214,17 @@ function buildAutreDechargeCell(record) {
             record.Preciser = nextValue;
             savedValue = nextValue;
         });
+    };
+
+    const scheduleCommit = () => {
+        if (saveTimer !== null) {
+            clearTimeout(saveTimer);
+        }
+
+        saveTimer = window.setTimeout(() => {
+            saveTimer = null;
+            commit();
+        }, 350);
     };
 
     const onOutsidePointerDown = (evt) => {
@@ -1231,7 +1248,10 @@ function buildAutreDechargeCell(record) {
         window.removeEventListener('scroll', onScrollCommit, true);
     };
 
-    textarea.addEventListener('input', autoResize);
+    textarea.addEventListener('input', () => {
+        autoResize();
+        scheduleCommit();
+    });
 
     textarea.addEventListener('keydown', (evt) => {
         if (evt.key === 'Enter' && !evt.shiftKey) {
