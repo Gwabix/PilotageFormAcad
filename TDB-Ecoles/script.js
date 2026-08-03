@@ -1072,6 +1072,8 @@ function buildDechargeSelectCell(record, field, options) {
         const box = select.getBoundingClientRect();
         const vw = window.innerWidth;
         const vh = window.innerHeight;
+        const maxWidth = Math.max(60, vw - (2 * MARGIN));
+        const effectiveWidth = Math.min(Math.max(box.width, anchor.width), maxWidth);
 
         const spaceBelow = vh - anchor.bottom - MARGIN;
         const spaceAbove = anchor.top - MARGIN;
@@ -1086,7 +1088,7 @@ function buildDechargeSelectCell(record, field, options) {
         }
 
         let left = anchor.left;
-        if (left + box.width > vw - MARGIN) left = vw - MARGIN - box.width;
+        if (left + effectiveWidth > vw - MARGIN) left = vw - MARGIN - effectiveWidth;
         if (left < MARGIN) left = MARGIN;
 
         select.style.top = Math.round(top) + 'px';
@@ -1095,8 +1097,9 @@ function buildDechargeSelectCell(record, field, options) {
 
         if (closeButton) {
             const buttonSize = 18;
+            const placedBox = select.getBoundingClientRect();
             closeButton.style.top = Math.round(top - 8) + 'px';
-            closeButton.style.left = Math.round(left + box.width - 8) + 'px';
+            closeButton.style.left = Math.round(placedBox.right - buttonSize - 4) + 'px';
         }
     };
 
