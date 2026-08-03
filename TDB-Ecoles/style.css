@@ -635,7 +635,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     width: 18px;
     height: 18px;
     border: 1px solid #c7ccd4;
-    border-radius: 4px;
+    border-radius: 50%;
     background: #e5e7eb;
     color: #6b7280;
     padding: 0;
