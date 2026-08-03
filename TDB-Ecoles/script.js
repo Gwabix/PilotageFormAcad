@@ -816,11 +816,11 @@ function bindChangeSchoolTooltip(button, personnel) {
     const identity = getPersonnelIdentity(personnel) || 'cet enseignant';
 
     button.removeAttribute('title');
-    button.setAttribute('aria-label', 'Modifier l\'établissement de rattachement de ' + identity);
+    button.setAttribute('aria-label', 'Modifier l\'établissement de rattachement de ' + identity + '.');
 
     const show = () => {
         const identityEl = tooltip.querySelector('.tooltip-identity');
-        identityEl.textContent = identity + '.';
+        identityEl.textContent = identity;
 
         tooltip.classList.add('visible');
         positionChangeSchoolTooltip(button, tooltip);

@@ -694,8 +694,9 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     visibility: hidden;
     transform: translateY(2px);
     transition: opacity 0.08s ease, transform 0.08s ease, visibility 0s linear 0.08s;
-    background: #1f2937;
-    color: #fff;
+    background: #d6eaf8;
+    color: #1858a8;
+    border: 1px solid #1a5fb44f;
     border-radius: 6px;
     padding: 8px 10px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
