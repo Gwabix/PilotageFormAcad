@@ -1017,6 +1017,7 @@ function buildDechargeSelectCell(record, field, options) {
     const select = document.createElement('select');
     select.multiple = true;
     select.className = 'decharge-multiselect';
+    let closeButton = null;
 
     const currentValues = parseNiveaux(record[field]);
 
@@ -1091,6 +1092,12 @@ function buildDechargeSelectCell(record, field, options) {
         select.style.top = Math.round(top) + 'px';
         select.style.left = Math.round(left) + 'px';
         select.style.minWidth = Math.round(anchor.width) + 'px';
+
+        if (closeButton) {
+            const buttonSize = 18;
+            closeButton.style.top = Math.round(top + 4) + 'px';
+            closeButton.style.left = Math.round(left + box.width - buttonSize - 4) + 'px';
+        }
     };
 
     const collapse = () => {
@@ -1101,6 +1108,10 @@ function buildDechargeSelectCell(record, field, options) {
         select.style.maxHeight = '';
         select.style.minWidth = '';
         select.size = collapsedSize();
+
+        if (closeButton) {
+            closeButton.classList.remove('visible');
+        }
     };
 
     select._reset = () => {
@@ -1113,6 +1124,10 @@ function buildDechargeSelectCell(record, field, options) {
         select.size = expandedSize();
         select.classList.add('expanded');
         positionExpanded();
+
+        if (closeButton) {
+            closeButton.classList.add('visible');
+        }
     };
 
     select.size = collapsedSize();
@@ -1166,6 +1181,19 @@ function buildDechargeSelectCell(record, field, options) {
 
     td.appendChild(select);
 
+    closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'decharge-close-btn';
+    closeButton.setAttribute('aria-label', 'Fermer la liste de décharges');
+    closeButton.textContent = '×';
+    closeButton.addEventListener('mousedown', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        collapse();
+        select.blur();
+    });
+    td.appendChild(closeButton);
+
     select._collapse = collapse;
 
     return td;
@@ -1198,13 +1226,14 @@ function buildAutreDechargeCell(record) {
     let savedValue = sanitizeMultilineText(record.Preciser || '');
     let saveTimer = null;
 
-    const commit = () => {
+    const commit = (trimTrailingSpaces = true) => {
         if (saveTimer !== null) {
             clearTimeout(saveTimer);
             saveTimer = null;
         }
 
-        const nextValue = sanitizeMultilineText(textarea.value);
+        const rawValue = sanitizeMultilineText(textarea.value);
+        const nextValue = trimTrailingSpaces ? rawValue.trimEnd() : rawValue;
         textarea.value = nextValue;
         autoResize();
 
@@ -1223,7 +1252,7 @@ function buildAutreDechargeCell(record) {
 
         saveTimer = window.setTimeout(() => {
             saveTimer = null;
-            commit();
+            commit(false);
         }, 1000);
     };
 

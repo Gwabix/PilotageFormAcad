@@ -629,6 +629,38 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     width: auto;
 }
 
+.decharge-close-btn {
+    position: fixed;
+    z-index: 120;
+    width: 18px;
+    height: 18px;
+    border: 1px solid #c7ccd4;
+    border-radius: 4px;
+    background: #e5e7eb;
+    color: #6b7280;
+    padding: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.decharge-close-btn.visible {
+    display: inline-flex;
+}
+
+.decharge-close-btn:hover,
+.decharge-close-btn:focus-visible {
+    background: #1f2937;
+    color: #fff;
+    border-color: #1f2937;
+    outline: none;
+}
+
 .preciser-input {
     width: 100%;
     min-width: 0;
