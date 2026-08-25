@@ -174,16 +174,7 @@ function scrollToMatrix() {
         const activeTab = document.querySelector('.tab-content.active');
         if (activeTab) {
             // Chercher la matrice globale (celle qui n'est pas dans une section-content)
-            const matrices = activeTab.querySelectorAll('.matrix-container');
-            let matrixContainer = null;
-
-            // Trouver la première matrice qui n'est PAS dans une .section-content
-            for (let matrix of matrices) {
-                if (!matrix.closest('.section-content')) {
-                    matrixContainer = matrix;
-                    break;
-                }
-            }
+            const matrixContainer = getGlobalMatrixContainer(activeTab);
 
             if (matrixContainer) {
                 // Calculer la hauteur de la profile-card sticky + une petite marge
@@ -205,6 +196,17 @@ function scrollToMatrix() {
 
 function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Trouve la matrice globale d'un onglet (celle qui n'est pas imbriquée dans une section-content)
+function getGlobalMatrixContainer(activeTab) {
+    const matrices = activeTab.querySelectorAll('.matrix-container');
+    for (let matrix of matrices) {
+        if (!matrix.closest('.section-content')) {
+            return matrix;
+        }
+    }
+    return null;
 }
 
 async function printPDF(targetClass) {
@@ -1540,7 +1542,13 @@ function attachSectionHeaderEvents(container) {
         const action = button.getAttribute('data-action');
 
         if (action === 'scrollToMatrix') {
-            button.addEventListener('click', scrollToMatrix);
+            button.addEventListener('click', function () {
+                if (button.dataset.mode === 'top') {
+                    scrollToTop();
+                } else {
+                    scrollToMatrix();
+                }
+            });
         } else if (action === 'exportCSV') {
             const type = button.getAttribute('data-type');
             button.addEventListener('click', function () {
@@ -1682,6 +1690,19 @@ window.addEventListener('scroll', function () {
             card.classList.remove('sticky-compact');
         }
     });
+
+    // Basculer le bouton "Matrice" en "Haut de page" une fois la matrice globale atteinte
+    const activeTab = document.querySelector('.tab-content.active');
+    const matrixContainer = activeTab ? getGlobalMatrixContainer(activeTab) : null;
+    if (matrixContainer) {
+        const profileCard = activeTab.querySelector('.profile-card');
+        const offset = profileCard ? profileCard.offsetHeight + 20 : 100;
+        const isPastMatrix = matrixContainer.getBoundingClientRect().top <= offset;
+        activeTab.querySelectorAll('.btn-matrix').forEach(btn => {
+            btn.textContent = isPastMatrix ? '→ Haut de page' : '→ Matrice thématique des formations';
+            btn.dataset.mode = isPastMatrix ? 'top' : 'matrix';
+        });
+    }
 });
 
 scrollTopBtn.addEventListener('click', scrollToTop);

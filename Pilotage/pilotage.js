@@ -2514,6 +2514,19 @@ window.addEventListener('scroll', function () {
             card.classList.remove('sticky-compact');
         }
     });
+
+    // Basculer le bouton "Matrice" en "Haut de page" une fois la matrice atteinte
+    const activeTab = document.querySelector('.tab-content.active');
+    const matrixContainer = activeTab ? activeTab.querySelector('.matrix-container') : null;
+    if (matrixContainer) {
+        const profileCard = activeTab.querySelector('.profile-card');
+        const offset = profileCard ? profileCard.offsetHeight + 20 : 100;
+        const isPastMatrix = matrixContainer.getBoundingClientRect().top <= offset;
+        activeTab.querySelectorAll('.btn-matrix').forEach(btn => {
+            btn.textContent = isPastMatrix ? '→ Haut de page' : '→ Matrice thématique des formations';
+            btn.dataset.mode = isPastMatrix ? 'top' : 'matrix';
+        });
+    }
 });
 
 scrollTopBtn.addEventListener('click', scrollToTop);
