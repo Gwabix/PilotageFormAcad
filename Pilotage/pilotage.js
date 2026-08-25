@@ -289,6 +289,8 @@ async function printPDF(targetClass) {
             const profileClone = profileCard.cloneNode(true);
             profileClone.classList.remove('sticky-compact');
             profileClone.style.cssText = 'position: static; margin-bottom: 20px; box-shadow: none; padding: 20px;';
+            const matrixBtnClone = profileClone.querySelector('.btn-matrix');
+            if (matrixBtnClone) matrixBtnClone.remove();
             pdfContainer.appendChild(profileClone);
         }
 
@@ -551,9 +553,6 @@ function selectEnseignant(ensId) {
 
     let html = `
         <div class="export-buttons">
-            <div class="left-buttons">
-                <button class="btn btn-matrix" data-action="scroll-to-matrix">→ Matrice thématique des formations</button>
-            </div>
             <div class="right-buttons">
                 <button class="btn btn-export" data-action="export-csv" data-type="enseignant">Exporter CSV</button>
                 <button class="btn btn-print" data-action="print">Imprimer</button>
@@ -569,12 +568,15 @@ function selectEnseignant(ensId) {
 
         html += `
             <div class="profile-card">
-                <h2 class="profile-title">
-                    ${enseignant.civilite ? escapeHtml(enseignant.civilite) + ' ' : ''}${escapeHtml(enseignant.prenom)} ${escapeHtml(enseignant.nom)}
-                </h2>
-                <div class="profile-text-secondary">
-                    <strong>École :</strong> ${escapeHtml(ecoleNom)}
+                <div class="profile-card-info">
+                    <h2 class="profile-title">
+                        ${enseignant.civilite ? escapeHtml(enseignant.civilite) + ' ' : ''}${escapeHtml(enseignant.prenom)} ${escapeHtml(enseignant.nom)}
+                    </h2>
+                    <div class="profile-text-secondary">
+                        <strong>École :</strong> ${escapeHtml(ecoleNom)}
+                    </div>
                 </div>
+                <button class="btn btn-matrix" data-action="scroll-to-matrix">→ Matrice thématique des formations</button>
             </div>
         `;
 
@@ -1901,9 +1903,6 @@ function selectEcole(ecoleId) {
 
     let html = `
         <div class="export-buttons">
-            <div class="left-buttons">
-                <button class="btn btn-matrix" data-action="scroll-to-matrix">→ Matrice thématique des formations</button>
-            </div>
             <div class="right-buttons">
                 <button class="btn btn-export" data-action="export-csv" data-type="ecole">Exporter CSV</button>
                 <button class="btn btn-print" data-action="print">Imprimer</button>
@@ -1913,11 +1912,14 @@ function selectEcole(ecoleId) {
 
     html += `
         <div class="profile-card">
-            <h2 class="profile-title">${escapeHtml(ecole.nom_complement_commune)}</h2>
-            <div class="profile-text-secondary">
-                <strong>UAI :</strong> ${escapeHtml(ecole.uai || 'Non renseigné')} | 
-                <strong>Circonscription :</strong> ${escapeHtml(ecole.circonscription || 'Non renseignée')}
+            <div class="profile-card-info">
+                <h2 class="profile-title">${escapeHtml(ecole.nom_complement_commune)}</h2>
+                <div class="profile-text-secondary">
+                    <strong>UAI :</strong> ${escapeHtml(ecole.uai || 'Non renseigné')} | 
+                    <strong>Circonscription :</strong> ${escapeHtml(ecole.circonscription || 'Non renseignée')}
+                </div>
             </div>
+            <button class="btn btn-matrix" data-action="scroll-to-matrix">→ Matrice thématique des formations</button>
         </div>
     `;
 
@@ -2106,9 +2108,6 @@ function selectCirconscription(circonscription) {
 
     let html = `
         <div class="export-buttons">
-            <div class="left-buttons">
-                <button class="btn btn-matrix" data-action="scroll-to-matrix">→ Matrice thématique des formations</button>
-            </div>
             <div class="right-buttons">
                 <button class="btn btn-export" data-action="export-csv" data-type="circonscription">Exporter CSV</button>
                 <button class="btn btn-print" data-action="print">Imprimer</button>
@@ -2118,10 +2117,13 @@ function selectCirconscription(circonscription) {
 
     html += `
         <div class="profile-card">
-            <h2 class="profile-title">Circonscription : ${escapeHtml(circonscription)}</h2>
-            <div class="profile-text-secondary">
-                <strong>Nombre d'écoles :</strong> ${ecolesCirco.length}
+            <div class="profile-card-info">
+                <h2 class="profile-title">Circonscription : ${escapeHtml(circonscription)}</h2>
+                <div class="profile-text-secondary">
+                    <strong>Nombre d'écoles :</strong> ${ecolesCirco.length}
+                </div>
             </div>
+            <button class="btn btn-matrix" data-action="scroll-to-matrix">→ Matrice thématique des formations</button>
         </div>
     `;
 
