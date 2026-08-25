@@ -237,6 +237,8 @@ async function printPDF(targetClass) {
             const profileClone = profileCard.cloneNode(true);
             profileClone.classList.remove('sticky-compact');
             profileClone.style.cssText = 'position: static; margin-bottom: 20px; box-shadow: none; padding: 20px;';
+            const matrixBtnClone = profileClone.querySelector('.btn-matrix');
+            if (matrixBtnClone) matrixBtnClone.remove();
             pdfContainer.appendChild(profileClone);
         }
 
@@ -474,9 +476,6 @@ function selectDepartement(departement) {
 
     let html = `
         <div class="export-buttons">
-            <div class="left-buttons">
-                <button class="btn btn-matrix" data-action="scrollToMatrix">→ Matrice thématique des formations</button>
-            </div>
             <div class="right-buttons">
                 <button class="btn btn-export" data-action="exportCSV" data-type="departement">Exporter CSV</button>
                 <button class="btn btn-print" data-action="print">Imprimer</button>
@@ -486,10 +485,13 @@ function selectDepartement(departement) {
 
     html += `
         <div class="profile-card">
-            <h2 class="profile-title">Département : ${escapeHtml(departement)}</h2>
-            <div class="profile-text-secondary">
-                <strong>Nombre de circonscriptions :</strong> ${circonscriptionsDept.length}
+            <div class="profile-card-info">
+                <h2 class="profile-title">Département : ${escapeHtml(departement)}</h2>
+                <div class="profile-text-secondary">
+                    <strong>Nombre de circonscriptions :</strong> ${circonscriptionsDept.length}
+                </div>
             </div>
+            <button class="btn btn-matrix" data-action="scrollToMatrix">→ Matrice thématique des formations</button>
         </div>
     `;
 
@@ -539,9 +541,6 @@ function displayAcademie() {
 
     let html = `
         <div class="export-buttons">
-            <div class="left-buttons">
-                <button class="btn btn-matrix" data-action="scrollToMatrix">→ Matrice thématique des formations</button>
-            </div>
             <div class="right-buttons">
                 <button class="btn btn-export" data-action="exportCSV" data-type="academie">Exporter CSV</button>
                 <button class="btn btn-print" data-action="print">Imprimer</button>
@@ -551,10 +550,13 @@ function displayAcademie() {
 
     html += `
         <div class="profile-card">
-            <h2 class="profile-title">Vue Académie</h2>
-            <div class="profile-text-secondary">
-                <strong>Nombre de départements :</strong> ${departements.length}
+            <div class="profile-card-info">
+                <h2 class="profile-title">Vue Académie</h2>
+                <div class="profile-text-secondary">
+                    <strong>Nombre de départements :</strong> ${departements.length}
+                </div>
             </div>
+            <button class="btn btn-matrix" data-action="scrollToMatrix">→ Matrice thématique des formations</button>
         </div>
     `;
 

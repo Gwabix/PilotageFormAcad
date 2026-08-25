@@ -2382,7 +2382,7 @@ function exportToCSV(type) {
         const ecolesCirco = ecolesData
             .filter(e => e.circonscription === circonscription)
             .filter(ecoleHasEnseignant);
-        
+
         ecolesCirco.forEach(ecole => {
             const formations = tableauBordData.filter(tb => isSameEcoleRef(getRecordEcoleRef(tb), ecole));
 
