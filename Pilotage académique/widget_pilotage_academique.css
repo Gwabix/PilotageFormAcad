@@ -939,11 +939,44 @@ body {
     background-color: #29036c;
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-    align-items: start;
 }
 
 #scrollTopBtn:active {
     transform: scale(0.95);
+}
+
+/* Fenêtre fixe qui masque le défilement continu de la flèche au survol */
+#scrollTopBtn .arrow-viewport {
+    display: block;
+    width: 24px;
+    height: 24px;
+    overflow: hidden;
+}
+
+#scrollTopBtn .arrow-track {
+    display: flex;
+    flex-direction: column;
+}
+
+#scrollTopBtn .arrow-track span {
+    display: block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+}
+
+#scrollTopBtn:hover .arrow-track {
+    animation: scrollArrowLoop 0.6s linear infinite;
+}
+
+@keyframes scrollArrowLoop {
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(-24px);
+    }
 }
 
 @media print {
