@@ -55,6 +55,149 @@ let filteredEditFormateurResults = [];
 
 const NIVEAUX_POSSIBLES = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
 
+// ===== SCHÉMA DES CHOIX ÉCRITS PAR LE WIDGET =====
+// Source UNIQUE de vérité pour :
+//   1. la génération des cases à cocher / boutons radio / listes déroulantes
+//      des onglets « Créer » et « Modifier » (via renderChoiceOptions / renderChoiceSelectOptions) ;
+//   2. l'audit au chargement (auditWidgetChoices) qui compare ces choix à ceux
+//      réellement définis sur les colonnes de la table Formations.
+// Pour ajouter / renommer / retirer un choix : le faire ICI uniquement.
+// Périmètre volontairement limité à la table « Formations ».
+const WIDGET_CHOICE_TABLE = 'Formations';
+const WIDGET_CHOICE_SCHEMA = {
+    Annee: {
+        gristType: 'Choice',
+        choices: ['2026-2027', '2027-2028', '2028-2029', '2029-2030']
+    },
+    Modalite_de_constitution_du_groupe: {
+        gristType: 'ChoiceList',
+        choices: ['de secteur', "d'école", 'de niveau', 'de cycles', 'intercycles']
+    },
+    Type_de_formation: {
+        gristType: 'Choice',
+        choices: ['Constellation', 'Résidence pédagogique', 'Animations pédagogiques', 'Accompagnement de proximité']
+    },
+    Modalites_de_formation: {
+        gristType: 'ChoiceList',
+        choices: ['Présentiel', 'Distanciel synchrone', 'Distanciel asynchrone', 'Hybride']
+    },
+    Objets_transversaux_traites_en_parallele: {
+        gristType: 'ChoiceList',
+        choices: [
+            'Fonctions cognitives transversales',
+            'Compétences psycho-sociales',
+            'Besoins et développement',
+            'Métacognition',
+            "Modalités d'apprentissage",
+            'Observation active'
+        ]
+    },
+    Theme_s_traite_s_en_formation: {
+        gristType: 'ChoiceList',
+        choices: [
+            'FRA - Lecture',
+            'FRA - Vocabulaire',
+            'FRA - Langage Oral',
+            "FRA - S'éveiller à la diversité linguistique",
+            'FRA - Écriture',
+            'FRA - Grammaire et orthographe',
+            'MA - Algèbre et pré-algèbre (motifs organisés)',
+            'MA - Calcul',
+            'MA - Espace et géométrie',
+            'MA - Faits numériques / automatisation',
+            'MA - Grandeurs et mesures',
+            'MA - Nombres',
+            'MA - Organisation et gestion des données',
+            'MA - Résolution de problèmes',
+            'MA - Probabilités',
+            'MA - Proportionnalité',
+            'AUTRE - Harcèlement/pHARe',
+            'AUTRE - Laïcité/Valeurs de la République',
+            'AUTRE - Compétences psychosociales (CPS)',
+            "AUTRE - Accompagnement Projet d'école/Évaluation d'école",
+            'AUTRE - Autre'
+        ]
+    }
+};
+
+/**
+ * Génère le HTML d'un groupe de cases à cocher / boutons radio depuis WIDGET_CHOICE_SCHEMA.
+ * Les libellés (constantes du schéma) sont échappés par sécurité.
+ * @param {string} columnId - Clé de WIDGET_CHOICE_SCHEMA
+ * @param {Object} [opt]
+ * @param {'checkbox'|'radio'} [opt.inputType='checkbox']
+ * @param {string} [opt.name] - Attribut name
+ * @param {string} [opt.className] - Classe CSS sur l'input
+ * @param {string[]} [opt.selected] - Valeurs à cocher
+ * @returns {string} HTML sécurisé
+ */
+function renderChoiceOptions(columnId, opt = {}) {
+    const schema = WIDGET_CHOICE_SCHEMA[columnId];
+    if (!schema) return '';
+    const inputType = opt.inputType === 'radio' ? 'radio' : 'checkbox';
+    const selectedSet = new Set(Array.isArray(opt.selected) ? opt.selected : []);
+    return schema.choices.map(choice => {
+        const attrs = [
+            `type="${inputType}"`,
+            opt.className ? `class="${escapeHtmlAttribute(opt.className)}"` : '',
+            opt.name ? `name="${escapeHtmlAttribute(opt.name)}"` : '',
+            `value="${escapeHtmlAttribute(choice)}"`,
+            selectedSet.has(choice) ? 'checked' : ''
+        ].filter(Boolean).join(' ');
+        return `<label><input ${attrs}> ${escapeHtml(choice)}</label>`;
+    }).join('');
+}
+
+/**
+ * Génère les <option> d'une liste déroulante Choice depuis WIDGET_CHOICE_SCHEMA.
+ * @param {string} columnId
+ * @param {Object} [opt]
+ * @param {string} [opt.placeholder] - Libellé d'une option vide en tête de liste
+ * @param {string} [opt.selected] - Valeur sélectionnée
+ * @returns {string} HTML sécurisé
+ */
+function renderChoiceSelectOptions(columnId, opt = {}) {
+    const schema = WIDGET_CHOICE_SCHEMA[columnId];
+    if (!schema) return '';
+    const head = opt.placeholder
+        ? `<option value="">${escapeHtml(opt.placeholder)}</option>`
+        : '';
+    return head + schema.choices.map(choice =>
+        `<option value="${escapeHtmlAttribute(choice)}"${opt.selected === choice ? ' selected' : ''}>${escapeHtml(choice)}</option>`
+    ).join('');
+}
+
+/**
+ * Remplit les groupes de choix de l'onglet « Créer » depuis WIDGET_CHOICE_SCHEMA.
+ * Les conteneurs (id + classes) restent définis dans le HTML ; seul leur contenu est généré ici.
+ * À appeler AVANT l'attachement des écouteurs qui ciblent ces inputs.
+ */
+function populateCreateTabChoices() {
+    const anneeSelect = document.getElementById('anneeScolaire');
+    if (anneeSelect) {
+        const current = anneeSelect.value;
+        // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+        // SÉCURITÉ : libellés issus de WIDGET_CHOICE_SCHEMA (constantes), échappés par renderChoiceSelectOptions
+        anneeSelect.innerHTML = renderChoiceSelectOptions('Annee', { placeholder: '-- Choisissez une année --' });
+        if (current) anneeSelect.value = current;
+    }
+
+    const groups = [
+        ['modaliteConstitution', 'Modalite_de_constitution_du_groupe', {}],
+        ['typeFormation', 'Type_de_formation', { inputType: 'radio', name: 'typeFormation' }],
+        ['modalitesFormation', 'Modalites_de_formation', { name: 'modalitesFormation' }],
+        ['objetsTransversaux', 'Objets_transversaux_traites_en_parallele', {}],
+        ['themesFormation', 'Theme_s_traite_s_en_formation', {}]
+    ];
+    groups.forEach(([containerId, columnId, opt]) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+        // SÉCURITÉ : libellés issus de WIDGET_CHOICE_SCHEMA (constantes), échappés par renderChoiceOptions
+        container.innerHTML = renderChoiceOptions(columnId, opt);
+    });
+}
+
 // ===== FONCTIONS DE SÉCURITÉ =====
 
 /**
@@ -1531,7 +1674,7 @@ function filterThemes() {
             show = true;
         } else if (value.startsWith('MA') && mathematiques) {
             show = true;
-        } else if (value.startsWith('autre') && autres) {
+        } else if (value.startsWith('AUTRE') && autres) {
             show = true;
         }
 
@@ -1841,6 +1984,246 @@ function resetForm() {
     updateEcolesSelection();
 }
 
+// ===== AUDIT DES CHOIX DES COLONNES (au chargement) =====
+// Compare les choix Choice/ChoiceList de la table Formations avec WIDGET_CHOICE_SCHEMA.
+// En cas d'écart, et si l'utilisateur peut modifier la structure du document,
+// propose une popup de synchronisation.
+
+/**
+ * Lit, via l'API REST + jeton d'accès, la définition des colonnes ciblées.
+ * @returns {Promise<Object|null>} { [colId]: { choices, type, label, widgetOptions } }
+ */
+async function fetchFormationsColumnChoices() {
+    const colIds = Object.keys(WIDGET_CHOICE_SCHEMA);
+    try {
+        const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
+        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(WIDGET_CHOICE_TABLE)}/columns`
+            + `?auth=${encodeURIComponent(tokenInfo.token)}`;
+        const response = await fetch(url, { method: 'GET' });
+        if (!response.ok) throw new Error(`Statut HTTP ${response.status}`);
+
+        const data = await response.json();
+        const columns = Array.isArray(data && data.columns) ? data.columns : [];
+        const result = {};
+
+        for (const colId of colIds) {
+            const column = columns.find(c => c && c.id === colId);
+            const fields = column && column.fields ? column.fields : null;
+            if (!fields) continue;
+
+            let opts = {};
+            if (typeof fields.widgetOptions === 'string' && fields.widgetOptions.trim()) {
+                opts = parseJsonSafely(fields.widgetOptions, {}) || {};
+            } else if (fields.widgetOptions && typeof fields.widgetOptions === 'object') {
+                opts = fields.widgetOptions;
+            }
+
+            const choices = Array.isArray(opts.choices)
+                ? opts.choices.map(c => sanitizeGristData(c)).filter(c => typeof c === 'string' && c)
+                : [];
+
+            result[colId] = {
+                choices: [...new Set(choices)],
+                type: sanitizeGristData(fields.type) || '',
+                label: sanitizeGristData(fields.label) || colId,
+                widgetOptions: (opts && typeof opts === 'object') ? opts : {}
+            };
+        }
+        return result;
+    } catch (err) {
+        console.info('Audit des choix : lecture des colonnes impossible —', err?.message || err);
+        return null;
+    }
+}
+
+/**
+ * Teste si l'utilisateur courant peut modifier la structure du document.
+ * Sonde : ModifyColumn sans effet (réécriture du libellé identique d'une colonne).
+ * @param {Object} currentCols - Résultat de fetchFormationsColumnChoices()
+ * @returns {Promise<boolean>}
+ */
+async function canModifyDocStructure(currentCols) {
+    const probeColId = Object.keys(currentCols || {})[0];
+    if (!probeColId) return false;
+    try {
+        await grist.docApi.applyUserActions([
+            ['ModifyColumn', WIDGET_CHOICE_TABLE, probeColId, { label: currentCols[probeColId].label }]
+        ]);
+        return true;
+    } catch (err) {
+        const msg = err?.message || String(err);
+        if (!(msg.includes('ACL_DENY') || msg.includes('access') || msg.includes('permission') || msg.includes('structure'))) {
+            console.info('Audit des choix : sonde de structure non concluante —', msg);
+        }
+        return false;
+    }
+}
+
+/**
+ * Écart entre choix attendus (widget) et choix réels (colonne).
+ * @returns {{missingInColumn: string[], missingInWidget: string[]}}
+ */
+function computeChoiceDiff(expected, actual) {
+    const actualSet = new Set(actual);
+    const expectedSet = new Set(expected);
+    return {
+        missingInColumn: expected.filter(c => !actualSet.has(c)),
+        missingInWidget: actual.filter(c => !expectedSet.has(c))
+    };
+}
+
+/**
+ * Popup d'audit. Résout avec une Map colId -> liste finale de choix, ou null si annulé.
+ * @param {Array<{colId, label, diff, actualChoices}>} auditRows
+ */
+function showChoiceAuditModal(auditRows) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'formateur-modal-overlay';
+
+        const content = document.createElement('div');
+        content.className = 'formateur-modal-content choice-audit-modal';
+
+        const sections = auditRows.map((row, rowIdx) => {
+            const colId = escapeHtml(row.colId);
+            const addItems = row.diff.missingInColumn.map((choice, i) =>
+                `<label class="choice-audit-item"><input type="checkbox" data-row="${rowIdx}" data-kind="add" data-choice-idx="${i}" checked> ${escapeHtml(choice)}</label>`
+            ).join('');
+            const keepItems = row.diff.missingInWidget.map((choice, i) =>
+                `<label class="choice-audit-item"><input type="checkbox" data-row="${rowIdx}" data-kind="keep" data-choice-idx="${i}"> ${escapeHtml(choice)}</label>`
+            ).join('');
+            return `
+                <div class="choice-audit-section">
+                    <h4>${escapeHtml(row.label)} <span class="choice-audit-colid">[${colId}]</span></h4>
+                    ${row.diff.missingInColumn.length ? `
+                        <p class="choice-audit-legend">Choix prévus par le widget et absents de la colonne <strong>[${colId}]</strong> → cocher ceux à ajouter :</p>
+                        <div class="choice-audit-list">${addItems}</div>` : ''}
+                    ${row.diff.missingInWidget.length ? `
+                        <p class="choice-audit-legend">Choix présents dans la colonne <strong>[${colId}]</strong> et absents du widget → cocher ceux à conserver :</p>
+                        <div class="choice-audit-list">${keepItems}</div>` : ''}
+                </div>`;
+        }).join('');
+
+        // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+        // SÉCURITÉ : colId + libellés proviennent de Grist, passés par sanitizeGristData() puis escapeHtml()
+        content.innerHTML = `
+            <h3 class="formateur-modal-header">Synchronisation des choix de colonnes</h3>
+            <p class="formateur-modal-intro">Des écarts ont été détectés entre les choix définis dans Grist et ceux attendus par le widget.</p>
+            ${sections}
+            <div class="formateur-modal-actions">
+                <button class="formateur-modal-btn-create" data-action="apply">Appliquer</button>
+                <button class="formateur-modal-btn-cancel" data-action="cancel">Annuler</button>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        const close = (value) => {
+            document.body.removeChild(modal);
+            resolve(value);
+        };
+
+        content.addEventListener('click', (event) => {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+            const action = btn.getAttribute('data-action');
+            if (action === 'cancel') { close(null); return; }
+            if (action !== 'apply') return;
+
+            const updates = new Map();
+            auditRows.forEach((row, rowIdx) => {
+                const keptFromColumn = row.diff.missingInWidget.filter((_, i) =>
+                    content.querySelector(`input[data-row="${rowIdx}"][data-kind="keep"][data-choice-idx="${i}"]`)?.checked
+                );
+                const addedFromWidget = row.diff.missingInColumn.filter((_, i) =>
+                    content.querySelector(`input[data-row="${rowIdx}"][data-kind="add"][data-choice-idx="${i}"]`)?.checked
+                );
+                // Ordre : choix du schéma widget déjà présents ou nouvellement ajoutés, puis choix conservés de la colonne.
+                const schemaChoices = WIDGET_CHOICE_SCHEMA[row.colId].choices;
+                const commonAndAdded = schemaChoices.filter(c =>
+                    row.actualChoices.includes(c) || addedFromWidget.includes(c)
+                );
+                updates.set(row.colId, [...commonAndAdded, ...keptFromColumn]);
+            });
+            close(updates);
+        });
+    });
+}
+
+/**
+ * Applique les nouvelles listes de choix via ModifyColumn (une seule transaction).
+ * Préserve le reste des widgetOptions et les couleurs (choiceOptions) des choix conservés.
+ * @returns {Promise<number>} nombre de colonnes effectivement modifiées
+ */
+async function applyChoiceUpdates(updates, currentCols) {
+    const actions = [];
+    updates.forEach((finalChoices, colId) => {
+        const info = currentCols[colId];
+        if (!info) return;
+        const current = info.choices;
+        const unchanged = finalChoices.length === current.length
+            && finalChoices.every((c, i) => c === current[i]);
+        if (unchanged) return;
+
+        const newOpts = { ...info.widgetOptions, choices: finalChoices };
+        if (newOpts.choiceOptions && typeof newOpts.choiceOptions === 'object') {
+            const keep = new Set(finalChoices);
+            const filtered = {};
+            Object.keys(newOpts.choiceOptions).forEach(k => {
+                if (keep.has(k)) filtered[k] = newOpts.choiceOptions[k];
+            });
+            newOpts.choiceOptions = filtered;
+        }
+        actions.push(['ModifyColumn', WIDGET_CHOICE_TABLE, colId, { widgetOptions: JSON.stringify(newOpts) }]);
+    });
+
+    if (actions.length === 0) return 0;
+    await grist.docApi.applyUserActions(actions);
+    return actions.length;
+}
+
+/**
+ * Point d'entrée : audit des choix au chargement du widget.
+ */
+async function auditWidgetChoices() {
+    const currentCols = await fetchFormationsColumnChoices();
+    if (!currentCols || Object.keys(currentCols).length === 0) return;
+
+    const auditRows = [];
+    for (const colId of Object.keys(WIDGET_CHOICE_SCHEMA)) {
+        const info = currentCols[colId];
+        if (!info) continue;
+        if (info.type !== 'Choice' && info.type !== 'ChoiceList') {
+            console.info(`Audit des choix : ${colId} n'est pas de type Choice/ChoiceList (${info.type || 'inconnu'}) — ignorée.`);
+            continue;
+        }
+        const diff = computeChoiceDiff(WIDGET_CHOICE_SCHEMA[colId].choices, info.choices);
+        if (diff.missingInColumn.length === 0 && diff.missingInWidget.length === 0) continue;
+        auditRows.push({ colId, label: info.label, diff, actualChoices: info.choices });
+    }
+    if (auditRows.length === 0) return;
+
+    const allowed = await canModifyDocStructure(currentCols);
+    if (!allowed) {
+        console.info('Audit des choix : écarts détectés mais structure non modifiable par cet utilisateur — audit silencieux.');
+        return;
+    }
+
+    const updates = await showChoiceAuditModal(auditRows);
+    if (!updates) return;
+
+    try {
+        const n = await applyChoiceUpdates(updates, currentCols);
+        if (n > 0) {
+            alert(`✓ ${n} colonne(s) mise(s) à jour dans Grist.`);
+        }
+    } catch (err) {
+        console.error('Audit des choix : échec de l\'application —', err);
+        alert('La mise à jour des choix a échoué. Consultez la console pour plus de détails.');
+    }
+}
+
 document.addEventListener('click', function (event) {
     const searchResults = document.getElementById('searchResults');
     const searchInput = document.getElementById('searchEcole');
@@ -1861,6 +2244,10 @@ document.addEventListener('click', function (event) {
     }
 });
 
+// Générer les groupes de choix de l'onglet « Créer » depuis WIDGET_CHOICE_SCHEMA
+// (doit précéder l'attachement des écouteurs ci-dessous)
+populateCreateTabChoices();
+
 // Ajouter les écouteurs pour les radios de type de formation
 document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
     radio.addEventListener('change', updateDureeFormation);
@@ -1878,6 +2265,9 @@ loadData().then(() => syncFormateursFromPersonnes());
 filterThemes();
 addFormateurField();
 preremplirAnneeScolaire();
+
+// Audit des choix des colonnes vs WIDGET_CHOICE_SCHEMA (silencieux si non applicable)
+auditWidgetChoices().catch(err => console.info('Audit des choix ignoré :', err?.message || err));
 
 // ===== GESTION DU BOUTON RETOUR EN HAUT =====
 
@@ -2423,21 +2813,14 @@ function displayEditForm(ficheRecords) {
             <div class="form-group">
                 <label>Modalité de constitution du groupe *</label>
                 <div class="checkbox-group">
-                    <label><input type="checkbox" class="edit-modalite" value="de secteur" ${(firstRecord.modaliteConstitution || []).includes('de secteur') ? 'checked' : ''}> de secteur</label>
-                    <label><input type="checkbox" class="edit-modalite" value="d'école" ${(firstRecord.modaliteConstitution || []).includes("d'école") ? 'checked' : ''}> d'école</label>
-                    <label><input type="checkbox" class="edit-modalite" value="de niveau" ${(firstRecord.modaliteConstitution || []).includes('de niveau') ? 'checked' : ''}> de niveau</label>
-                    <label><input type="checkbox" class="edit-modalite" value="de cycles" ${(firstRecord.modaliteConstitution || []).includes('de cycles') ? 'checked' : ''}> de cycles</label>
-                    <label><input type="checkbox" class="edit-modalite" value="intercycles" ${(firstRecord.modaliteConstitution || []).includes('intercycles') ? 'checked' : ''}> intercycles</label>
+                    ${renderChoiceOptions('Modalite_de_constitution_du_groupe', { className: 'edit-modalite', selected: firstRecord.modaliteConstitution || [] })}
                 </div>
             </div>
             
             <div class="form-group">
                 <label>Type de formation *</label>
                 <div class="radio-group">
-                    <label><input type="radio" name="editTypeFormation" value="Constellation" ${firstRecord.typeFormation === 'Constellation' ? 'checked' : ''}> Constellation</label>
-                    <label><input type="radio" name="editTypeFormation" value="Résidence pédagogique" ${firstRecord.typeFormation === 'Résidence pédagogique' ? 'checked' : ''}> Résidence pédagogique</label>
-                    <label><input type="radio" name="editTypeFormation" value="Animations pédagogiques" ${firstRecord.typeFormation === 'Animations pédagogiques' ? 'checked' : ''}> Animations pédagogiques</label>
-                    <label><input type="radio" name="editTypeFormation" value="Accompagnement de proximité" ${firstRecord.typeFormation === 'Accompagnement de proximité' ? 'checked' : ''}> Accompagnement de proximité</label>
+                    ${renderChoiceOptions('Type_de_formation', { inputType: 'radio', name: 'editTypeFormation', selected: [firstRecord.typeFormation] })}
                 </div>
             </div>
             
@@ -2455,49 +2838,21 @@ function displayEditForm(ficheRecords) {
             <div class="form-group">
                 <label>Modalités de formation *</label>
                 <div class="checkbox-group">
-                    <label><input type="checkbox" class="edit-Modalites" name="editModalites" value="Présentiel" ${(firstRecord.modalitesFormation || []).includes('Présentiel') ? 'checked' : ''}> Présentiel</label>
-                    <label><input type="checkbox" class="edit-Modalites" name="editModalites" value="Distanciel synchrone" ${(firstRecord.modalitesFormation || []).includes('Distanciel synchrone') ? 'checked' : ''}> Distanciel synchrone</label>
-                    <label><input type="checkbox" class="edit-Modalites" name="editModalites" value="Distanciel asynchrone" ${(firstRecord.modalitesFormation || []).includes('Distanciel asynchrone') ? 'checked' : ''}> Distanciel asynchrone</label>
-                    <label><input type="checkbox" class="edit-Modalites" name="editModalites" value="Hybride" ${(firstRecord.modalitesFormation || []).includes('Hybride') ? 'checked' : ''}> Hybride</label>
+                    ${renderChoiceOptions('Modalites_de_formation', { className: 'edit-Modalites', name: 'editModalites', selected: firstRecord.modalitesFormation || [] })}
                 </div>
             </div>
             
             <div class="form-group">
                 <label>Objets transversaux traités en parallèle *</label>
                 <div class="checkbox-group">
-                    <label><input type="checkbox" class="edit-objets" value="Fonctions cognitives transversales" ${(firstRecord.objetsTransversaux || []).includes('Fonctions cognitives transversales') ? 'checked' : ''}> Fonctions cognitives transversales</label>
-                    <label><input type="checkbox" class="edit-objets" value="Compétences psycho-sociales" ${(firstRecord.objetsTransversaux || []).includes('Compétences psycho-sociales') ? 'checked' : ''}> Compétences psycho-sociales</label>
-                    <label><input type="checkbox" class="edit-objets" value="Besoins et développement" ${(firstRecord.objetsTransversaux || []).includes('Besoins et développement') ? 'checked' : ''}> Besoins et développement</label>
-                    <label><input type="checkbox" class="edit-objets" value="Métacognition" ${(firstRecord.objetsTransversaux || []).includes('Métacognition') ? 'checked' : ''}> Métacognition</label>
-                    <label><input type="checkbox" class="edit-objets" value="Modalités d'apprentissage" ${(firstRecord.objetsTransversaux || []).includes("Modalités d'apprentissage") ? 'checked' : ''}> Modalités d'apprentissage</label>
-                    <label><input type="checkbox" class="edit-objets" value="Observation active" ${(firstRecord.objetsTransversaux || []).includes('Observation active') ? 'checked' : ''}> Observation active</label>
+                    ${renderChoiceOptions('Objets_transversaux_traites_en_parallele', { className: 'edit-objets', selected: firstRecord.objetsTransversaux || [] })}
                 </div>
             </div>
             
             <div class="form-group">
                 <label>Thème(s) traité(s) en formation *</label>
                 <div class="checkbox-group" id="editThemesFormation">
-                    <label><input type="checkbox" class="edit-themes" value="FRA - Lecture" ${(firstRecord.themes || []).includes('FRA - Lecture') ? 'checked' : ''}> FRA - Lecture</label>
-                    <label><input type="checkbox" class="edit-themes" value="FRA - Vocabulaire" ${(firstRecord.themes || []).includes('FRA - Vocabulaire') ? 'checked' : ''}> FRA - Vocabulaire</label>
-                    <label><input type="checkbox" class="edit-themes" value="FRA - Langage Oral" ${(firstRecord.themes || []).includes('FRA - Langage Oral') ? 'checked' : ''}> FRA - Langage Oral</label>
-                    <label><input type="checkbox" class="edit-themes" value="FRA - S'éveiller à la diversité linguistique" ${(firstRecord.themes || []).includes("FRA - S'éveiller à la diversité linguistique") ? 'checked' : ''}> FRA - S'éveiller à la diversité linguistique</label>
-                    <label><input type="checkbox" class="edit-themes" value="FRA - Écriture" ${(firstRecord.themes || []).includes('FRA - Écriture') ? 'checked' : ''}> FRA - Écriture</label>
-                    <label><input type="checkbox" class="edit-themes" value="FRA - Grammaire et orthographe" ${(firstRecord.themes || []).includes('FRA - Grammaire et orthographe') ? 'checked' : ''}> FRA - Grammaire et orthographe</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Algèbre et pré-algèbre (motifs organisés)" ${(firstRecord.themes || []).includes('MA - Algèbre et pré-algèbre (motifs organisés)') ? 'checked' : ''}> MA - Algèbre et pré-algèbre (motifs organisés)</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Calcul" ${(firstRecord.themes || []).includes('MA - Calcul') ? 'checked' : ''}> MA - Calcul</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Espace et géométrie" ${(firstRecord.themes || []).includes('MA - Espace et géométrie') ? 'checked' : ''}> MA - Espace et géométrie</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Faits numériques / automatisation" ${(firstRecord.themes || []).includes('MA - Faits numériques / automatisation') ? 'checked' : ''}> MA - Faits numériques / automatisation</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Grandeurs et mesures" ${(firstRecord.themes || []).includes('MA - Grandeurs et mesures') ? 'checked' : ''}> MA - Grandeurs et mesures</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Nombres" ${(firstRecord.themes || []).includes('MA - Nombres') ? 'checked' : ''}> MA - Nombres</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Organisation et gestion des données" ${(firstRecord.themes || []).includes('MA - Organisation et gestion des données') ? 'checked' : ''}> MA - Organisation et gestion des données</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Résolution de problèmes" ${(firstRecord.themes || []).includes('MA - Résolution de problèmes') ? 'checked' : ''}> MA - Résolution de problèmes</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Probabilités" ${(firstRecord.themes || []).includes('MA - Probabilités') ? 'checked' : ''}> MA - Probabilités</label>
-                    <label><input type="checkbox" class="edit-themes" value="MA - Proportionnalité" ${(firstRecord.themes || []).includes('MA - Proportionnalité') ? 'checked' : ''}> MA - Proportionnalité</label>
-                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Harcèlement/pHARe" ${(firstRecord.themes || []).includes('AUTRE - Harcèlement/pHARe') ? 'checked' : ''}> AUTRE - Harcèlement/pHARe</label>
-                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Laïcité/Valeurs de la République" ${(firstRecord.themes || []).includes('AUTRE - Laïcité/Valeurs de la République') ? 'checked' : ''}> AUTRE - Laïcité/Valeurs de la République</label>
-                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Compétences psychosociales (CPS)" ${(firstRecord.themes || []).includes('AUTRE - Compétences psychosociales (CPS)') ? 'checked' : ''}> AUTRE - Compétences psychosociales (CPS)</label>
-                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Accompagnement Projet d'école/Évaluation d'école" ${(firstRecord.themes || []).includes("AUTRE - Accompagnement Projet d'école/Évaluation d'école") ? 'checked' : ''}> AUTRE - Accompagnement Projet d'école/Évaluation d'école</label>
-                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Autre" ${(firstRecord.themes || []).includes('AUTRE - Autre') ? 'checked' : ''}> AUTRE - Autre</label>
+                    ${renderChoiceOptions('Theme_s_traite_s_en_formation', { className: 'edit-themes', selected: firstRecord.themes || [] })}
                 </div>
             </div>
             

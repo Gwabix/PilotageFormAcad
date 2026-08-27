@@ -1509,3 +1509,51 @@ textarea {
 .formateur-modal-btn-cancel:hover {
     background-color: #7f8c8d;
 }
+
+/* ===== Popup d'audit des choix de colonnes ===== */
+.choice-audit-modal {
+    max-width: 640px;
+}
+
+.choice-audit-section {
+    margin: 18px 0;
+    padding: 14px;
+    background: #f8f9fa;
+    border: 1px solid #e5e8eb;
+    border-radius: 6px;
+}
+
+.choice-audit-section h4 {
+    margin: 0 0 6px;
+    color: #2c3e50;
+    font-size: 15px;
+}
+
+.choice-audit-colid {
+    color: #7f8c8d;
+    font-weight: 400;
+    font-size: 13px;
+}
+
+.choice-audit-legend {
+    margin: 12px 0 6px;
+    font-size: 13px;
+    color: #34495e;
+}
+
+.choice-audit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.choice-audit-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #2c3e50;
+    cursor: pointer;
+}

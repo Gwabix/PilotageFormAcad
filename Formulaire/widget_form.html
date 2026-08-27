@@ -24,12 +24,9 @@
             <h2>Année scolaire</h2>
             <div class="form-group_small">
                 <label for="anneeScolaire" class="required">Sélectionnez l'année scolaire</label>
+                <!-- options générées par populateCreateTabChoices() depuis WIDGET_CHOICE_SCHEMA -->
                 <select id="anneeScolaire">
                     <option value="">-- Choisissez une année --</option>
-                    <option value="2026-2027">2026-2027</option>
-                    <option value="2027-2028">2027-2028</option>
-                    <option value="2028-2029">2028-2029</option>
-                    <option value="2029-2030">2029-2030</option>
                 </select>
                 <div class="error" id="anneeError">Veuillez sélectionner une année scolaire</div>
             </div>
@@ -70,26 +67,14 @@
             <h2>5. Paramètres de formation</h2>
             <div class="form-group">
                 <label for="modaliteConstitution" class="required">Modalité de constitution du groupe</label>
-                <div id="modaliteConstitution" class="checkbox-group">
-                    <label><input type="checkbox" value="de secteur"> de secteur</label>
-                    <label><input type="checkbox" value="d'école"> d'école</label>
-                    <label><input type="checkbox" value="de niveau"> de niveau</label>
-                    <label><input type="checkbox" value="de cycles"> de cycles</label>
-                    <label><input type="checkbox" value="intercycles"> intercycles</label>
-                </div>
+                <!-- contenu généré par populateCreateTabChoices() depuis WIDGET_CHOICE_SCHEMA -->
+                <div id="modaliteConstitution" class="checkbox-group"></div>
             </div>
 
             <div class="form-group">
                 <label for="typeFormation" class="required">Type de formation</label>
-                <div id="typeFormation" class="radio-group">
-                    <label><input type="radio" name="typeFormation" value="Constellation"> Constellation</label>
-                    <label><input type="radio" name="typeFormation" value="Résidence pédagogique"> Résidence
-                        pédagogique</label>
-                    <label><input type="radio" name="typeFormation" value="Animations pédagogiques"> Animations
-                        pédagogiques</label>
-                    <label><input type="radio" name="typeFormation" value="Accompagnement de proximité"> Accompagnement
-                        de proximité</label>
-                </div>
+                <!-- contenu généré par populateCreateTabChoices() depuis WIDGET_CHOICE_SCHEMA -->
+                <div id="typeFormation" class="radio-group"></div>
             </div>
 
             <div class="form-group">
@@ -107,28 +92,14 @@
 
             <div class="form-group">
                 <label for="modalitesFormation" class="required">Modalités de formation</label>
-                <div id="modalitesFormation" class="radio-group">
-                    <label><input type="checkbox" name="modalitesFormation" value="Présentiel"> Présentiel</label>
-                    <label><input type="checkbox" name="modalitesFormation" value="Distanciel synchrone"> Distanciel
-                        synchrone</label>
-                    <label><input type="checkbox" name="modalitesFormation" value="Distanciel asynchrone"> Distanciel
-                        asynchrone</label>
-                    <label><input type="checkbox" name="modalitesFormation" value="Hybride"> Hybride</label>
-                </div>
+                <!-- contenu généré par populateCreateTabChoices() depuis WIDGET_CHOICE_SCHEMA -->
+                <div id="modalitesFormation" class="radio-group"></div>
             </div>
 
             <div class="form-group">
                 <label for="objetsTransversaux" class="required">Objets transversaux traités en parallèle</label>
-                <div id="objetsTransversaux" class="checkbox-group">
-                    <label><input type="checkbox" value="Fonctions cognitives transversales"> Fonctions cognitives
-                        transversales</label>
-                    <label><input type="checkbox" value="Compétences psycho-sociales"> Compétences
-                        psycho-sociales</label>
-                    <label><input type="checkbox" value="Besoins et développement"> Besoins et développement</label>
-                    <label><input type="checkbox" value="Métacognition"> Métacognition</label>
-                    <label><input type="checkbox" value="Modalités d'apprentissage"> Modalités d'apprentissage</label>
-                    <label><input type="checkbox" value="Observation active"> Observation active</label>
-                </div>
+                <!-- contenu généré par populateCreateTabChoices() depuis WIDGET_CHOICE_SCHEMA -->
+                <div id="objetsTransversaux" class="checkbox-group"></div>
             </div>
 
             <div class="form-group">
@@ -139,35 +110,8 @@
                     <label><input type="checkbox" id="filterMathematiques" checked> Mathématiques</label>
                     <label><input type="checkbox" id="filterAutres" checked> Autres</label>
                 </div>
-                <div id="themesFormation" class="checkbox-group">
-                    <label><input type="checkbox" value="FRA - Lecture"> FRA - Lecture</label>
-                    <label><input type="checkbox" value="FRA - Vocabulaire"> FRA - Vocabulaire</label>
-                    <label><input type="checkbox" value="FRA - Langage Oral"> FRA - Langage Oral</label>
-                    <label><input type="checkbox" value="FRA - S'éveiller à la diversité linguistique"> FRA - S'éveiller
-                        à la diversité linguistique</label>
-                    <label><input type="checkbox" value="FRA - Écriture"> FRA - Écriture</label>
-                    <label><input type="checkbox" value="FRA - Grammaire et orthographe"> FRA - Grammaire et
-                        orthographe</label>
-                    <label><input type="checkbox" value="MA - Algèbre et pré-algèbre (motifs organisés)"> MA - Algèbre
-                        et pré-algèbre (motifs organisés)</label>
-                    <label><input type="checkbox" value="MA - Calcul"> MA - Calcul</label>
-                    <label><input type="checkbox" value="MA - Espace et géométrie"> MA - Espace et géométrie</label>
-                    <label><input type="checkbox" value="MA - Faits numériques / automatisation"> MA - Faits numériques
-                        / automatisation</label>
-                    <label><input type="checkbox" value="MA - Grandeurs et mesures"> MA - Grandeurs et mesures</label>
-                    <label><input type="checkbox" value="MA - Nombres"> MA - Nombres</label>
-                    <label><input type="checkbox" value="MA - Organisation et gestion des données"> MA - Organisation et
-                        gestion des données</label>
-                    <label><input type="checkbox" value="MA - Résolution de problèmes"> MA - Résolution de
-                        problèmes</label>
-                    <label><input type="checkbox" value="MA - Probabilités"> MA - Probabilités</label>
-                    <label><input type="checkbox" value="MA - Proportionnalité"> MA - Proportionnalité</label>
-                    <label><input type="checkbox" value="AUTRE - Harcèlement/pHARe"> AUTRE - Harcèlement/pHARe</label>
-                    <label><input type="checkbox" value="AUTRE - Laïcité/Valeurs de la République"> AUTRE - Laïcité/Valeurs de la République</label>
-                    <label><input type="checkbox" value="AUTRE - Compétences psychosociales (CPS)"> AUTRE - Compétences psychosociales (CPS)</label>
-                    <label><input type="checkbox" value="AUTRE - Accompagnement Projet d'école/Évaluation d'école"> AUTRE - Accompagnement Projet d'école/Évaluation d'école</label>
-                    <label><input type="checkbox" value="AUTRE - Autre"> AUTRE - Autre</label>
-                </div>
+                <!-- contenu généré par populateCreateTabChoices() depuis WIDGET_CHOICE_SCHEMA -->
+                <div id="themesFormation" class="checkbox-group"></div>
             </div>
 
             <h2>6. Formateur(s)</h2>
