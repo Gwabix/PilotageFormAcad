@@ -104,7 +104,7 @@ async function loadData() {
             departement: (ecolesTable.Libelle_departement || ecolesTable.Departement || [])[index] || ''
         }));
 
-        const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
+        const tableauTable = await grist.docApi.fetchTable('Formations');
         tableauBordData = tableauTable.id.map((id, index) => ({
             id: id,
             id_pe: tableauTable.ID_PE[index],

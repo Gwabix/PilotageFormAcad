@@ -727,7 +727,7 @@ async function loadData() {
         formateursDepartementChoices = [];
         await loadFormateursDepartementChoices();
 
-        const tableauTable = await grist.docApi.fetchTable('Tableau_de_bord');
+        const tableauTable = await grist.docApi.fetchTable('Formations');
         tableauDeBordData = tableauTable.id.map((id, index) => ({
             id: id,
             idPE: tableauTable.ID_PE[index],
@@ -1735,7 +1735,7 @@ async function validerFormulaire() {
 
     try {
         await grist.docApi.applyUserActions([
-            ['BulkAddRecord', 'Tableau_de_bord', records.map(() => null), records.reduce((acc, record) => {
+            ['BulkAddRecord', 'Formations', records.map(() => null), records.reduce((acc, record) => {
                 Object.keys(record).forEach(key => {
                     if (!acc[key]) acc[key] = [];
                     acc[key].push(record[key]);
@@ -2493,11 +2493,11 @@ function displayEditForm(ficheRecords) {
                     <label><input type="checkbox" class="edit-themes" value="MA - Résolution de problèmes" ${(firstRecord.themes || []).includes('MA - Résolution de problèmes') ? 'checked' : ''}> MA - Résolution de problèmes</label>
                     <label><input type="checkbox" class="edit-themes" value="MA - Probabilités" ${(firstRecord.themes || []).includes('MA - Probabilités') ? 'checked' : ''}> MA - Probabilités</label>
                     <label><input type="checkbox" class="edit-themes" value="MA - Proportionnalité" ${(firstRecord.themes || []).includes('MA - Proportionnalité') ? 'checked' : ''}> MA - Proportionnalité</label>
-                    <label><input type="checkbox" class="edit-themes" value="autre - Harcèlement/pHARe" ${(firstRecord.themes || []).includes('autre - Harcèlement/pHARe') ? 'checked' : ''}> autre - Harcèlement/pHARe</label>
-                    <label><input type="checkbox" class="edit-themes" value="autre - Laïcité/Valeurs de la République" ${(firstRecord.themes || []).includes('autre - Laïcité/Valeurs de la République') ? 'checked' : ''}> autre - Laïcité/Valeurs de la République</label>
-                    <label><input type="checkbox" class="edit-themes" value="autre - Compétences psychosociales (CPS)" ${(firstRecord.themes || []).includes('autre - Compétences psychosociales (CPS)') ? 'checked' : ''}> autre - Compétences psychosociales (CPS)</label>
-                    <label><input type="checkbox" class="edit-themes" value="autre - Accompagnement Projet d'école/Évaluation d'école" ${(firstRecord.themes || []).includes("autre - Accompagnement Projet d'école/Évaluation d'école") ? 'checked' : ''}> autre - Accompagnement Projet d'école/Évaluation d'école</label>
-                    <label><input type="checkbox" class="edit-themes" value="autre - Autre" ${(firstRecord.themes || []).includes('autre - Autre') ? 'checked' : ''}> autre - Autre</label>
+                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Harcèlement/pHARe" ${(firstRecord.themes || []).includes('AUTRE - Harcèlement/pHARe') ? 'checked' : ''}> AUTRE - Harcèlement/pHARe</label>
+                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Laïcité/Valeurs de la République" ${(firstRecord.themes || []).includes('AUTRE - Laïcité/Valeurs de la République') ? 'checked' : ''}> AUTRE - Laïcité/Valeurs de la République</label>
+                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Compétences psychosociales (CPS)" ${(firstRecord.themes || []).includes('AUTRE - Compétences psychosociales (CPS)') ? 'checked' : ''}> AUTRE - Compétences psychosociales (CPS)</label>
+                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Accompagnement Projet d'école/Évaluation d'école" ${(firstRecord.themes || []).includes("AUTRE - Accompagnement Projet d'école/Évaluation d'école") ? 'checked' : ''}> AUTRE - Accompagnement Projet d'école/Évaluation d'école</label>
+                    <label><input type="checkbox" class="edit-themes" value="AUTRE - Autre" ${(firstRecord.themes || []).includes('AUTRE - Autre') ? 'checked' : ''}> AUTRE - Autre</label>
                 </div>
             </div>
             
@@ -3188,7 +3188,7 @@ async function updateFiche() {
 
     // Vérification de cohérence ID_PE × Annee_scolaire
     // Chaque ligne de Liste_PE est unique par (ID_PE, Annee_scolaire) ;
-    // le row ID sauvegardé dans Tableau_de_bord.ID_PE doit appartenir à l'année sélectionnée.
+    // le row ID sauvegardé dans Formations.ID_PE doit appartenir à l'année sélectionnée.
     const enseignantMauvaisAnnee = selectedEnseignantsData.find(ensData => {
         const ens = enseignantsData.find(e => e.id === ensData.ensId);
         return ens && ens.annee_scolaire !== annee;
@@ -3285,12 +3285,12 @@ async function updateFiche() {
         // Mettre à jour les lignes existantes conservées (préserve les données fiche technique)
         keptEnseignants.forEach(ensData => {
             const oldRec = originalRecordData.find(r => r.idPE === ensData.ensId);
-            actions.push(['UpdateRecord', 'Tableau_de_bord', oldRec.id, { ...sharedFields, ID_PE: ensData.ensId }]);
+            actions.push(['UpdateRecord', 'Formations', oldRec.id, { ...sharedFields, ID_PE: ensData.ensId }]);
         });
 
         // Supprimer les lignes des enseignants retirés
         removedRecords.forEach(oldRec => {
-            actions.push(['RemoveRecord', 'Tableau_de_bord', oldRec.id]);
+            actions.push(['RemoveRecord', 'Formations', oldRec.id]);
         });
 
         // Ajouter les nouvelles lignes (enseignants ajoutés)
@@ -3299,7 +3299,7 @@ async function updateFiche() {
                 ...sharedFields,
                 ID_PE: ensData.ensId
             }));
-            actions.push(['BulkAddRecord', 'Tableau_de_bord', newRecords.map(() => null),
+            actions.push(['BulkAddRecord', 'Formations', newRecords.map(() => null),
                 newRecords.reduce((acc, record) => {
                     Object.keys(record).forEach(key => {
                         if (!acc[key]) acc[key] = [];
@@ -3632,7 +3632,7 @@ async function selectFicheTechnique(idFiche) {
     const firstRecord = ficheRecords[0];
 
     try {
-        const tableData = await grist.docApi.fetchTable('Tableau_de_bord');
+        const tableData = await grist.docApi.fetchTable('Formations');
         const recordIndex = tableData.id.findIndex(id => id === firstRecord.id);
 
         if (recordIndex === -1) {
@@ -4386,7 +4386,7 @@ async function addNewFormateurTechnique(nom) {
             const firstRecord = currentTechniqueFiche[0];
             const currentFormateurs = Array.isArray(firstRecord.formateurs) ? firstRecord.formateurs : [];
             await grist.docApi.applyUserActions([
-                ['UpdateRecord', 'Tableau_de_bord', firstRecord.id, {
+                ['UpdateRecord', 'Formations', firstRecord.id, {
                     Formateur_s_: ['L', ...currentFormateurs, newFormateur.id]
                 }]
             ]);
@@ -4590,7 +4590,7 @@ async function saveFicheTechniqueOnly() {
         // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
         currentTechniqueFiche.forEach(record => {
             allUpdateActions.push([
-                'UpdateRecord', 'Tableau_de_bord', record.id, updates
+                'UpdateRecord', 'Formations', record.id, updates
             ]);
         });
 
@@ -4694,7 +4694,7 @@ async function generateFichesPDF() {
         // Mettre à jour TOUTES les lignes de la fiche (même ID_fiche)
         currentTechniqueFiche.forEach(record => {
             allUpdateActions.push([
-                'UpdateRecord', 'Tableau_de_bord', record.id, updates
+                'UpdateRecord', 'Formations', record.id, updates
             ]);
         });
 
@@ -4897,7 +4897,7 @@ async function generatePDFForLieux(record, lieux, dates, formateurs, commentaire
     // Mettre à jour la colonne Edite à True pour toutes les lignes de la fiche technique
     try {
         const updateActions = currentTechniqueFiche.map(rec => [
-            'UpdateRecord', 'Tableau_de_bord', rec.id, { Edite: true }
+            'UpdateRecord', 'Formations', rec.id, { Edite: true }
         ]);
         await grist.docApi.applyUserActions(updateActions);
         console.log('Colonne "Edite" mise à jour pour la fiche technique');
