@@ -1518,6 +1518,8 @@ function filterThemes() {
     const francais = francaisEl ? francaisEl.checked : false;
     const mathematiquesEl = document.getElementById('filterMathematiques');
     const mathematiques = mathematiquesEl ? mathematiquesEl.checked : false;
+    const autresEl = document.getElementById('filterAutres');
+    const autres = autresEl ? autresEl.checked : false;
 
     const labels = document.querySelectorAll('#themesFormation label');
 
@@ -1528,6 +1530,8 @@ function filterThemes() {
         if (value.startsWith('FRA') && francais) {
             show = true;
         } else if (value.startsWith('MA') && mathematiques) {
+            show = true;
+        } else if (value.startsWith('autre') && autres) {
             show = true;
         }
 
@@ -1819,6 +1823,8 @@ function resetForm() {
     if (filterFrancaisEl) filterFrancaisEl.checked = true;
     const filterMathematiquesEl = document.getElementById('filterMathematiques');
     if (filterMathematiquesEl) filterMathematiquesEl.checked = true;
+    const filterAutresEl = document.getElementById('filterAutres');
+    if (filterAutresEl) filterAutresEl.checked = true;
 
     filterThemes();
 
@@ -1863,6 +1869,7 @@ document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
 // Ajouter les écouteurs pour les filtres de thèmes
 document.getElementById('filterFrancais').addEventListener('change', filterThemes);
 document.getElementById('filterMathematiques').addEventListener('change', filterThemes);
+document.getElementById('filterAutres').addEventListener('change', filterThemes);
 
 // Rafraîchir la liste des enseignants quand l'année scolaire change
 document.getElementById('anneeScolaire').addEventListener('change', updateEnseignantsList);
@@ -2486,6 +2493,11 @@ function displayEditForm(ficheRecords) {
                     <label><input type="checkbox" class="edit-themes" value="MA - Résolution de problèmes" ${(firstRecord.themes || []).includes('MA - Résolution de problèmes') ? 'checked' : ''}> MA - Résolution de problèmes</label>
                     <label><input type="checkbox" class="edit-themes" value="MA - Probabilités" ${(firstRecord.themes || []).includes('MA - Probabilités') ? 'checked' : ''}> MA - Probabilités</label>
                     <label><input type="checkbox" class="edit-themes" value="MA - Proportionnalité" ${(firstRecord.themes || []).includes('MA - Proportionnalité') ? 'checked' : ''}> MA - Proportionnalité</label>
+                    <label><input type="checkbox" class="edit-themes" value="autre - Harcèlement/pHARe" ${(firstRecord.themes || []).includes('autre - Harcèlement/pHARe') ? 'checked' : ''}> autre - Harcèlement/pHARe</label>
+                    <label><input type="checkbox" class="edit-themes" value="autre - Laïcité/Valeurs de la République" ${(firstRecord.themes || []).includes('autre - Laïcité/Valeurs de la République') ? 'checked' : ''}> autre - Laïcité/Valeurs de la République</label>
+                    <label><input type="checkbox" class="edit-themes" value="autre - Compétences psychosociales (CPS)" ${(firstRecord.themes || []).includes('autre - Compétences psychosociales (CPS)') ? 'checked' : ''}> autre - Compétences psychosociales (CPS)</label>
+                    <label><input type="checkbox" class="edit-themes" value="autre - Accompagnement Projet d'école/Évaluation d'école" ${(firstRecord.themes || []).includes("autre - Accompagnement Projet d'école/Évaluation d'école") ? 'checked' : ''}> autre - Accompagnement Projet d'école/Évaluation d'école</label>
+                    <label><input type="checkbox" class="edit-themes" value="autre - Autre" ${(firstRecord.themes || []).includes('autre - Autre') ? 'checked' : ''}> autre - Autre</label>
                 </div>
             </div>
             
