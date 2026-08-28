@@ -263,11 +263,49 @@ select:focus,
 .scroll-top-btn:hover {
     background-color: #29036c;
     transform: scale(1.1);
-    align-items: start;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.scroll-top-btn:active {
+    transform: scale(0.95);
 }
 
 .scroll-top-btn.show {
     display: flex;
+}
+
+/* Fenêtre fixe qui masque le défilement continu de la flèche au survol */
+.scroll-top-btn .arrow-viewport {
+    display: block;
+    width: 24px;
+    height: 24px;
+    overflow: hidden;
+}
+
+.scroll-top-btn .arrow-track {
+    display: flex;
+    flex-direction: column;
+}
+
+.scroll-top-btn .arrow-track span {
+    display: block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+}
+
+.scroll-top-btn:hover .arrow-track {
+    animation: scrollArrowLoop 0.6s linear infinite;
+}
+
+@keyframes scrollArrowLoop {
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(-24px);
+    }
 }
 
 .school-tag {
