@@ -616,17 +616,38 @@ button:disabled {
 }
 
 .add-formateur-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
     width: 36px;
     height: 36px;
     padding: 0;
     margin-top: 10px;
     background-color: #16a085;
     border-radius: 50%;
-    font-size: 22px;
-    line-height: 1;
+    /* Le « + » est dessiné en CSS : comme le « × », le glyphe n'est pas centré
+       sur sa boîte de ligne selon la police. */
+    font-size: 0;
+}
+
+.add-formateur-btn::before,
+.add-formateur-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background-color: #fff;
+    border-radius: 1px;
+}
+
+.add-formateur-btn::before {
+    width: 14px;
+    height: 2px;
+    transform: translate(-50%, -50%);
+}
+
+.add-formateur-btn::after {
+    width: 2px;
+    height: 14px;
+    transform: translate(-50%, -50%);
 }
 
 .add-formateur-btn:hover {
