@@ -1386,22 +1386,34 @@ function updateDureeFormation() {
     }
 }
 
+// Compteur monotone : garantit des id/index uniques même après suppression de lignes
+let formateurFieldCounter = 0;
+
+function renumberFormateurFields() {
+    const container = document.getElementById('formateursInputsContainer');
+    if (!container) return;
+    container.querySelectorAll('.formateur-field-label').forEach((label, i) => {
+        label.textContent = `Formateur ${i + 1}`;
+    });
+}
+
 function addFormateurField() {
     const container = document.getElementById('formateursInputsContainer');
-    const index = container.children.length;
+    const index = formateurFieldCounter++;
 
     const fieldDiv = document.createElement('div');
     fieldDiv.className = 'formateur-field';
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : Template statique sans données dynamiques
     fieldDiv.innerHTML = `
+        <label class="formateur-field-label" for="formateurInput_${index}"></label>
         <div class="search-container">
-            <input type="text" 
-                   class="search-input formateur-input" 
+            <input type="text"
+                   class="search-input formateur-input"
                    id="formateurInput_${index}"
                    placeholder="Tapez pour rechercher ou ajouter un formateur..."
                    data-field-index="${index}">
-            <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
+            <button type="button" class="clear-input-btn" aria-label="Vider le champ et supprimer la ligne">&times;</button>
             <div class="search-results" id="formateurResults_${index}"></div>
         </div>
     `;
@@ -1411,7 +1423,18 @@ function addFormateurField() {
     // Ajouter l'event listener après l'insertion
     const input = document.getElementById(`formateurInput_${index}`);
     input.addEventListener('keyup', (event) => searchFormateurs(event, index));
-    fieldDiv.querySelector('.clear-input-btn').addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('keyup')); });
+    fieldDiv.querySelector('.clear-input-btn').addEventListener('click', () => {
+        // Supprime la ligne, sauf s'il n'en reste qu'une : on se contente alors de la vider
+        if (container.children.length > 1) {
+            fieldDiv.remove();
+            renumberFormateurFields();
+        } else {
+            input.value = '';
+            input.dispatchEvent(new Event('keyup'));
+        }
+    });
+
+    renumberFormateurFields();
 }
 
 function addEditFormateurField() {

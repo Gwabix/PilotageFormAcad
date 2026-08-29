@@ -155,19 +155,24 @@ select:focus,
 
 .clear-input-btn {
     position: absolute;
-    right: 15px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     background: none;
     border: none;
+    border-radius: 50%;
     color: #aaa;
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1;
     cursor: pointer;
-    padding: 0 2px;
     z-index: 1;
     transition: all 0.1s ease;
-    width: fit-content;
 }
 
 .clear-input-btn:hover {
@@ -578,6 +583,32 @@ button:disabled {
 
 .formateur-field {
     margin-bottom: 10px;
+}
+
+.formateur-field-label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #34495e;
+}
+
+.add-formateur-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    margin-top: 10px;
+    background-color: #16a085;
+    border-radius: 50%;
+    font-size: 22px;
+    line-height: 1;
+}
+
+.add-formateur-btn:hover {
+    background-color: #117a65;
 }
 
 #formateursInputsContainer {
