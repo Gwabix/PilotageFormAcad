@@ -158,27 +158,49 @@ select:focus,
     right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 20px;
     height: 20px;
     padding: 0;
     background: none;
     border: none;
     border-radius: 50%;
-    color: #aaa;
-    font-size: 18px;
-    line-height: 1;
+    /* La croix est dessinée en CSS : le glyphe « × » (&times;) n'est pas centré
+       sur sa boîte de ligne selon la police, d'où un rendu toujours décalé. */
+    font-size: 0;
     cursor: pointer;
     z-index: 1;
     transition: all 0.1s ease;
 }
 
+.clear-input-btn::before,
+.clear-input-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 2px;
+    background-color: #aaa;
+    border-radius: 1px;
+    transition: background-color 0.1s ease;
+}
+
+.clear-input-btn::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.clear-input-btn::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 .clear-input-btn:hover {
-    color: #dc3545;
     background-color: #0003;
     transform: scale(1.1) translateY(-50%);
+}
+
+.clear-input-btn:hover::before,
+.clear-input-btn:hover::after {
+    background-color: #dc3545;
 }
 
 .search-results {
@@ -1442,13 +1464,6 @@ textarea {
 .no-data-placeholder {
     color: #7f8c8d;
     font-style: italic;
-}
-
-.btn-add-formateur {
-    width: auto;
-    padding: 8px 20px;
-    margin-top: 10px;
-    background-color: #16a085;
 }
 
 .btn-update-fiche {

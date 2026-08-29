@@ -1437,24 +1437,36 @@ function addFormateurField() {
     renumberFormateurFields();
 }
 
-function addEditFormateurField() {
+// Compteur monotone : garantit des id/index uniques même après suppression de lignes
+let editFormateurFieldCounter = 0;
+
+function renumberEditFormateurFields() {
+    const container = document.getElementById('editFormateursContainer');
+    if (!container) return;
+    container.querySelectorAll('.formateur-field-label').forEach((label, i) => {
+        label.textContent = `Formateur ${i + 1}`;
+    });
+}
+
+function addEditFormateurField(value = '') {
     const container = document.getElementById('editFormateursContainer');
     if (!container) return;
 
-    const index = container.children.length;
+    const index = editFormateurFieldCounter++;
 
     const fieldDiv = document.createElement('div');
     fieldDiv.className = 'formateur-field';
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : Template statique sans données dynamiques
     fieldDiv.innerHTML = `
+        <label class="formateur-field-label" for="editFormateurInput_${index}"></label>
         <div class="search-container">
-            <input type="text" 
-                   class="search-input edit-formateur-input" 
+            <input type="text"
+                   class="search-input edit-formateur-input"
                    id="editFormateurInput_${index}"
                    placeholder="Tapez pour rechercher ou ajouter un formateur..."
                    data-field-index="${index}">
-            <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
+            <button type="button" class="clear-input-btn" aria-label="Vider le champ et supprimer la ligne">&times;</button>
             <div class="search-results" id="editFormateurResults_${index}"></div>
         </div>
     `;
@@ -1463,8 +1475,20 @@ function addEditFormateurField() {
 
     // Ajouter l'event listener après l'insertion
     const input = document.getElementById(`editFormateurInput_${index}`);
+    if (value) input.value = value;
     input.addEventListener('keyup', (event) => searchEditFormateurs(event, index));
-    fieldDiv.querySelector('.clear-input-btn').addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('keyup')); });
+    fieldDiv.querySelector('.clear-input-btn').addEventListener('click', () => {
+        // Supprime la ligne, sauf s'il n'en reste qu'une : on se contente alors de la vider
+        if (container.children.length > 1) {
+            fieldDiv.remove();
+            renumberEditFormateurFields();
+        } else {
+            input.value = '';
+            input.dispatchEvent(new Event('keyup'));
+        }
+    });
+
+    renumberEditFormateurFields();
 }
 
 function searchEditFormateurs(event, fieldIndex) {
@@ -1997,6 +2021,7 @@ function resetForm() {
     // Reset formateurs
     const formateursContainerEl = document.getElementById('formateursInputsContainer');
     if (formateursContainerEl) formateursContainerEl.innerHTML = '';
+    formateurFieldCounter = 0;
     addFormateurField();
 
     selectedEcoles = [];
@@ -2899,33 +2924,9 @@ function displayEditForm(ficheRecords) {
             
             <div class="form-group">
                 <label>Formateur(s)</label>
-                <div id="editFormateursContainer">
-                    ${formateurNoms.length > 0 ? formateurNoms.map((nom, index) => `
-                        <div class="formateur-field">
-                            <div class="search-container">
-                                <input type="text" 
-                                       class="search-input edit-formateur-input" 
-                                       id="editFormateurInput_${index}"
-                                       value="${escapeHtmlAttribute(nom)}" 
-                                       placeholder="Tapez pour rechercher ou ajouter un formateur..."
-                                       data-field-index="${index}">
-                                <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
-                                <div class="search-results" id="editFormateurResults_${index}"></div>
-                            </div>
-                        </div>
-                    `).join('') : `<div class="formateur-field">
-                        <div class="search-container">
-                            <input type="text" 
-                                   class="search-input edit-formateur-input" 
-                                   id="editFormateurInput_0"
-                                   placeholder="Tapez pour rechercher ou ajouter un formateur..."
-                                   data-field-index="0">
-                            <button type="button" class="clear-input-btn" aria-label="Vider le champ">&times;</button>
-                            <div class="search-results" id="editFormateurResults_0"></div>
-                        </div>
-                    </div>`}
-                </div>
-                <button type="button" class="btnValider btn-add-formateur" id="addEditFormateurBtn">+ Ajouter un formateur</button>
+                <div id="editFormateursContainer"></div>
+                <button type="button" class="add-formateur-btn" id="addEditFormateurBtn"
+                    aria-label="Ajouter un formateur">+</button>
             </div>
             
             <button class="btnValider btn-update-fiche" id="updateFicheBtn">Mettre à jour la fiche</button>
@@ -2945,18 +2946,20 @@ function displayEditForm(ficheRecords) {
     // Event listener pour le bouton d'ajout de formateur
     const addFormateurBtn = document.getElementById('addEditFormateurBtn');
     if (addFormateurBtn) {
-        addFormateurBtn.addEventListener('click', addEditFormateurField);
+        addFormateurBtn.addEventListener('click', () => addEditFormateurField());
     }
 
-    // Event listeners pour les champs de recherche de formateurs
-    container.querySelectorAll('.edit-formateur-input').forEach(input => {
-        const fieldIndex = safeParseInt(input.getAttribute('data-field-index'), 0, 0);
-        input.addEventListener('keyup', (event) => searchEditFormateurs(event, fieldIndex));
-        const clearBtn = input.nextElementSibling;
-        if (clearBtn && clearBtn.classList.contains('clear-input-btn')) {
-            clearBtn.addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('keyup')); });
+    // Peupler les champs formateurs : une ligne par nom existant, au moins une ligne
+    const editFormateursContainer = document.getElementById('editFormateursContainer');
+    if (editFormateursContainer) {
+        editFormateurFieldCounter = 0;
+        editFormateursContainer.innerHTML = '';
+        if (formateurNoms.length > 0) {
+            formateurNoms.forEach(nom => addEditFormateurField(nom));
+        } else {
+            addEditFormateurField();
         }
-    });
+    }
 
     // Event listener pour le bouton de mise à jour
     const updateBtn = document.getElementById('updateFicheBtn');
