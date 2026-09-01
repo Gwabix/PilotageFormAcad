@@ -1735,29 +1735,50 @@ function refreshRgpdBanner() {
         ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
         : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
     banner.classList.remove('hidden');
+    banner.style.setProperty('display', 'flex', 'important');
+    banner.style.setProperty('visibility', 'visible', 'important');
 
     const cs = getComputedStyle(banner);
     const rect = banner.getBoundingClientRect();
     console.info('[RGPD] Bandeau affiché : ' + n + ' enseignant(s). '
-        + 'classes="' + banner.className + '" display=' + cs.display
-        + ' visibility=' + cs.visibility + ' opacity=' + cs.opacity
-        + ' height=' + Math.round(rect.height) + ' width=' + Math.round(rect.width)
-        + ' top=' + Math.round(rect.top)
-        + ' cssRuleChargee=' + rgpdCssRuleLoaded());
+        + 'classes="' + banner.className + '" inline="' + (banner.getAttribute('style') || '') + '"'
+        + ' display=' + cs.display + ' visibility=' + cs.visibility
+        + ' height=' + Math.round(rect.height) + ' top=' + Math.round(rect.top));
+    console.info('[RGPD] Règles CSS applicables à #rgpd-banner :', rgpdMatchingRules(banner));
+
+    setTimeout(() => {
+        const cs2 = getComputedStyle(banner);
+        const rect2 = banner.getBoundingClientRect();
+        console.info('[RGPD] Bandeau +1,5 s : inline="' + (banner.getAttribute('style') || '') + '"'
+            + ' display=' + cs2.display + ' visibility=' + cs2.visibility
+            + ' height=' + Math.round(rect2.height) + ' parentDisplay='
+            + getComputedStyle(banner.parentElement).display
+            + ' inDom=' + document.body.contains(banner));
+    }, 1500);
 }
 
-// Vérifie que la feuille de style du widget contient bien la règle .rgpd-banner.
-function rgpdCssRuleLoaded() {
-    try {
-        for (const sheet of document.styleSheets) {
-            let rules;
-            try { rules = sheet.cssRules; } catch (e) { continue; }
-            for (const rule of rules) {
-                if (rule.selectorText === '.rgpd-banner') return true;
+// Liste les règles CSS qui ciblent l'élément (pour repérer un écrasement).
+function rgpdMatchingRules(el) {
+    const matches = [];
+    const scan = (rules, media) => {
+        for (const rule of rules) {
+            if (rule.cssRules && !rule.selectorText) {
+                scan(rule.cssRules, rule.conditionText || rule.media && rule.media.mediaText || media);
+                continue;
             }
+            if (!rule.selectorText) continue;
+            try {
+                if (el.matches(rule.selectorText)) {
+                    matches.push((media ? '@media ' + media + ' ' : '') + rule.selectorText
+                        + ' { ' + rule.style.cssText + ' }');
+                }
+            } catch (e) { /* selecteur non standard */ }
         }
-    } catch (e) { /* noop */ }
-    return false;
+    };
+    for (const sheet of document.styleSheets) {
+        try { scan(sheet.cssRules, ''); } catch (e) { matches.push('(feuille inaccessible: ' + (sheet.href || 'inline') + ')'); }
+    }
+    return matches;
 }
 
 function openRgpdModal() {
