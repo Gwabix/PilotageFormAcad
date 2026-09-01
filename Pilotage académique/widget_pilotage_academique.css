@@ -1241,6 +1241,9 @@ body {
     color: #8a1f1f;
     font-size: 14px;
     font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 101;
 }
 
 .rgpd-banner.hidden {
