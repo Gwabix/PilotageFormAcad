@@ -1745,16 +1745,20 @@ function refreshRgpdBanner() {
         + ' display=' + cs.display + ' visibility=' + cs.visibility
         + ' height=' + Math.round(rect.height) + ' top=' + Math.round(rect.top));
     console.info('[RGPD] Règles CSS applicables à #rgpd-banner :', rgpdMatchingRules(banner));
+    console.info('[RGPD] #rgpd-banner en double ? count=' + document.querySelectorAll('#rgpd-banner').length);
 
-    setTimeout(() => {
-        const cs2 = getComputedStyle(banner);
-        const rect2 = banner.getBoundingClientRect();
-        console.info('[RGPD] Bandeau +1,5 s : inline="' + (banner.getAttribute('style') || '') + '"'
-            + ' display=' + cs2.display + ' visibility=' + cs2.visibility
-            + ' height=' + Math.round(rect2.height) + ' parentDisplay='
-            + getComputedStyle(banner.parentElement).display
-            + ' inDom=' + document.body.contains(banner));
-    }, 1500);
+    let el = banner;
+    const chain = [];
+    while (el) {
+        const c = getComputedStyle(el);
+        chain.push((el.id ? '#' + el.id : el.tagName)
+            + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().replace(/\s+/g, '.') : '')
+            + ' [display=' + c.display + ' visibility=' + c.visibility
+            + ' content-visibility=' + c.contentVisibility
+            + ' opacity=' + c.opacity + ']');
+        el = el.parentElement;
+    }
+    console.info('[RGPD] Chaîne d\'ancêtres de #rgpd-banner :\n' + chain.join('\n'));
 }
 
 // Liste les règles CSS qui ciblent l'élément (pour repérer un écrasement).
