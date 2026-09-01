@@ -123,6 +123,13 @@ async function loadData() {
             rgpdData.ready = false;
         }
 
+        // Bandeau RGPD — isolé du rendu principal du widget.
+        try {
+            refreshRgpdBanner();
+        } catch (rgpdBannerErr) {
+            console.error('[RGPD] Échec du bandeau :', rgpdBannerErr);
+        }
+
         tableauBordData = tableauTable.id.map((id, index) => ({
             id: id,
             id_pe: tableauTable.ID_PE[index],
@@ -156,9 +163,6 @@ async function loadData() {
 
         // Initialiser l'onglet académie
         displayAcademie();
-
-        // Contrôle RGPD (bandeau d'alerte)
-        refreshRgpdBanner();
 
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
@@ -1710,7 +1714,10 @@ window.rgpdDiagnostic = function () {
 function refreshRgpdBanner() {
     const banner = document.getElementById('rgpd-banner');
     const text = document.getElementById('rgpd-banner-text');
-    if (!banner || !text) return;
+    if (!banner || !text) {
+        console.warn('[RGPD] Élément #rgpd-banner introuvable dans le DOM.');
+        return;
+    }
 
     const result = computeRgpdResult();
     rgpdUiState.candidates = result.candidates;
@@ -1728,6 +1735,7 @@ function refreshRgpdBanner() {
         ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
         : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
     banner.classList.remove('hidden');
+    console.info('[RGPD] Bandeau affiché : ' + n + ' enseignant(s) à purger.');
 }
 
 function openRgpdModal() {
