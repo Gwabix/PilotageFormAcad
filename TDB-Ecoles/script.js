@@ -1820,10 +1820,10 @@ window.rgpdDiagnostic = function () {
 };
 
 function refreshRgpdBanner() {
-    const banner = document.getElementById('rgpd-banner');
-    const text = document.getElementById('rgpd-banner-text');
-    if (!banner || !text) {
-        console.warn('[RGPD] Élément #rgpd-banner introuvable dans le DOM.');
+    const notice = document.getElementById('rgpd-notice');
+    const text = document.getElementById('rgpd-notice-text');
+    if (!notice || !text) {
+        console.warn('[RGPD] Élément #rgpd-notice introuvable dans le DOM.');
         return;
     }
 
@@ -1831,9 +1831,9 @@ function refreshRgpdBanner() {
     rgpdState.candidates = result.candidates;
 
     if (!result.candidates.length) {
-        banner.classList.add('hidden');
+        notice.classList.add('hidden');
         if (state.rgpdTablesLoaded && typeof RgpdPurge !== 'undefined') {
-            console.info('[RGPD] Bandeau masqué —', RgpdPurge.diagnose(rgpdDataBundle()));
+            console.info('[RGPD] Alerte masquée —', RgpdPurge.diagnose(rgpdDataBundle()));
         }
         return;
     }
@@ -1842,28 +1842,8 @@ function refreshRgpdBanner() {
     text.textContent = n === 1
         ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
         : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
-    banner.classList.remove('hidden');
-
-    const cs = getComputedStyle(banner);
-    const rect = banner.getBoundingClientRect();
-    console.info('[RGPD] Bandeau affiché : ' + n + ' enseignant(s). '
-        + 'classes="' + banner.className + '" display=' + cs.display
-        + ' visibility=' + cs.visibility + ' height=' + Math.round(rect.height)
-        + ' top=' + Math.round(rect.top) + ' cssRuleChargee=' + rgpdCssRuleLoaded());
-}
-
-// Vérifie que la feuille de style contient bien la règle #rgpd-banner.
-function rgpdCssRuleLoaded() {
-    try {
-        for (const sheet of document.styleSheets) {
-            let rules;
-            try { rules = sheet.cssRules; } catch (e) { continue; }
-            for (const rule of rules) {
-                if (rule.selectorText === '#rgpd-banner') return true;
-            }
-        }
-    } catch (e) { /* noop */ }
-    return false;
+    notice.classList.remove('hidden');
+    console.info('[RGPD] Alerte affichée : ' + n + ' enseignant(s) à purger.');
 }
 
 function openRgpdModal() {

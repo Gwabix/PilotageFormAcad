@@ -1230,7 +1230,7 @@ body {
 /* ==========================================================================
    Surveillance / purge RGPD
    ========================================================================== */
-.rgpd-banner {
+.rgpd-notice {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1246,11 +1246,11 @@ body {
     z-index: 101;
 }
 
-.rgpd-banner.hidden {
+.rgpd-notice.hidden {
     display: none;
 }
 
-.rgpd-banner #rgpd-banner-text {
+.rgpd-notice #rgpd-notice-text {
     flex: 1 1 auto;
 }
 

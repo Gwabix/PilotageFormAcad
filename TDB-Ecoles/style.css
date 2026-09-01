@@ -236,8 +236,8 @@ body {
     color: var(--color-danger);
 }
 
-/* Bandeau d'alerte RGPD */
-#rgpd-banner {
+/* Alerte RGPD */
+#rgpd-notice {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -250,11 +250,11 @@ body {
     color: #8a1f1f;
 }
 
-#rgpd-banner.hidden {
+#rgpd-notice.hidden {
     display: none;
 }
 
-#rgpd-banner-text {
+#rgpd-notice-text {
     flex: 1 1 auto;
 }
 

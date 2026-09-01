@@ -1712,10 +1712,10 @@ window.rgpdDiagnostic = function () {
 };
 
 function refreshRgpdBanner() {
-    const banner = document.getElementById('rgpd-banner');
-    const text = document.getElementById('rgpd-banner-text');
-    if (!banner || !text) {
-        console.warn('[RGPD] Élément #rgpd-banner introuvable dans le DOM.');
+    const notice = document.getElementById('rgpd-notice');
+    const text = document.getElementById('rgpd-notice-text');
+    if (!notice || !text) {
+        console.warn('[RGPD] Élément #rgpd-notice introuvable dans le DOM.');
         return;
     }
 
@@ -1723,9 +1723,9 @@ function refreshRgpdBanner() {
     rgpdUiState.candidates = result.candidates;
 
     if (!result.candidates.length) {
-        banner.classList.add('hidden');
+        notice.classList.add('hidden');
         if (rgpdData.ready && typeof RgpdPurge !== 'undefined') {
-            console.info('[RGPD] Bandeau masqué —', RgpdPurge.diagnose(rgpdDataBundle()));
+            console.info('[RGPD] Alerte masquée —', RgpdPurge.diagnose(rgpdDataBundle()));
         }
         return;
     }
@@ -1734,55 +1734,8 @@ function refreshRgpdBanner() {
     text.textContent = n === 1
         ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
         : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
-    banner.classList.remove('hidden');
-    banner.style.setProperty('display', 'flex', 'important');
-    banner.style.setProperty('visibility', 'visible', 'important');
-
-    const cs = getComputedStyle(banner);
-    const rect = banner.getBoundingClientRect();
-    console.info('[RGPD] Bandeau affiché : ' + n + ' enseignant(s). '
-        + 'classes="' + banner.className + '" inline="' + (banner.getAttribute('style') || '') + '"'
-        + ' display=' + cs.display + ' visibility=' + cs.visibility
-        + ' height=' + Math.round(rect.height) + ' top=' + Math.round(rect.top));
-    console.info('[RGPD] Règles CSS applicables à #rgpd-banner :', rgpdMatchingRules(banner));
-    console.info('[RGPD] #rgpd-banner en double ? count=' + document.querySelectorAll('#rgpd-banner').length);
-
-    let el = banner;
-    const chain = [];
-    while (el) {
-        const c = getComputedStyle(el);
-        chain.push((el.id ? '#' + el.id : el.tagName)
-            + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().replace(/\s+/g, '.') : '')
-            + ' [display=' + c.display + ' visibility=' + c.visibility
-            + ' content-visibility=' + c.contentVisibility
-            + ' opacity=' + c.opacity + ']');
-        el = el.parentElement;
-    }
-    console.info('[RGPD] Chaîne d\'ancêtres de #rgpd-banner :\n' + chain.join('\n'));
-}
-
-// Liste les règles CSS qui ciblent l'élément (pour repérer un écrasement).
-function rgpdMatchingRules(el) {
-    const matches = [];
-    const scan = (rules, media) => {
-        for (const rule of rules) {
-            if (rule.cssRules && !rule.selectorText) {
-                scan(rule.cssRules, rule.conditionText || rule.media && rule.media.mediaText || media);
-                continue;
-            }
-            if (!rule.selectorText) continue;
-            try {
-                if (el.matches(rule.selectorText)) {
-                    matches.push((media ? '@media ' + media + ' ' : '') + rule.selectorText
-                        + ' { ' + rule.style.cssText + ' }');
-                }
-            } catch (e) { /* selecteur non standard */ }
-        }
-    };
-    for (const sheet of document.styleSheets) {
-        try { scan(sheet.cssRules, ''); } catch (e) { matches.push('(feuille inaccessible: ' + (sheet.href || 'inline') + ')'); }
-    }
-    return matches;
+    notice.classList.remove('hidden');
+    console.info('[RGPD] Alerte affichée : ' + n + ' enseignant(s) à purger.');
 }
 
 function openRgpdModal() {
