@@ -1230,7 +1230,7 @@ body {
 /* ==========================================================================
    Surveillance / purge RGPD
    ========================================================================== */
-.rgpd-notice {
+.retention-check {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1246,15 +1246,15 @@ body {
     z-index: 101;
 }
 
-.rgpd-notice.hidden {
+.retention-check.hidden {
     display: none;
 }
 
-.rgpd-notice #rgpd-notice-text {
+.retention-check #retention-check-text {
     flex: 1 1 auto;
 }
 
-#rgpd-review-btn {
+#retention-review-btn {
     flex: 0 0 auto;
     padding: 8px 18px;
     border: none;
@@ -1267,11 +1267,11 @@ body {
     transition: background-color 0.2s ease;
 }
 
-#rgpd-review-btn:hover {
+#retention-review-btn:hover {
     background-color: #a02818;
 }
 
-.rgpd-modal-overlay {
+.retention-modal-overlay {
     position: fixed;
     inset: 0;
     background: rgba(20, 26, 35, 0.5);
@@ -1282,11 +1282,11 @@ body {
     padding: 16px;
 }
 
-.rgpd-modal-overlay.hidden {
+.retention-modal-overlay.hidden {
     display: none;
 }
 
-.rgpd-modal {
+.retention-modal {
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
@@ -1296,19 +1296,19 @@ body {
     padding: 22px 24px;
 }
 
-.rgpd-modal h2 {
+.retention-modal h2 {
     margin: 0 0 6px 0;
     font-size: 18px;
     color: #c0392b;
 }
 
-#rgpd-modal-intro {
+#retention-modal-intro {
     margin: 0 0 12px 0;
     font-size: 13px;
     color: #5a6270;
 }
 
-#rgpd-modal-list {
+#retention-modal-list {
     margin: 0;
     padding: 0 0 0 18px;
     max-height: 42vh;
@@ -1317,29 +1317,29 @@ body {
     line-height: 1.5;
 }
 
-#rgpd-modal-list li {
+#retention-modal-list li {
     margin-bottom: 4px;
 }
 
-.rgpd-item-detail {
+.retention-item-detail {
     color: #5a6270;
 }
 
-#rgpd-modal-warning {
+#retention-modal-warning {
     margin: 14px 0 0 0;
     font-size: 12.5px;
     font-weight: 700;
     color: #c0392b;
 }
 
-.rgpd-modal-actions {
+.retention-modal-actions {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 18px;
 }
 
-.rgpd-modal-actions button {
+.retention-modal-actions button {
     padding: 8px 16px;
     border: 1px solid #cbd2d9;
     border-radius: 6px;
@@ -1348,28 +1348,28 @@ body {
     cursor: pointer;
 }
 
-#rgpd-cancel-btn:hover {
+#retention-cancel-btn:hover {
     background: #f0f2f4;
 }
 
-#rgpd-confirm-btn {
+#retention-confirm-btn {
     background: #c0392b;
     border-color: #c0392b;
     color: #fff;
     font-weight: 600;
 }
 
-#rgpd-confirm-btn:disabled {
+#retention-confirm-btn:disabled {
     background: #d9a2a2;
     border-color: #d9a2a2;
     cursor: not-allowed;
 }
 
-#rgpd-confirm-btn:not(:disabled):hover {
+#retention-confirm-btn:not(:disabled):hover {
     background: #a02818;
 }
 
-#rgpd-toast-container {
+#retention-toast-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
@@ -1379,7 +1379,7 @@ body {
     z-index: 3500;
 }
 
-.rgpd-toast {
+.retention-toast {
     padding: 10px 16px;
     border-radius: 6px;
     background: #27ae60;
@@ -1389,6 +1389,6 @@ body {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-.rgpd-toast.error {
+.retention-toast.error {
     background: #c0392b;
 }

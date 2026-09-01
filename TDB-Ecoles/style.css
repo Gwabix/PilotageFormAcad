@@ -237,7 +237,7 @@ body {
 }
 
 /* Alerte RGPD */
-#rgpd-notice {
+#retention-check {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -250,15 +250,15 @@ body {
     color: #8a1f1f;
 }
 
-#rgpd-notice.hidden {
+#retention-check.hidden {
     display: none;
 }
 
-#rgpd-notice-text {
+#retention-check-text {
     flex: 1 1 auto;
 }
 
-#rgpd-review-btn {
+#retention-review-btn {
     flex: 0 0 auto;
     padding: 5px 14px;
     border: 1px solid var(--color-danger);
@@ -271,8 +271,8 @@ body {
     transition: background 0.15s ease;
 }
 
-#rgpd-review-btn:hover,
-#rgpd-review-btn:focus-visible {
+#retention-review-btn:hover,
+#retention-review-btn:focus-visible {
     background: #a02020;
     outline: none;
 }
@@ -1106,7 +1106,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 /* ==========================================================================
    Modal purge RGPD
    ========================================================================== */
-#rgpd-modal-overlay {
+#retention-modal-overlay {
     position: fixed;
     inset: 0;
     background: rgba(20, 26, 35, 0.45);
@@ -1116,11 +1116,11 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     z-index: 1000;
 }
 
-#rgpd-modal-overlay.hidden {
+#retention-modal-overlay.hidden {
     display: none;
 }
 
-#rgpd-modal {
+#retention-modal {
     background: var(--color-surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow-md);
@@ -1130,19 +1130,19 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     padding: 20px 22px;
 }
 
-#rgpd-modal h2 {
+#retention-modal h2 {
     margin: 0 0 4px 0;
     font-size: 16px;
     color: var(--color-danger);
 }
 
-#rgpd-modal-intro {
+#retention-modal-intro {
     font-size: 13px;
     color: var(--color-text-muted);
     margin: 0 0 12px 0;
 }
 
-#rgpd-modal-list {
+#retention-modal-list {
     margin: 0;
     padding: 0 0 0 18px;
     max-height: 40vh;
@@ -1151,22 +1151,22 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     line-height: 1.5;
 }
 
-#rgpd-modal-list li {
+#retention-modal-list li {
     margin-bottom: 4px;
 }
 
-.rgpd-item-detail {
+.retention-item-detail {
     color: var(--color-text-muted);
 }
 
-#rgpd-modal-warning {
+#retention-modal-warning {
     margin: 14px 0 0 0;
     font-size: 12.5px;
     font-weight: 600;
     color: var(--color-danger);
 }
 
-#rgpd-modal .modal-actions button {
+#retention-modal .modal-actions button {
     padding: var(--spacing-xs) var(--spacing-md);
     border-radius: var(--radius);
     border: 1px solid var(--color-border);
@@ -1174,23 +1174,23 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     font-size: 0.9rem;
 }
 
-#rgpd-cancel-btn:hover {
+#retention-cancel-btn:hover {
     background: #f0f2f4;
 }
 
-#rgpd-confirm-btn {
+#retention-confirm-btn {
     background: var(--color-danger);
     color: #fff;
     border-color: var(--color-danger);
 }
 
-#rgpd-confirm-btn:disabled {
+#retention-confirm-btn:disabled {
     background: #d9a2a2;
     border-color: #d9a2a2;
     cursor: not-allowed;
 }
 
-#rgpd-confirm-btn:not(:disabled):hover {
+#retention-confirm-btn:not(:disabled):hover {
     background: #a02020;
 }
 

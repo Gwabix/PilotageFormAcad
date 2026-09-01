@@ -1820,10 +1820,10 @@ window.rgpdDiagnostic = function () {
 };
 
 function refreshRgpdBanner() {
-    const notice = document.getElementById('rgpd-notice');
-    const text = document.getElementById('rgpd-notice-text');
+    const notice = document.getElementById('retention-check');
+    const text = document.getElementById('retention-check-text');
     if (!notice || !text) {
-        console.warn('[RGPD] Élément #rgpd-notice introuvable dans le DOM.');
+        console.warn('[RGPD] Élément #retention-check introuvable dans le DOM.');
         return;
     }
 
@@ -1858,9 +1858,9 @@ function openRgpdModal() {
         return;
     }
 
-    const intro = document.getElementById('rgpd-modal-intro');
-    const list = document.getElementById('rgpd-modal-list');
-    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    const intro = document.getElementById('retention-modal-intro');
+    const list = document.getElementById('retention-modal-list');
+    const confirmBtn = document.getElementById('retention-confirm-btn');
     const totalRows = candidates.reduce((sum, c) => sum + c.totalRows, 0);
 
     intro.textContent = candidates.length === 1
@@ -1873,7 +1873,7 @@ function openRgpdModal() {
         const name = document.createElement('strong');
         name.textContent = c.identity;
         const detail = document.createElement('span');
-        detail.className = 'rgpd-item-detail';
+        detail.className = 'retention-item-detail';
         detail.textContent = ' — retrait le ' + RgpdPurge.formatEpochDate(c.lastRetraitEpoch)
             + ' (' + c.daysSinceRetrait + ' jours) · '
             + c.totalRows + ' ligne' + (c.totalRows > 1 ? 's' : '')
@@ -1888,12 +1888,12 @@ function openRgpdModal() {
     confirmBtn.textContent = 'Supprimer définitivement ('
         + totalRows + ' ligne' + (totalRows > 1 ? 's' : '') + ')';
 
-    document.getElementById('rgpd-modal-overlay').classList.remove('hidden');
-    document.getElementById('rgpd-cancel-btn').focus();
+    document.getElementById('retention-modal-overlay').classList.remove('hidden');
+    document.getElementById('retention-cancel-btn').focus();
 }
 
 function closeRgpdModal() {
-    document.getElementById('rgpd-modal-overlay').classList.add('hidden');
+    document.getElementById('retention-modal-overlay').classList.add('hidden');
 }
 
 async function confirmRgpdPurge() {
@@ -1906,7 +1906,7 @@ async function confirmRgpdPurge() {
     }
 
     const totalRows = (rgpdState.candidates || []).reduce((sum, c) => sum + c.totalRows, 0);
-    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    const confirmBtn = document.getElementById('retention-confirm-btn');
     rgpdState.busy = true;
     confirmBtn.disabled = true;
 
@@ -1928,10 +1928,10 @@ async function confirmRgpdPurge() {
 function attachRgpdListeners() {
     if (state.listenersAttached.rgpd) return;
 
-    const reviewBtn = document.getElementById('rgpd-review-btn');
-    const overlay = document.getElementById('rgpd-modal-overlay');
-    const cancelBtn = document.getElementById('rgpd-cancel-btn');
-    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    const reviewBtn = document.getElementById('retention-review-btn');
+    const overlay = document.getElementById('retention-modal-overlay');
+    const cancelBtn = document.getElementById('retention-cancel-btn');
+    const confirmBtn = document.getElementById('retention-confirm-btn');
 
     reviewBtn.addEventListener('click', openRgpdModal);
     cancelBtn.addEventListener('click', closeRgpdModal);
