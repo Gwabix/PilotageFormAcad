@@ -872,9 +872,16 @@ function buildPersonnelRow(p, ecoleId) {
     trMain.className = 'main-row';
 
     trMain.appendChild(buildEditableCell(p, 'Civilite', 'select', ['Monsieur', 'Madame']));
-    trMain.appendChild(buildEditableCell(p, 'Nom', 'text'));
-    trMain.appendChild(buildEditableCell(p, 'Prenom', 'text'));
-    trMain.appendChild(buildEditableCell(p, 'Mail', 'email'));
+
+    const nomCell = buildEditableCell(p, 'Nom', 'text');
+    nomCell.classList.add('identity-cell');
+    trMain.appendChild(nomCell);
+
+    const prenomCell = buildEditableCell(p, 'Prenom', 'text');
+    prenomCell.classList.add('identity-cell');
+    trMain.appendChild(prenomCell);
+
+    trMain.appendChild(buildMailCell(p));
     trMain.appendChild(buildEditableCell(p, 'Fonction', 'select', FONCTION_OPTIONS));
     trMain.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
 
@@ -1318,6 +1325,94 @@ function buildAutreDechargeCell(record) {
 
     td._updatePreciserVisibility = updatePreciserVisibility;
     updatePreciserVisibility();
+    return td;
+}
+
+const MAIL_PATTERN = /^[a-zA-Z0-9\-._]+@ac-montpellier\.fr$/;
+
+function buildMailCell(record) {
+    const td = document.createElement('td');
+    td.className = 'mail-cell';
+
+    const inner = document.createElement('div');
+    inner.className = 'mail-cell-inner';
+    td.appendChild(inner);
+
+    let renderEdit;
+
+    const renderDisplay = () => {
+        inner.textContent = '';
+        const email = sanitizeText(record.Mail || '');
+
+        if (email) {
+            const link = document.createElement('a');
+            link.className = 'mail-link';
+            link.href = 'mailto:' + email.replace(/[^\w.@+-]/g, '');
+            link.textContent = email;
+            link.title = email;
+            inner.appendChild(link);
+        } else {
+            const empty = document.createElement('span');
+            empty.className = 'mail-empty';
+            empty.textContent = '—';
+            inner.appendChild(empty);
+        }
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'mail-edit-btn';
+        editBtn.textContent = '✏️';
+        editBtn.title = "Modifier l'adresse mail";
+        editBtn.setAttribute('aria-label', "Modifier l'adresse mail");
+        editBtn.addEventListener('click', renderEdit);
+        inner.appendChild(editBtn);
+    };
+
+    renderEdit = () => {
+        const previous = record.Mail !== null && record.Mail !== undefined ? String(record.Mail) : '';
+        inner.textContent = '';
+
+        const input = document.createElement('input');
+        input.type = 'email';
+        input.className = 'mail-edit-input';
+        input.value = previous;
+
+        let settled = false;
+        const finish = (save) => {
+            if (settled) return;
+            settled = true;
+
+            if (save) {
+                const newValue = sanitizeText(input.value);
+                if (newValue && !MAIL_PATTERN.test(newValue)) {
+                    showToast('Adresse mail invalide.', 'error');
+                } else if (newValue !== sanitizeText(previous)) {
+                    record.Mail = newValue;
+                    savePersonnelField(record.id, 'Mail', newValue, () => {
+                        record.Mail = newValue;
+                    });
+                }
+            }
+            renderDisplay();
+        };
+
+        input.addEventListener('blur', () => finish(true));
+        input.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter') {
+                evt.preventDefault();
+                input.blur();
+            } else if (evt.key === 'Escape') {
+                evt.preventDefault();
+                finish(false);
+            }
+        });
+
+        inner.appendChild(input);
+        input.focus();
+        input.select();
+    };
+
+    renderDisplay();
     return td;
 }
 
