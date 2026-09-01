@@ -1226,3 +1226,166 @@ body {
 .radio-option input[type="radio"]:checked+.radio-label:hover {
     background-color: #2980b9;
 }
+
+/* ==========================================================================
+   Surveillance / purge RGPD
+   ========================================================================== */
+.rgpd-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 30px;
+    background-color: #fdecea;
+    border-bottom: 3px solid #c0392b;
+    color: #8a1f1f;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.rgpd-banner.hidden {
+    display: none;
+}
+
+.rgpd-banner #rgpd-banner-text {
+    flex: 1 1 auto;
+}
+
+#rgpd-review-btn {
+    flex: 0 0 auto;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    background-color: #c0392b;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#rgpd-review-btn:hover {
+    background-color: #a02818;
+}
+
+.rgpd-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 26, 35, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    padding: 16px;
+}
+
+.rgpd-modal-overlay.hidden {
+    display: none;
+}
+
+.rgpd-modal {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    width: min(600px, 100%);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 22px 24px;
+}
+
+.rgpd-modal h2 {
+    margin: 0 0 6px 0;
+    font-size: 18px;
+    color: #c0392b;
+}
+
+#rgpd-modal-intro {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    color: #5a6270;
+}
+
+#rgpd-modal-list {
+    margin: 0;
+    padding: 0 0 0 18px;
+    max-height: 42vh;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#rgpd-modal-list li {
+    margin-bottom: 4px;
+}
+
+.rgpd-item-detail {
+    color: #5a6270;
+}
+
+#rgpd-modal-warning {
+    margin: 14px 0 0 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #c0392b;
+}
+
+.rgpd-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.rgpd-modal-actions button {
+    padding: 8px 16px;
+    border: 1px solid #cbd2d9;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+#rgpd-cancel-btn:hover {
+    background: #f0f2f4;
+}
+
+#rgpd-confirm-btn {
+    background: #c0392b;
+    border-color: #c0392b;
+    color: #fff;
+    font-weight: 600;
+}
+
+#rgpd-confirm-btn:disabled {
+    background: #d9a2a2;
+    border-color: #d9a2a2;
+    cursor: not-allowed;
+}
+
+#rgpd-confirm-btn:not(:disabled):hover {
+    background: #a02818;
+}
+
+#rgpd-toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 3500;
+}
+
+.rgpd-toast {
+    padding: 10px 16px;
+    border-radius: 6px;
+    background: #27ae60;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.rgpd-toast.error {
+    background: #c0392b;
+}

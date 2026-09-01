@@ -236,6 +236,47 @@ body {
     color: var(--color-danger);
 }
 
+/* Bandeau d'alerte RGPD */
+#rgpd-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #fdecea;
+    border-bottom: 1px solid var(--color-danger);
+    color: #8a1f1f;
+}
+
+#rgpd-banner.hidden {
+    display: none;
+}
+
+#rgpd-banner-text {
+    flex: 1 1 auto;
+}
+
+#rgpd-review-btn {
+    flex: 0 0 auto;
+    padding: 5px 14px;
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius);
+    background: var(--color-danger);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+#rgpd-review-btn:hover,
+#rgpd-review-btn:focus-visible {
+    background: #a02020;
+    outline: none;
+}
+
 /* ==========================================================================
    Contenu principal
    ========================================================================== */
@@ -603,6 +644,7 @@ table.personnels-table td.quotite-warning,
 table.personnels-table tr:hover td.quotite-warning {
     background-color: #ffe8a3;
     box-shadow: inset 0 0 0 2px #e0a800;
+    border-radius: 10px;
 }
 
 table.personnels-table td.quotite-warning select,
@@ -830,6 +872,38 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     text-align: right;
 }
 
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.quit-school-btn {
+    display: inline-block;
+    font-size: 12px;
+    padding: 4px 8px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-danger);
+    border-radius: 4px;
+    color: var(--color-danger);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.quit-school-btn:hover,
+.quit-school-btn:focus-visible {
+    background: var(--color-danger);
+    color: #fff;
+    outline: none;
+}
+
+.quit-school-btn:disabled {
+    opacity: 0.5;
+    cursor: progress;
+}
+
 /* ==========================================================================
    Boutons
    ========================================================================== */
@@ -1030,6 +1104,97 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 }
 
 /* ==========================================================================
+   Modal purge RGPD
+   ========================================================================== */
+#rgpd-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 26, 35, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#rgpd-modal-overlay.hidden {
+    display: none;
+}
+
+#rgpd-modal {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    width: min(560px, 92vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px 22px;
+}
+
+#rgpd-modal h2 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    color: var(--color-danger);
+}
+
+#rgpd-modal-intro {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0 0 12px 0;
+}
+
+#rgpd-modal-list {
+    margin: 0;
+    padding: 0 0 0 18px;
+    max-height: 40vh;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#rgpd-modal-list li {
+    margin-bottom: 4px;
+}
+
+.rgpd-item-detail {
+    color: var(--color-text-muted);
+}
+
+#rgpd-modal-warning {
+    margin: 14px 0 0 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--color-danger);
+}
+
+#rgpd-modal .modal-actions button {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+#rgpd-cancel-btn:hover {
+    background: #f0f2f4;
+}
+
+#rgpd-confirm-btn {
+    background: var(--color-danger);
+    color: #fff;
+    border-color: var(--color-danger);
+}
+
+#rgpd-confirm-btn:disabled {
+    background: #d9a2a2;
+    border-color: #d9a2a2;
+    cursor: not-allowed;
+}
+
+#rgpd-confirm-btn:not(:disabled):hover {
+    background: #a02020;
+}
+
+/* ==========================================================================
    Notifications toast
    ========================================================================== */
 #toast-container {
@@ -1058,6 +1223,31 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 
 .toast.error {
     background: var(--color-danger);
+}
+
+.toast.toast-undoable {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toast-undo-btn {
+    flex: 0 0 auto;
+    padding: 3px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.toast-undo-btn:hover,
+.toast-undo-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.18);
+    outline: none;
 }
 
 @keyframes toast-in {

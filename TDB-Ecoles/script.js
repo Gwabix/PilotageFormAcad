@@ -3,6 +3,9 @@
 const state = {
     ecoles: [],
     personnels: [],
+    formations: [],
+    liens: [],
+    rgpdTablesLoaded: false,
     ecolesTable: null,
     personnelsTable: null,
     mappings: {},
@@ -17,7 +20,8 @@ const state = {
         filters: false,
         search: false,
         collapse: false,
-        modal: false
+        modal: false,
+        rgpd: false
     }
 };
 
@@ -27,10 +31,36 @@ const REQUIRED_ECOLE_FIELDS = [
 ];
 
 const REQUIRED_PERSONNEL_FIELDS = [
-    'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service'
+    'Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction', 'Quotite_de_service',
+    'ID_PE', 'Retrait'
 ];
 
 const SCHOOL_YEAR_FIELDS = ['Annee_scolaire'];
+
+// La logique RGPD (détection + suppression) vit dans ../shared/rgpd-purge.js
+// (objet global RgpdPurge), partagé avec le widget « Pilotage académique ».
+
+// Date du jour (minuit UTC) en secondes depuis l'epoch — format des colonnes Date de Grist.
+function todayDateEpochSeconds() {
+    const now = new Date();
+    return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 1000;
+}
+
+// Valeur d'une colonne Date de Grist -> secondes epoch, ou null si vide.
+function parseDateEpochSeconds(rawValue) {
+    if (rawValue === null || rawValue === undefined || rawValue === '') return null;
+    const num = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    return Number.isFinite(num) ? num : null;
+}
+
+// Normalise une valeur ChoiceList Grist vers la forme ['L', ...valeurs].
+function toChoiceListRaw(rawValue) {
+    if (Array.isArray(rawValue)) {
+        const clean = rawValue.filter(v => v !== 'L' && v !== null && v !== undefined && v !== '');
+        return ['L', ...clean];
+    }
+    return toChoiceListValue(parseNiveaux(rawValue));
+}
 
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -77,6 +107,40 @@ function showToast(message, type) {
     }, 3200);
 }
 
+// Toast avec bouton « Annuler » pour les actions réversibles.
+function showUndoableToast(message, onUndo, timeoutMs) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast success toast-undoable';
+
+    const text = document.createElement('span');
+    text.className = 'toast-text';
+    text.textContent = message;
+
+    const undoBtn = document.createElement('button');
+    undoBtn.type = 'button';
+    undoBtn.className = 'toast-undo-btn';
+    undoBtn.textContent = 'Annuler';
+
+    let settled = false;
+    const dismiss = () => {
+        if (settled) return;
+        settled = true;
+        toast.remove();
+    };
+
+    undoBtn.addEventListener('click', () => {
+        if (settled) return;
+        settled = true;
+        toast.remove();
+        onUndo();
+    });
+
+    toast.append(text, undoBtn);
+    container.appendChild(toast);
+    setTimeout(dismiss, timeoutMs || 8000);
+}
+
 function normalizeStr(str) {
     return sanitizeText(str)
         .toLowerCase()
@@ -101,6 +165,24 @@ async function loadAllData() {
 
         state.ecoles = tableToRecords(ecolesData);
         state.personnels = tableToRecords(personnelsData);
+
+        // Tables nécessaires à la purge RGPD (Formations + Lien_intercircos).
+        // Si l'une est indisponible, on désactive le contrôle plutôt que de
+        // risquer une suppression partielle.
+        try {
+            const [formationsData, liensData] = await Promise.all([
+                grist.docApi.fetchTable('Formations'),
+                grist.docApi.fetchTable('Lien_intercircos')
+            ]);
+            state.formations = tableToRecords(formationsData);
+            state.liens = tableToRecords(liensData);
+            state.rgpdTablesLoaded = true;
+        } catch (rgpdErr) {
+            console.warn('Tables RGPD indisponibles, contrôle désactivé :', rgpdErr);
+            state.formations = [];
+            state.liens = [];
+            state.rgpdTablesLoaded = false;
+        }
 
         const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
 
@@ -133,7 +215,9 @@ async function loadAllData() {
         attachFilterListeners();
         attachSearchListener();
         attachGlobalCollapseHandler();
+        attachRgpdListeners();
         renderDashboard();
+        refreshRgpdBanner();
         hideStatus();
     } catch (err) {
         console.error(err);
@@ -1072,13 +1156,29 @@ function buildPersonnelRow(p, ecoleId) {
     const actionsTd = document.createElement('td');
     actionsTd.colSpan = 10;
     actionsTd.className = 'action-cell';
+
+    const actionButtons = document.createElement('div');
+    actionButtons.className = 'action-buttons';
+
     const changeBtn = document.createElement('button');
     changeBtn.type = 'button';
     changeBtn.className = 'change-school-btn';
     changeBtn.textContent = "Changer d'établissement";
     bindChangeSchoolTooltip(changeBtn, p);
     changeBtn.addEventListener('click', () => openChangeSchoolModal(p));
-    actionsTd.appendChild(changeBtn);
+
+    const quitBtn = document.createElement('button');
+    quitBtn.type = 'button';
+    quitBtn.className = 'quit-school-btn';
+    quitBtn.textContent = "A quitté l'école";
+    quitBtn.title = "Retire l'enseignant de l'école : vide l'établissement, la fonction et les niveaux, et enregistre la date du jour comme date de retrait.";
+    quitBtn.addEventListener('click', () => {
+        quitBtn.disabled = true;
+        handleQuitSchool(p).finally(() => { quitBtn.disabled = false; });
+    });
+
+    actionButtons.append(changeBtn, quitBtn);
+    actionsTd.appendChild(actionButtons);
     trNiveaux.appendChild(actionsTd);
 
     fragment.append(trMain, trDecharges, trNiveaux);
@@ -1622,6 +1722,204 @@ async function savePersonnelField(personnelId, field, value, onSuccessLocal) {
         showToast("Erreur lors de l'enregistrement. Modification annulée.", 'error');
         renderDashboard();
     }
+}
+
+/* ==========================================================================
+   « A quitté l'école » : retrait d'un enseignant (avec annulation possible)
+   ========================================================================== */
+
+async function handleQuitSchool(personnelRecord) {
+    const previous = {
+        UAI: personnelRecord.UAI,
+        Fonction: personnelRecord.Fonction,
+        Niveau_x_: personnelRecord.Niveau_x_,
+        Retrait: personnelRecord.Retrait
+    };
+    const identity = getPersonnelIdentity(personnelRecord);
+
+    try {
+        await grist.docApi.applyUserActions([
+            ['UpdateRecord', 'Liste_PE', personnelRecord.id, {
+                UAI: 0,
+                Fonction: '',
+                Niveau_x_: ['L'],
+                Retrait: todayDateEpochSeconds()
+            }]
+        ]);
+
+        showUndoableToast(
+            (identity || 'Enseignant') + " retiré de l'école.",
+            () => restoreTeacherAssignment(personnelRecord.id, previous, identity)
+        );
+        await loadAllData();
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur lors du retrait de l'enseignant.", 'error');
+    }
+}
+
+async function restoreTeacherAssignment(personnelId, previous, identity) {
+    const prevUai = getPersonnelEcoleRowId({ UAI: previous.UAI });
+
+    try {
+        await grist.docApi.applyUserActions([
+            ['UpdateRecord', 'Liste_PE', personnelId, {
+                UAI: prevUai !== null ? prevUai : 0,
+                Fonction: previous.Fonction || '',
+                Niveau_x_: toChoiceListRaw(previous.Niveau_x_),
+                Retrait: parseDateEpochSeconds(previous.Retrait)
+            }]
+        ]);
+        showToast('Retrait annulé' + (identity ? ' pour ' + identity : '') + '.', 'success');
+    } catch (err) {
+        console.error(err);
+        showToast("Impossible d'annuler le retrait.", 'error');
+    }
+
+    await loadAllData();
+}
+
+/* ==========================================================================
+   Surveillance RGPD : purge des enseignants retirés depuis trop longtemps.
+   Logique partagée : objet global RgpdPurge (../shared/rgpd-purge.js).
+   ========================================================================== */
+
+const rgpdState = { candidates: [], busy: false };
+
+function computeRgpdResult() {
+    if (!state.rgpdTablesLoaded || typeof RgpdPurge === 'undefined') {
+        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
+    }
+    return RgpdPurge.computeCandidates({
+        listePe: state.personnels,
+        formations: state.formations,
+        liens: state.liens
+    });
+}
+
+function refreshRgpdBanner() {
+    const banner = document.getElementById('rgpd-banner');
+    const text = document.getElementById('rgpd-banner-text');
+    if (!banner || !text) return;
+
+    const result = computeRgpdResult();
+    rgpdState.candidates = result.candidates;
+
+    if (!result.candidates.length) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const n = result.candidates.length;
+    text.textContent = n === 1
+        ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
+        : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
+    banner.classList.remove('hidden');
+}
+
+function openRgpdModal() {
+    const result = computeRgpdResult();
+    const candidates = result.candidates;
+    rgpdState.candidates = candidates;
+
+    if (!candidates.length) {
+        closeRgpdModal();
+        refreshRgpdBanner();
+        showToast('Aucun enseignant à purger.', 'success');
+        return;
+    }
+
+    const intro = document.getElementById('rgpd-modal-intro');
+    const list = document.getElementById('rgpd-modal-list');
+    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    const totalRows = candidates.reduce((sum, c) => sum + c.totalRows, 0);
+
+    intro.textContent = candidates.length === 1
+        ? "1 enseignant est retiré depuis plus de 5 ans. Toutes les lignes le concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :"
+        : candidates.length + " enseignants sont retirés depuis plus de 5 ans. Toutes les lignes les concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :";
+
+    list.textContent = '';
+    candidates.forEach(c => {
+        const li = document.createElement('li');
+        const name = document.createElement('strong');
+        name.textContent = c.identity;
+        const detail = document.createElement('span');
+        detail.className = 'rgpd-item-detail';
+        detail.textContent = ' — retrait le ' + RgpdPurge.formatEpochDate(c.lastRetraitEpoch)
+            + ' (' + c.daysSinceRetrait + ' jours) · '
+            + c.totalRows + ' ligne' + (c.totalRows > 1 ? 's' : '')
+            + ' (' + c.formationRowIds.length + ' Formations, '
+            + c.lienRowIds.length + ' Lien_intercircos, '
+            + c.listePeRowIds.length + ' Liste_PE)';
+        li.append(name, detail);
+        list.appendChild(li);
+    });
+
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Supprimer définitivement ('
+        + totalRows + ' ligne' + (totalRows > 1 ? 's' : '') + ')';
+
+    document.getElementById('rgpd-modal-overlay').classList.remove('hidden');
+    document.getElementById('rgpd-cancel-btn').focus();
+}
+
+function closeRgpdModal() {
+    document.getElementById('rgpd-modal-overlay').classList.add('hidden');
+}
+
+async function confirmRgpdPurge() {
+    if (rgpdState.busy) return;
+
+    const actions = RgpdPurge.buildPurgeActions(rgpdState.candidates || []);
+    if (!actions.length) {
+        closeRgpdModal();
+        return;
+    }
+
+    const totalRows = (rgpdState.candidates || []).reduce((sum, c) => sum + c.totalRows, 0);
+    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    rgpdState.busy = true;
+    confirmBtn.disabled = true;
+
+    try {
+        await grist.docApi.applyUserActions(actions);
+        closeRgpdModal();
+        showToast(totalRows + ' ligne' + (totalRows > 1 ? 's' : '')
+            + ' supprimée' + (totalRows > 1 ? 's' : '') + ' (RGPD).', 'success');
+        await loadAllData();
+    } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la purge RGPD.', 'error');
+        confirmBtn.disabled = false;
+    } finally {
+        rgpdState.busy = false;
+    }
+}
+
+function attachRgpdListeners() {
+    if (state.listenersAttached.rgpd) return;
+
+    const reviewBtn = document.getElementById('rgpd-review-btn');
+    const overlay = document.getElementById('rgpd-modal-overlay');
+    const cancelBtn = document.getElementById('rgpd-cancel-btn');
+    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+
+    reviewBtn.addEventListener('click', openRgpdModal);
+    cancelBtn.addEventListener('click', closeRgpdModal);
+
+    overlay.addEventListener('click', (evt) => {
+        if (evt.target === overlay) closeRgpdModal();
+    });
+
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeRgpdModal();
+        }
+    });
+
+    confirmBtn.addEventListener('click', confirmRgpdPurge);
+
+    state.listenersAttached.rgpd = true;
 }
 
 function openChangeSchoolModal(personnelRecord) {

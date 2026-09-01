@@ -20,6 +20,11 @@
             <button class="tab" id="tabAcademie" data-tab="academie">Académie</button>
         </div>
 
+        <div id="rgpd-banner" class="rgpd-banner hidden" role="alert">
+            <span id="rgpd-banner-text"></span>
+            <button type="button" id="rgpd-review-btn">Examiner et purger</button>
+        </div>
+
         <div id="departement" class="tab-content active">
             <div class="search-section">
                 <h2>Sélectionner un département</h2>
@@ -35,6 +40,22 @@
         </div>
     </div>
 
+    <!-- Popup purge RGPD -->
+    <div id="rgpd-modal-overlay" class="rgpd-modal-overlay hidden">
+        <div id="rgpd-modal" class="rgpd-modal" role="dialog" aria-modal="true" aria-labelledby="rgpd-modal-title">
+            <h2 id="rgpd-modal-title">Purge RGPD</h2>
+            <p id="rgpd-modal-intro"></p>
+            <ul id="rgpd-modal-list"></ul>
+            <p id="rgpd-modal-warning">Cette suppression est définitive et ne peut pas être annulée.</p>
+            <div class="rgpd-modal-actions">
+                <button type="button" id="rgpd-cancel-btn">Annuler</button>
+                <button type="button" id="rgpd-confirm-btn">Supprimer définitivement</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rgpd-toast-container" aria-live="polite"></div>
+
     <button id="scrollTopBtn" title="Retour haut de page">
         <span class="arrow-viewport">
             <span class="arrow-track">
@@ -48,6 +69,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
+    <script src="../shared/rgpd-purge.js"></script>
     <script src="pilotage_academique.js"></script>
 </body>
 

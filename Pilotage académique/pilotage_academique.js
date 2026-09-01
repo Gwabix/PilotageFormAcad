@@ -1,4 +1,4 @@
-grist.ready({ requiredAccess: 'read table' });
+grist.ready({ requiredAccess: 'full' });
 
 let ecolesData = [];
 let tableauBordData = [];
@@ -105,6 +105,24 @@ async function loadData() {
         }));
 
         const tableauTable = await grist.docApi.fetchTable('Formations');
+
+        // Données brutes pour le contrôle RGPD (module partagé RgpdPurge).
+        // Si une table est indisponible, on désactive le contrôle plutôt que
+        // de risquer une suppression partielle.
+        try {
+            const [listePeTable, liensTable] = await Promise.all([
+                grist.docApi.fetchTable('Liste_PE'),
+                grist.docApi.fetchTable('Lien_intercircos')
+            ]);
+            rgpdData.listePe = recordsFromTable(listePeTable);
+            rgpdData.formations = recordsFromTable(tableauTable);
+            rgpdData.liens = recordsFromTable(liensTable);
+            rgpdData.ready = true;
+        } catch (rgpdErr) {
+            console.warn('RGPD : tables indisponibles, contrôle désactivé.', rgpdErr);
+            rgpdData.ready = false;
+        }
+
         tableauBordData = tableauTable.id.map((id, index) => ({
             id: id,
             id_pe: tableauTable.ID_PE[index],
@@ -138,6 +156,9 @@ async function loadData() {
 
         // Initialiser l'onglet académie
         displayAcademie();
+
+        // Contrôle RGPD (bandeau d'alerte)
+        refreshRgpdBanner();
 
     } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
@@ -1629,6 +1650,167 @@ function exportToCSV(type) {
     link.click();
     document.body.removeChild(link);
 }
+
+/* ==========================================================================
+   Surveillance / purge RGPD (logique partagée : ../shared/rgpd-purge.js)
+   ========================================================================== */
+
+const rgpdData = { listePe: [], formations: [], liens: [], ready: false };
+const rgpdUiState = { candidates: [], busy: false };
+
+function recordsFromTable(table) {
+    const records = [];
+    if (!table || !Array.isArray(table.id)) return records;
+    const keys = Object.keys(table).filter(k => k !== 'id');
+    for (let i = 0; i < table.id.length; i++) {
+        const record = { id: table.id[i] };
+        for (const key of keys) record[key] = table[key][i];
+        records.push(record);
+    }
+    return records;
+}
+
+function rgpdToast(message, isError) {
+    const container = document.getElementById('rgpd-toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'rgpd-toast' + (isError ? ' error' : '');
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
+function computeRgpdResult() {
+    if (!rgpdData.ready || typeof RgpdPurge === 'undefined') {
+        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
+    }
+    return RgpdPurge.computeCandidates({
+        listePe: rgpdData.listePe,
+        formations: rgpdData.formations,
+        liens: rgpdData.liens
+    });
+}
+
+function refreshRgpdBanner() {
+    const banner = document.getElementById('rgpd-banner');
+    const text = document.getElementById('rgpd-banner-text');
+    if (!banner || !text) return;
+
+    const result = computeRgpdResult();
+    rgpdUiState.candidates = result.candidates;
+
+    if (!result.candidates.length) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const n = result.candidates.length;
+    text.textContent = n === 1
+        ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
+        : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
+    banner.classList.remove('hidden');
+}
+
+function openRgpdModal() {
+    const result = computeRgpdResult();
+    const candidates = result.candidates;
+    rgpdUiState.candidates = candidates;
+
+    if (!candidates.length) {
+        closeRgpdModal();
+        refreshRgpdBanner();
+        rgpdToast('Aucun enseignant à purger.', false);
+        return;
+    }
+
+    const intro = document.getElementById('rgpd-modal-intro');
+    const list = document.getElementById('rgpd-modal-list');
+    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    const totalRows = candidates.reduce((sum, c) => sum + c.totalRows, 0);
+
+    intro.textContent = candidates.length === 1
+        ? "1 enseignant est retiré depuis plus de 5 ans. Toutes les lignes le concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :"
+        : candidates.length + " enseignants sont retirés depuis plus de 5 ans. Toutes les lignes les concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :";
+
+    list.textContent = '';
+    candidates.forEach(c => {
+        const li = document.createElement('li');
+        const name = document.createElement('strong');
+        name.textContent = c.identity;
+        const detail = document.createElement('span');
+        detail.className = 'rgpd-item-detail';
+        detail.textContent = ' — retrait le ' + RgpdPurge.formatEpochDate(c.lastRetraitEpoch)
+            + ' (' + c.daysSinceRetrait + ' jours) · '
+            + c.totalRows + ' ligne' + (c.totalRows > 1 ? 's' : '')
+            + ' (' + c.formationRowIds.length + ' Formations, '
+            + c.lienRowIds.length + ' Lien_intercircos, '
+            + c.listePeRowIds.length + ' Liste_PE)';
+        li.append(name, detail);
+        list.appendChild(li);
+    });
+
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Supprimer définitivement ('
+        + totalRows + ' ligne' + (totalRows > 1 ? 's' : '') + ')';
+
+    document.getElementById('rgpd-modal-overlay').classList.remove('hidden');
+    document.getElementById('rgpd-cancel-btn').focus();
+}
+
+function closeRgpdModal() {
+    document.getElementById('rgpd-modal-overlay').classList.add('hidden');
+}
+
+async function confirmRgpdPurge() {
+    if (rgpdUiState.busy) return;
+
+    const actions = RgpdPurge.buildPurgeActions(rgpdUiState.candidates || []);
+    if (!actions.length) {
+        closeRgpdModal();
+        return;
+    }
+
+    const totalRows = (rgpdUiState.candidates || []).reduce((sum, c) => sum + c.totalRows, 0);
+    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    rgpdUiState.busy = true;
+    confirmBtn.disabled = true;
+
+    try {
+        await grist.docApi.applyUserActions(actions);
+        closeRgpdModal();
+        rgpdToast(totalRows + ' ligne' + (totalRows > 1 ? 's' : '')
+            + ' supprimée' + (totalRows > 1 ? 's' : '') + ' (RGPD).', false);
+        await loadData();
+    } catch (err) {
+        console.error(err);
+        rgpdToast('Erreur lors de la purge RGPD.', true);
+        confirmBtn.disabled = false;
+    } finally {
+        rgpdUiState.busy = false;
+    }
+}
+
+function initRgpdListeners() {
+    const reviewBtn = document.getElementById('rgpd-review-btn');
+    const overlay = document.getElementById('rgpd-modal-overlay');
+    const cancelBtn = document.getElementById('rgpd-cancel-btn');
+    const confirmBtn = document.getElementById('rgpd-confirm-btn');
+    if (!reviewBtn || !overlay || !cancelBtn || !confirmBtn) return;
+
+    reviewBtn.addEventListener('click', openRgpdModal);
+    cancelBtn.addEventListener('click', closeRgpdModal);
+    overlay.addEventListener('click', (evt) => {
+        if (evt.target === overlay) closeRgpdModal();
+    });
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeRgpdModal();
+        }
+    });
+    confirmBtn.addEventListener('click', confirmRgpdPurge);
+}
+
+initRgpdListeners();
 
 // Event listeners
 // Onglets

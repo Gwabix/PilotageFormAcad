@@ -37,6 +37,11 @@
 
     <div id="status-banner" class="hidden" role="status" aria-live="polite"></div>
 
+    <div id="rgpd-banner" class="hidden" role="alert">
+        <span id="rgpd-banner-text"></span>
+        <button type="button" id="rgpd-review-btn">Examiner et purger</button>
+    </div>
+
     <main id="ecoles-container" aria-live="polite">
         <div id="loading-indicator">Chargement des données...</div>
     </main>
@@ -58,8 +63,23 @@
         </div>
     </div>
 
+    <!-- Popup purge RGPD -->
+    <div id="rgpd-modal-overlay" class="hidden">
+        <div id="rgpd-modal" role="dialog" aria-modal="true" aria-labelledby="rgpd-modal-title">
+            <h2 id="rgpd-modal-title">Purge RGPD</h2>
+            <p id="rgpd-modal-intro"></p>
+            <ul id="rgpd-modal-list"></ul>
+            <p id="rgpd-modal-warning">Cette suppression est définitive et ne peut pas être annulée.</p>
+            <div class="modal-actions">
+                <button type="button" id="rgpd-cancel-btn">Annuler</button>
+                <button type="button" id="rgpd-confirm-btn">Supprimer définitivement</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" aria-live="polite"></div>
 
+    <script src="../shared/rgpd-purge.js"></script>
     <script src="script.js"></script>
 </body>
 
