@@ -1680,16 +1680,32 @@ function rgpdToast(message, isError) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-function computeRgpdResult() {
-    if (!rgpdData.ready || typeof RgpdPurge === 'undefined') {
-        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
-    }
-    return RgpdPurge.computeCandidates({
+function rgpdDataBundle() {
+    return {
         listePe: rgpdData.listePe,
         formations: rgpdData.formations,
         liens: rgpdData.liens
-    });
+    };
 }
+
+function computeRgpdResult() {
+    if (typeof RgpdPurge === 'undefined') {
+        console.warn('[RGPD] Module ../shared/rgpd-purge.js non chargé.');
+        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
+    }
+    if (!rgpdData.ready) {
+        console.warn('[RGPD] Tables Liste_PE / Lien_intercircos non chargées : contrôle désactivé.');
+        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
+    }
+    return RgpdPurge.computeCandidates(rgpdDataBundle());
+}
+
+// Diagnostic disponible en console : window.rgpdDiagnostic()
+window.rgpdDiagnostic = function () {
+    if (typeof RgpdPurge === 'undefined') return { moduleLoaded: false };
+    return Object.assign({ moduleLoaded: true, rgpdDataReady: rgpdData.ready },
+        RgpdPurge.diagnose(rgpdDataBundle()));
+};
 
 function refreshRgpdBanner() {
     const banner = document.getElementById('rgpd-banner');
@@ -1701,6 +1717,9 @@ function refreshRgpdBanner() {
 
     if (!result.candidates.length) {
         banner.classList.add('hidden');
+        if (rgpdData.ready && typeof RgpdPurge !== 'undefined') {
+            console.info('[RGPD] Bandeau masqué —', RgpdPurge.diagnose(rgpdDataBundle()));
+        }
         return;
     }
 

@@ -1786,16 +1786,32 @@ async function restoreTeacherAssignment(personnelId, previous, identity) {
 
 const rgpdState = { candidates: [], busy: false };
 
-function computeRgpdResult() {
-    if (!state.rgpdTablesLoaded || typeof RgpdPurge === 'undefined') {
-        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
-    }
-    return RgpdPurge.computeCandidates({
+function rgpdDataBundle() {
+    return {
         listePe: state.personnels,
         formations: state.formations,
         liens: state.liens
-    });
+    };
 }
+
+function computeRgpdResult() {
+    if (typeof RgpdPurge === 'undefined') {
+        console.warn('[RGPD] Module ../shared/rgpd-purge.js non chargé.');
+        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
+    }
+    if (!state.rgpdTablesLoaded) {
+        console.warn('[RGPD] Tables Formations / Lien_intercircos non chargées : contrôle désactivé.');
+        return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
+    }
+    return RgpdPurge.computeCandidates(rgpdDataBundle());
+}
+
+// Diagnostic disponible en console : window.rgpdDiagnostic()
+window.rgpdDiagnostic = function () {
+    if (typeof RgpdPurge === 'undefined') return { moduleLoaded: false };
+    return Object.assign({ moduleLoaded: true, rgpdTablesLoaded: state.rgpdTablesLoaded },
+        RgpdPurge.diagnose(rgpdDataBundle()));
+};
 
 function refreshRgpdBanner() {
     const banner = document.getElementById('rgpd-banner');
@@ -1807,6 +1823,9 @@ function refreshRgpdBanner() {
 
     if (!result.candidates.length) {
         banner.classList.add('hidden');
+        if (state.rgpdTablesLoaded && typeof RgpdPurge !== 'undefined') {
+            console.info('[RGPD] Bandeau masqué —', RgpdPurge.diagnose(rgpdDataBundle()));
+        }
         return;
     }
 
