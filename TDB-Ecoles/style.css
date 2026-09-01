@@ -1122,6 +1122,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 
 #retention-modal {
     background: var(--color-surface);
+    color: var(--color-text);
     border-radius: var(--radius);
     box-shadow: var(--shadow-md);
     width: min(560px, 92vw);
@@ -1172,6 +1173,11 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     border: 1px solid var(--color-border);
     cursor: pointer;
     font-size: 0.9rem;
+}
+
+#retention-cancel-btn {
+    background: var(--color-surface);
+    color: var(--color-text);
 }
 
 #retention-cancel-btn:hover {
