@@ -662,6 +662,10 @@ function buildPersonnelsTable(ecole) {
     const table = document.createElement('table');
     table.className = 'personnels-table';
     table.innerHTML =
+        '<colgroup>' +
+        '<col class="col-civilite"><col class="col-nom"><col class="col-prenom"><col class="col-mail">' +
+        '<col class="col-fonction"><col class="col-quotite"><col><col><col><col>' +
+        '</colgroup>' +
         '<thead><tr>' +
         '<th>Civilité</th><th>Nom</th><th>Prénom</th><th>Mail</th><th>Fonction</th>' +
         '<th>Quotité</th><th>Décharge\r\nDir.</th><th>TP</th><th>Décharge\r\nsynd.</th><th>Autre</th>' +
@@ -856,6 +860,66 @@ function bindChangeSchoolTooltip(button, personnel) {
     });
 }
 
+const quotiteTooltipState = { el: null, listenersBound: false };
+
+function ensureQuotiteWarningTooltip() {
+    if (quotiteTooltipState.el) return quotiteTooltipState.el;
+
+    const tip = document.createElement('div');
+    tip.className = 'quotite-warning-tooltip';
+    tip.setAttribute('role', 'tooltip');
+    tip.textContent = 'Veuillez renseigner les détails du temps partiel';
+    document.body.appendChild(tip);
+    quotiteTooltipState.el = tip;
+
+    if (!quotiteTooltipState.listenersBound) {
+        const hide = () => tip.classList.remove('visible');
+        window.addEventListener('scroll', hide, true);
+        window.addEventListener('resize', hide);
+        quotiteTooltipState.listenersBound = true;
+    }
+
+    return tip;
+}
+
+function positionQuotiteWarningTooltip(anchor, tip) {
+    const rect = anchor.getBoundingClientRect();
+    const margin = 8;
+
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+
+    const ttRect = tip.getBoundingClientRect();
+    let left = rect.left + (rect.width / 2) - (ttRect.width / 2);
+    let top = rect.top - ttRect.height - margin;
+
+    if (left < margin) left = margin;
+    const maxLeft = window.innerWidth - ttRect.width - margin;
+    if (left > maxLeft) left = Math.max(margin, maxLeft);
+    if (top < margin) top = rect.bottom + margin;
+
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(top) + 'px';
+}
+
+function bindQuotiteWarningTooltip(cell) {
+    const show = () => {
+        if (!cell.classList.contains('quotite-warning')) return;
+        const tip = ensureQuotiteWarningTooltip();
+        tip.classList.add('visible');
+        positionQuotiteWarningTooltip(cell, tip);
+    };
+
+    const hide = () => {
+        if (quotiteTooltipState.el) quotiteTooltipState.el.classList.remove('visible');
+    };
+
+    cell.addEventListener('mouseenter', show);
+    cell.addEventListener('mouseleave', hide);
+    cell.addEventListener('focusin', show);
+    cell.addEventListener('focusout', hide);
+}
+
 function buildPersonnelRow(p, ecoleId) {
     const fragment = document.createDocumentFragment();
 
@@ -883,7 +947,9 @@ function buildPersonnelRow(p, ecoleId) {
 
     trMain.appendChild(buildMailCell(p));
     trMain.appendChild(buildEditableCell(p, 'Fonction', 'select', FONCTION_OPTIONS));
-    trMain.appendChild(buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']));
+
+    const quotiteCell = buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']);
+    trMain.appendChild(quotiteCell);
 
     // Création des 4 cases de contrôle (Interrupteurs UI : cochés au chargement si des jours sont présents)
     const createTriggerCheckbox = (field) => {
@@ -969,6 +1035,33 @@ function buildPersonnelRow(p, ecoleId) {
     setupTriggerListener(triggerTP, 'TP', cellDaysTP);
     setupTriggerListener(triggerSynd, 'D_synd_', cellDaysSynd);
     setupTriggerListener(triggerAutre, 'Autre', cellDaysAutre);
+
+    // --- ALERTE QUOTITÉ : temps partiel non détaillé ---
+    // Cellule "Quotité" en jaune si la quotité n'est pas 100 % et que le temps
+    // partiel n'est pas renseigné (case TP cochée + au moins un jour).
+    const quotiteSelect = quotiteCell.querySelector('select');
+    const tpDaysSelect = cellDaysTP.querySelector('select');
+
+    const isPartTimeDetailed = () => {
+        if (!triggerTP.input.checked) return false;
+        if (tpDaysSelect) {
+            return Array.from(tpDaysSelect.selectedOptions).some(opt => opt.value !== '');
+        }
+        return hasDecharge('TP');
+    };
+
+    const refreshQuotiteWarning = () => {
+        const quotite = quotiteSelect ? quotiteSelect.value : '';
+        const incomplete = quotite !== '100%' && !isPartTimeDetailed();
+        quotiteCell.classList.toggle('quotite-warning', incomplete);
+    };
+
+    if (quotiteSelect) quotiteSelect.addEventListener('change', refreshQuotiteWarning);
+    triggerTP.input.addEventListener('change', refreshQuotiteWarning);
+    if (tpDaysSelect) tpDaysSelect.addEventListener('change', refreshQuotiteWarning);
+
+    bindQuotiteWarningTooltip(quotiteCell);
+    refreshQuotiteWarning();
 
     // --- LIGNE 3 : BOUTON ACTION ---
     const trNiveaux = document.createElement('tr');

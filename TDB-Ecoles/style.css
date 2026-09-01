@@ -419,6 +419,29 @@ table.personnels-table {
     font-size: 12px;
 }
 
+/* Largeurs de colonnes : Civilité / Fonction / Quotité réduites à leur contenu,
+   espace redistribué vers Nom / Prénom / Mail */
+table.personnels-table col.col-civilite {
+    width: 7%;
+}
+
+table.personnels-table col.col-nom,
+table.personnels-table col.col-prenom {
+    width: 12.5%;
+}
+
+table.personnels-table col.col-mail {
+    width: 13%;
+}
+
+table.personnels-table col.col-fonction {
+    width: 9%;
+}
+
+table.personnels-table col.col-quotite {
+    width: 6%;
+}
+
 table.personnels-table thead th,
 table.personnels-table th {
     text-align: center;
@@ -573,6 +596,41 @@ table.personnels-table input.mail-edit-input:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(26, 95, 180, 0.15);
+}
+
+/* Alerte : quotité < 100 % sans détail de temps partiel */
+table.personnels-table td.quotite-warning,
+table.personnels-table tr:hover td.quotite-warning {
+    background-color: #ffe8a3;
+    box-shadow: inset 0 0 0 2px #e0a800;
+}
+
+table.personnels-table td.quotite-warning select,
+table.personnels-table td.quotite-warning select:hover,
+table.personnels-table td.quotite-warning select:focus {
+    background-color: transparent;
+}
+
+.quotite-warning-tooltip {
+    position: fixed;
+    z-index: 1100;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    max-width: min(260px, calc(100vw - 16px));
+    padding: 6px 9px;
+    border-radius: 6px;
+    background: #7a5c00;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.quotite-warning-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
 }
 
 .checkbox-cell {
