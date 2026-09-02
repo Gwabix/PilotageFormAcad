@@ -14,6 +14,15 @@
     --color-text: #1c1f24;
     --color-text-muted: #5a6270;
 
+    /* Chrome sombre : barre supérieure et fond de la liste des écoles.
+       Les cartes et les champs restent clairs et ressortent par contraste.
+       Contrastes vérifiés sur #0f172b : blanc 17,8:1 · #e2e8f0 13,9:1 ·
+       #94a3b8 6,9:1 (AA texte normal) · #d6eaf8 14,3:1 */
+    --color-chrome: #0f172b;
+    --color-chrome-text: #e2e8f0;
+    --color-chrome-text-muted: #94a3b8;
+    --color-chrome-border: rgba(255, 255, 255, 0.12);
+
     --color-success: #2e7d32;
     --color-success-bg: #e8f5e9;
 
@@ -43,7 +52,9 @@ body {
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: var(--font-base);
     color: var(--color-text);
-    background: var(--color-bg);
+    /* Le chrome sombre couvre toute la page : sans cela, une bande claire
+       apparaît sous la liste quand celle-ci est plus courte que l'écran. */
+    background: var(--color-chrome);
     color-scheme: light !important;
 }
 
@@ -65,8 +76,9 @@ body {
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-md);
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
+    background: var(--color-chrome);
+    color: var(--color-chrome-text);
+    border-bottom: 1px solid var(--color-chrome-border);
     padding: var(--spacing-sm) var(--spacing-md);
 }
 
@@ -95,8 +107,11 @@ body {
     box-shadow: 0 0 0 2px rgba(26, 95, 180, 0.15);
 }
 
+/* Surfaces claires posées sur le chrome sombre : elles rétablissent la
+   couleur de texte sombre, que leur parent soit clair ou non. */
 .search-results,
 #modal-search-results {
+    color: var(--color-text);
     position: absolute;
     top: calc(100% + 2px);
     left: 0;
@@ -173,7 +188,7 @@ body {
 
 .filter-wrapper label,
 #filters-bar label {
-    color: var(--color-text-muted);
+    color: var(--color-chrome-text-muted);
     font-weight: 600;
 }
 
@@ -210,7 +225,7 @@ body {
 }
 
 #topbar-right label {
-    color: var(--color-text-muted);
+    color: var(--color-chrome-text-muted);
     font-weight: 600;
 }
 
@@ -288,17 +303,19 @@ main#ecoles-container,
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
+    background: var(--color-chrome);
+    color: var(--color-chrome-text);
 }
 
 #loading-indicator {
     text-align: center;
-    color: var(--color-text-muted);
+    color: var(--color-chrome-text-muted);
     padding: var(--spacing-lg);
 }
 
 .no-results {
     text-align: center;
-    color: var(--color-text-muted);
+    color: var(--color-chrome-text-muted);
     padding: var(--spacing-lg);
     font-style: italic;
 }
@@ -313,11 +330,12 @@ main#ecoles-container,
 .commune-heading {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--color-primary);
-    border-bottom: 2px solid var(--color-primary-light);
+    color: var(--color-primary-light);
+    border-bottom: 2px solid rgba(214, 234, 248, 0.35);
     padding-bottom: var(--spacing-xs);
     position: sticky;
-    background: var(--color-bg);
+    /* Opaque : le titre est collant, il doit masquer les cartes qui défilent */
+    background: var(--color-chrome);
     z-index: 10;
     margin-bottom: 0;
 }
@@ -327,6 +345,9 @@ main#ecoles-container,
    ========================================================================== */
 .ecole-card {
     background: var(--color-surface);
+    /* Rétablit le texte sombre : la carte est une surface claire posée sur
+       le chrome sombre. */
+    color: var(--color-text);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
