@@ -1750,9 +1750,6 @@ function refreshRgpdBanner() {
 
     if (!result.candidates.length) {
         notice.classList.add('hidden');
-        if (rgpdData.ready && typeof RgpdPurge !== 'undefined') {
-            console.info('[RGPD] Alerte masquée —', RgpdPurge.diagnose(rgpdDataBundle()));
-        }
         return;
     }
 

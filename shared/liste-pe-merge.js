@@ -82,64 +82,6 @@
     }
 
     /**
-     * Photographie des lignes, pour distinguer ce qui est un vrai doublon
-     * (même école) d'une affectation partagée (écoles différentes).
-     * @param {object[]} listePe
-     */
-    function analyse(listePe) {
-        const parCle = new Map();
-        const parPersonneAnnee = new Map();
-        let sansEcole = 0;
-        let sansIdPe = 0;
-
-        for (const row of listePe) {
-            if (refRowId(row.UAI) <= 0) sansEcole++;
-
-            const key = duplicateKey(row);
-            if (key === null) { sansIdPe++; continue; }
-
-            let bucket = parCle.get(key);
-            if (!bucket) { bucket = []; parCle.set(key, bucket); }
-            bucket.push(row);
-
-            const personneKey = text(row.ID_PE) + ' | ' + text(row.Annee_scolaire);
-            let personneBucket = parPersonneAnnee.get(personneKey);
-            if (!personneBucket) { personneBucket = []; parPersonneAnnee.set(personneKey, personneBucket); }
-            personneBucket.push(row);
-        }
-
-        const describe = rows => ({
-            identite: [text(rows[0].Civilite), text(rows[0].Prenom), text(rows[0].Nom)]
-                .filter(Boolean).join(' '),
-            idPe: text(rows[0].ID_PE),
-            annee: text(rows[0].Annee_scolaire),
-            rowIds: rows.map(r => r.id),
-            ecolesRowIds: rows.map(r => refRowId(r.UAI)),
-            idUniques: rows.map(r => text(r.IDunique))
-        });
-
-        const doublonsStricts = [];
-        for (const rows of parCle.values()) {
-            if (rows.length > 1) doublonsStricts.push(describe(rows));
-        }
-
-        const affectationsMultiples = [];
-        for (const rows of parPersonneAnnee.values()) {
-            if (rows.length < 2) continue;
-            const ecoles = new Set(rows.map(r => refRowId(r.UAI)));
-            if (ecoles.size > 1) affectationsMultiples.push(describe(rows));
-        }
-
-        return {
-            lignes: listePe.length,
-            sansEcole,
-            sansIdPe,
-            doublonsStricts,
-            affectationsMultiples
-        };
-    }
-
-    /**
      * Clé de doublon : équivalente à IDunique (Annee_scolaire + ID_PE + UAI),
      * mais calculée sur le rowId de l'école plutôt que sur la formule Grist —
      * elle ne dépend donc pas d'une colonne calculée éventuellement en erreur.
@@ -318,7 +260,6 @@
     }
 
     global.ListePeMerge = {
-        analyse,
         findDuplicateGroups,
         mergeGroup,
         buildMergeActions

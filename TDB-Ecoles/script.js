@@ -178,7 +178,7 @@ async function mergeDuplicateListePe() {
 
     const groups = ListePeMerge.findDuplicateGroups(state.personnels);
     if (!groups.length) {
-        console.info('[Doublons] Aucun doublon détecté —', ListePeMerge.analyse(state.personnels));
+        console.info("[Doublons] Aucun doublon détecté sur " + state.personnels.length + " lignes Liste_PE.");
         return false;
     }
 
@@ -2043,11 +2043,7 @@ function refreshRgpdBanner() {
     rgpdState.candidates = result.candidates;
 
     if (!result.candidates.length) {
-        notice.classList.add('hidden');
-        if (state.relatedTablesLoaded && typeof RgpdPurge !== 'undefined') {
-            console.info('[RGPD] Alerte masquée —', RgpdPurge.diagnose(rgpdDataBundle()));
-        }
-        return;
+        notice.classList.add('hidden');        return;
     }
 
     const n = result.candidates.length;

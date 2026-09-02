@@ -175,47 +175,6 @@
     }
 
     /**
-     * Diagnostic : explique pourquoi le bandeau s'affiche ou non.
-     * @param {{ listePe: object[], formations?: object[] }} data
-     */
-    function diagnose(data) {
-        const listePe = Array.isArray(data && data.listePe) ? data.listePe : [];
-        const formations = Array.isArray(data && data.formations) ? data.formations : [];
-        const result = computeCandidates(data);
-
-        const todayDayIndex = epochSecondsToDayIndex(todayDateEpochSeconds());
-        const departements = new Set();
-        const retraitAgesDays = [];
-        let rowsWithIdPe = 0;
-
-        for (const row of listePe) {
-            if (row.ID_PE !== null && row.ID_PE !== undefined && row.ID_PE !== '') rowsWithIdPe++;
-            const departement = sanitizeText(row.Departement);
-            if (departement) departements.add(departement);
-            const epoch = parseDateEpochSeconds(row.Retrait);
-            if (epoch !== null) {
-                retraitAgesDays.push(todayDayIndex - epochSecondsToDayIndex(epoch));
-            }
-        }
-        retraitAgesDays.sort((a, b) => b - a);
-
-        return {
-            retentionDays: RETENTION_DAYS,
-            minDepartements: MIN_DEPARTEMENTS,
-            listePeCount: listePe.length,
-            formationsCount: formations.length,
-            rowsWithIdPe,
-            departementsVisibles: Array.from(departements).sort(),
-            visibleDepartementCount: result.visibleDepartementCount,
-            sufficientScope: result.sufficientScope,
-            rowsWithRetrait: retraitAgesDays.length,
-            retraitAgesDays: retraitAgesDays.slice(0, 20),
-            candidateCount: result.candidates.length,
-            candidates: result.candidates.map(c => ({ identity: c.identity, daysSinceRetrait: c.daysSinceRetrait }))
-        };
-    }
-
-    /**
      * Construit les actions Grist de purge, dans l'ordre imposé :
      * Formations -> Liste_PE.
      * @param {object[]} candidates
@@ -239,7 +198,6 @@
     global.RgpdPurge = {
         computeCandidates,
         buildPurgeActions,
-        diagnose,
         formatEpochDate
     };
 })(typeof window !== 'undefined' ? window : this);
