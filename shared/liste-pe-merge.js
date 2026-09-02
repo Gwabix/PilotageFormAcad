@@ -3,14 +3,15 @@
 /*
  * Module partagé — fusion automatique des lignes Liste_PE en double.
  *
- * Un doublon = même `IDunique` (Annee_scolaire + ID_PE + UAI), c'est-à-dire
- * même enseignant, même année scolaire ET MÊME ÉCOLE. Les affectations
- * partagées (même enseignant, même année, écoles différentes) ont des
- * IDunique distincts et ne sont donc JAMAIS fusionnées.
+ * Un doublon = même enseignant, même année scolaire ET même école
+ * (équivalent de `IDunique`). Les affectations partagées — même enseignant,
+ * même année, écoles DIFFÉRENTES — ne sont donc JAMAIS fusionnées.
  *
- * Les lignes sans école (UAI vide) sont exclues : leur IDunique dégénère en
- * "Annee_scolaire + ID_PE" et deux retraits d'écoles différentes s'y
- * confondraient.
+ * Cas particulier : deux lignes détachées (UAI vide) du même enseignant sur
+ * la même année — typiquement un enseignant retiré de ses deux écoles — SONT
+ * des doublons : plus aucune école ne les distingue.
+ *
+ * Une ligne sans `ID_PE` n'est jamais fusionnée (personne non identifiable).
  *
  * Règles de fusion :
  *  - survivant  : la ligne à la quotité de service la plus élevée
@@ -21,8 +22,8 @@
  *  - Retrait     : la date la plus récente
  *  - autres textes (Civilite, Nom, Prenom, Mail, Fonction) : 1re valeur non vide
  *
- * Les lignes Formations / Lien_intercircos qui référencent une ligne
- * supprimée sont repointées vers le survivant AVANT la suppression.
+ * Les lignes Formations qui référencent une ligne supprimée sont repointées
+ * vers le survivant AVANT la suppression.
  */
 
 (function (global) {
@@ -81,15 +82,91 @@
     }
 
     /**
-     * Groupes de lignes Liste_PE partageant le même IDunique (école incluse).
-     * @param {object[]} listePe enregistrements { id, IDunique, UAI, ... }
+     * Photographie des lignes, pour distinguer ce qui est un vrai doublon
+     * (même école) d'une affectation partagée (écoles différentes).
+     * @param {object[]} listePe
+     */
+    function analyse(listePe) {
+        const parCle = new Map();
+        const parPersonneAnnee = new Map();
+        let sansEcole = 0;
+        let sansIdPe = 0;
+
+        for (const row of listePe) {
+            if (refRowId(row.UAI) <= 0) sansEcole++;
+
+            const key = duplicateKey(row);
+            if (key === null) { sansIdPe++; continue; }
+
+            let bucket = parCle.get(key);
+            if (!bucket) { bucket = []; parCle.set(key, bucket); }
+            bucket.push(row);
+
+            const personneKey = text(row.ID_PE) + ' | ' + text(row.Annee_scolaire);
+            let personneBucket = parPersonneAnnee.get(personneKey);
+            if (!personneBucket) { personneBucket = []; parPersonneAnnee.set(personneKey, personneBucket); }
+            personneBucket.push(row);
+        }
+
+        const describe = rows => ({
+            identite: [text(rows[0].Civilite), text(rows[0].Prenom), text(rows[0].Nom)]
+                .filter(Boolean).join(' '),
+            idPe: text(rows[0].ID_PE),
+            annee: text(rows[0].Annee_scolaire),
+            rowIds: rows.map(r => r.id),
+            ecolesRowIds: rows.map(r => refRowId(r.UAI)),
+            idUniques: rows.map(r => text(r.IDunique))
+        });
+
+        const doublonsStricts = [];
+        for (const rows of parCle.values()) {
+            if (rows.length > 1) doublonsStricts.push(describe(rows));
+        }
+
+        const affectationsMultiples = [];
+        for (const rows of parPersonneAnnee.values()) {
+            if (rows.length < 2) continue;
+            const ecoles = new Set(rows.map(r => refRowId(r.UAI)));
+            if (ecoles.size > 1) affectationsMultiples.push(describe(rows));
+        }
+
+        return {
+            lignes: listePe.length,
+            sansEcole,
+            sansIdPe,
+            doublonsStricts,
+            affectationsMultiples
+        };
+    }
+
+    /**
+     * Clé de doublon : équivalente à IDunique (Annee_scolaire + ID_PE + UAI),
+     * mais calculée sur le rowId de l'école plutôt que sur la formule Grist —
+     * elle ne dépend donc pas d'une colonne calculée éventuellement en erreur.
+     *
+     * Une école vide (0) est une valeur de clé comme une autre : deux lignes
+     * détachées du même enseignant sur la même année (retiré de ses deux
+     * écoles) sont bien des doublons, plus rien ne les distingue.
+     *
+     * Retourne null si l'enseignant n'est pas identifiable (ID_PE vide) :
+     * sans ID_PE, deux personnes différentes se confondraient.
+     */
+    function duplicateKey(row) {
+        const idPe = text(row.ID_PE);
+        if (!idPe) return null;
+        return text(row.Annee_scolaire) + ' | ' + idPe + ' | ' + refRowId(row.UAI);
+    }
+
+    /**
+     * Groupes de lignes Liste_PE en double (même enseignant, même année,
+     * même école — école éventuellement vide pour les lignes détachées).
+     * @param {object[]} listePe enregistrements { id, ID_PE, Annee_scolaire, UAI, ... }
      * @returns {{ key: string, rows: object[] }[]}
      */
     function findDuplicateGroups(listePe) {
         const byKey = new Map();
         for (const row of listePe) {
-            if (refRowId(row.UAI) <= 0) continue;
-            const key = text(row.IDunique);
+            const key = duplicateKey(row);
             if (!key) continue;
             let bucket = byKey.get(key);
             if (!bucket) { bucket = []; byKey.set(key, bucket); }
@@ -181,21 +258,17 @@
 
     /**
      * Actions Grist pour fusionner les doublons, dans l'ordre :
-     * repointage Formations -> repointage Lien_intercircos -> mise à jour des
-     * survivants -> suppression des doublons (une seule transaction).
+     * repointage Formations -> mise à jour des survivants -> suppression des
+     * doublons (une seule transaction).
      *
      * @param {object[]} groups résultat de findDuplicateGroups
      * @param {object[]} formations enregistrements Formations
-     * @param {object[]} liens enregistrements Lien_intercircos
      */
-    function buildMergeActions(groups, formations, liens) {
+    function buildMergeActions(groups, formations) {
         const formationsByRow = indexByReferencedRow(formations || [], 'ID_PE');
-        const liensByRow = indexByReferencedRow(liens || [], 'ID_PE');
 
         const formationIds = [];
         const formationTargets = [];
-        const lienIds = [];
-        const lienTargets = [];
         const survivorIds = [];
         const survivorValues = [];
         const removeIds = [];
@@ -204,18 +277,12 @@
         for (const group of groups) {
             const { survivor, losers, merged } = mergeGroup(group.rows);
             let movedFormations = 0;
-            let movedLiens = 0;
 
             for (const loser of losers) {
                 for (const record of (formationsByRow.get(loser.id) || [])) {
                     formationIds.push(record.id);
                     formationTargets.push(survivor.id);
                     movedFormations++;
-                }
-                for (const record of (liensByRow.get(loser.id) || [])) {
-                    lienIds.push(record.id);
-                    lienTargets.push(survivor.id);
-                    movedLiens++;
                 }
                 removeIds.push(loser.id);
             }
@@ -232,17 +299,13 @@
                 anneeScolaire: text(survivor.Annee_scolaire),
                 survivorId: survivor.id,
                 removedIds: losers.map(r => r.id),
-                movedFormations,
-                movedLiens
+                movedFormations
             });
         }
 
         const actions = [];
         if (formationIds.length) {
             actions.push(['BulkUpdateRecord', 'Formations', formationIds, { ID_PE: formationTargets }]);
-        }
-        if (lienIds.length) {
-            actions.push(['BulkUpdateRecord', 'Lien_intercircos', lienIds, { ID_PE: lienTargets }]);
         }
         for (let i = 0; i < survivorIds.length; i++) {
             actions.push(['UpdateRecord', 'Liste_PE', survivorIds[i], survivorValues[i]]);
@@ -255,6 +318,7 @@
     }
 
     global.ListePeMerge = {
+        analyse,
         findDuplicateGroups,
         mergeGroup,
         buildMergeActions

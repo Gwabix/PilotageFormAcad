@@ -4,7 +4,6 @@ const state = {
     ecoles: [],
     personnels: [],
     formations: [],
-    liens: [],
     relatedTablesLoaded: false,
     ecolesTable: null,
     personnelsTable: null,
@@ -179,12 +178,12 @@ async function mergeDuplicateListePe() {
 
     const groups = ListePeMerge.findDuplicateGroups(state.personnels);
     if (!groups.length) {
-        console.info('[Doublons] Aucun doublon détecté sur ' + state.personnels.length + ' lignes Liste_PE.');
+        console.info('[Doublons] Aucun doublon détecté —', ListePeMerge.analyse(state.personnels));
         return false;
     }
 
     const { actions, summary, removedCount } =
-        ListePeMerge.buildMergeActions(groups, state.formations, state.liens);
+        ListePeMerge.buildMergeActions(groups, state.formations);
     if (!actions.length) return false;
 
     try {
@@ -215,22 +214,12 @@ async function loadAllData(skipMerge) {
             ecole._normCommuneNom = normalizeStr(ecole.Commune_Nom || '');
         }
 
-        // Tables liées, chargées indépendamment l'une de l'autre.
-        //  - Formations : INDISPENSABLE (ses lignes référencent Liste_PE et
-        //    doivent être repointées avant toute fusion ou suppression).
-        //  - Lien_intercircos : OPTIONNELLE (la table peut ne pas exister).
-        const [formationsRecords, liensRecords] = await Promise.all([
-            fetchTableRecords('Formations'),
-            fetchTableRecords('Lien_intercircos')
-        ]);
-
+        // Formations est indispensable : ses lignes référencent Liste_PE et
+        // doivent être repointées avant toute fusion ou suppression.
+        const formationsRecords = await fetchTableRecords("Formations");
         state.formations = formationsRecords || [];
-        state.liens = liensRecords || [];
         state.relatedTablesLoaded = formationsRecords !== null;
 
-        if (liensRecords === null) {
-            console.info('[Liste_PE] Table Lien_intercircos absente : ignorée.');
-        }
         if (!state.relatedTablesLoaded) {
             console.warn('[Liste_PE] Table Formations indisponible : purge RGPD et fusion des doublons désactivées.');
         }
@@ -2026,8 +2015,7 @@ const rgpdState = { candidates: [], busy: false };
 function rgpdDataBundle() {
     return {
         listePe: state.personnels,
-        formations: state.formations,
-        liens: state.liens
+        formations: state.formations
     };
 }
 
@@ -2037,7 +2025,7 @@ function computeRgpdResult() {
         return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
     }
     if (!state.relatedTablesLoaded) {
-        console.warn('[RGPD] Tables Formations / Lien_intercircos non chargées : contrôle désactivé.');
+        console.warn("[RGPD] Table Formations non chargée : contrôle désactivé.");
         return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
     }
     return RgpdPurge.computeCandidates(rgpdDataBundle());
@@ -2087,8 +2075,8 @@ function openRgpdModal() {
     const totalRows = candidates.reduce((sum, c) => sum + c.totalRows, 0);
 
     intro.textContent = candidates.length === 1
-        ? "1 enseignant est retiré depuis plus de 5 ans. Toutes les lignes le concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :"
-        : candidates.length + " enseignants sont retirés depuis plus de 5 ans. Toutes les lignes les concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :";
+        ? "1 enseignant est retiré depuis plus de 5 ans. Toutes les lignes le concernant (Formations, Liste_PE) seront supprimées :"
+        : candidates.length + " enseignants sont retirés depuis plus de 5 ans. Toutes les lignes les concernant (Formations, Liste_PE) seront supprimées :";
 
     list.textContent = '';
     candidates.forEach(c => {
@@ -2101,7 +2089,6 @@ function openRgpdModal() {
             + ' (' + c.daysSinceRetrait + ' jours) · '
             + c.totalRows + ' ligne' + (c.totalRows > 1 ? 's' : '')
             + ' (' + c.formationRowIds.length + ' Formations, '
-            + c.lienRowIds.length + ' Lien_intercircos, '
             + c.listePeRowIds.length + ' Liste_PE)';
         li.append(name, detail);
         list.appendChild(li);

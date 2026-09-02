@@ -18,8 +18,8 @@
  *    MIN_DEPARTEMENTS départements dans Liste_PE. En deçà, les règles d'accès
  *    Grist peuvent masquer une mutation inter-départementale et faire passer
  *    une mutation pour un retrait (académie de Montpellier = 5 départements).
- *  - Purge : suppression des lignes Formations, puis Lien_intercircos, puis
- *    Liste_PE de l'enseignant, dans une seule transaction (Formations d'abord).
+ *  - Purge : suppression des lignes Formations puis Liste_PE de l'enseignant,
+ *    dans une seule transaction (Formations d'abord).
  */
 
 (function (global) {
@@ -88,16 +88,15 @@
     }
 
     /**
-     * @param {{ listePe: object[], formations?: object[], liens?: object[] }} data
+     * @param {{ listePe: object[], formations?: object[] }} data
      *        Enregistrements normalisés { id, <colonnes Grist> }.
      * @returns {{ sufficientScope: boolean, visibleDepartementCount: number, candidates: object[] }}
      *   candidate = { key, identity, lastRetraitEpoch, daysSinceRetrait,
-     *                 listePeRowIds, formationRowIds, lienRowIds, totalRows }
+     *                 listePeRowIds, formationRowIds, totalRows }
      */
     function computeCandidates(data) {
         const listePe = Array.isArray(data && data.listePe) ? data.listePe : [];
         const formations = Array.isArray(data && data.formations) ? data.formations : [];
-        const liens = Array.isArray(data && data.liens) ? data.liens : [];
 
         const departements = new Set();
         for (const row of listePe) {
@@ -121,7 +120,6 @@
         }
 
         const formationsByListePeRow = indexByReferencedRow(formations, 'ID_PE');
-        const liensByListePeRow = indexByReferencedRow(liens, 'ID_PE');
 
         const todayDayIndex = epochSecondsToDayIndex(todayDateEpochSeconds());
         const candidates = [];
@@ -157,10 +155,8 @@
 
             const listePeRowIds = rows.map(r => r.id);
             const formationRowIds = [];
-            const lienRowIds = [];
             for (const rowId of listePeRowIds) {
                 for (const f of (formationsByListePeRow.get(rowId) || [])) formationRowIds.push(f.id);
-                for (const l of (liensByListePeRow.get(rowId) || [])) lienRowIds.push(l.id);
             }
 
             candidates.push({
@@ -170,8 +166,7 @@
                 daysSinceRetrait,
                 listePeRowIds,
                 formationRowIds,
-                lienRowIds,
-                totalRows: listePeRowIds.length + formationRowIds.length + lienRowIds.length
+                totalRows: listePeRowIds.length + formationRowIds.length
             });
         }
 
@@ -181,12 +176,11 @@
 
     /**
      * Diagnostic : explique pourquoi le bandeau s'affiche ou non.
-     * @param {{ listePe: object[], formations?: object[], liens?: object[] }} data
+     * @param {{ listePe: object[], formations?: object[] }} data
      */
     function diagnose(data) {
         const listePe = Array.isArray(data && data.listePe) ? data.listePe : [];
         const formations = Array.isArray(data && data.formations) ? data.formations : [];
-        const liens = Array.isArray(data && data.liens) ? data.liens : [];
         const result = computeCandidates(data);
 
         const todayDayIndex = epochSecondsToDayIndex(todayDateEpochSeconds());
@@ -210,7 +204,6 @@
             minDepartements: MIN_DEPARTEMENTS,
             listePeCount: listePe.length,
             formationsCount: formations.length,
-            liensCount: liens.length,
             rowsWithIdPe,
             departementsVisibles: Array.from(departements).sort(),
             visibleDepartementCount: result.visibleDepartementCount,
@@ -224,24 +217,21 @@
 
     /**
      * Construit les actions Grist de purge, dans l'ordre imposé :
-     * Formations -> Lien_intercircos -> Liste_PE.
+     * Formations -> Liste_PE.
      * @param {object[]} candidates
      * @returns {Array[]} liste d'actions pour grist.docApi.applyUserActions
      */
     function buildPurgeActions(candidates) {
         const formationIds = [];
-        const lienIds = [];
         const listePeIds = [];
 
         for (const candidate of (candidates || [])) {
             for (const id of candidate.formationRowIds) formationIds.push(id);
-            for (const id of candidate.lienRowIds) lienIds.push(id);
             for (const id of candidate.listePeRowIds) listePeIds.push(id);
         }
 
         const actions = [];
         if (formationIds.length) actions.push(['BulkRemoveRecord', 'Formations', formationIds]);
-        if (lienIds.length) actions.push(['BulkRemoveRecord', 'Lien_intercircos', lienIds]);
         if (listePeIds.length) actions.push(['BulkRemoveRecord', 'Liste_PE', listePeIds]);
         return actions;
     }

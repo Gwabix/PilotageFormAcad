@@ -109,21 +109,11 @@ async function loadData() {
         // Données brutes pour le contrôle RGPD (module partagé RgpdPurge).
         // Si une table est indisponible, on désactive le contrôle plutôt que
         // de risquer une suppression partielle.
-        // Liste_PE est indispensable ; Lien_intercircos est optionnelle
-        // (la table peut ne pas exister dans le document).
-        const [listePeRecords, liensRecords] = await Promise.all([
-            fetchTableRecords('Liste_PE'),
-            fetchTableRecords('Lien_intercircos')
-        ]);
-
+        const listePeRecords = await fetchTableRecords('Liste_PE');
         rgpdData.listePe = listePeRecords || [];
         rgpdData.formations = recordsFromTable(tableauTable);
-        rgpdData.liens = liensRecords || [];
         rgpdData.ready = listePeRecords !== null;
 
-        if (liensRecords === null) {
-            console.info('[RGPD] Table Lien_intercircos absente : ignorée.');
-        }
         if (!rgpdData.ready) {
             console.warn('[RGPD] Table Liste_PE indisponible : contrôle désactivé.');
         }
@@ -1667,7 +1657,7 @@ function exportToCSV(type) {
    Surveillance / purge RGPD (logique partagée : ../shared/rgpd-purge.js)
    ========================================================================== */
 
-const rgpdData = { listePe: [], formations: [], liens: [], ready: false };
+const rgpdData = { listePe: [], formations: [], ready: false };
 const rgpdUiState = { candidates: [], busy: false };
 
 /* Index rowId Liste_PE -> ID_PE texte, pour compter des personnes et non des
@@ -1731,8 +1721,7 @@ function rgpdToast(message, isError) {
 function rgpdDataBundle() {
     return {
         listePe: rgpdData.listePe,
-        formations: rgpdData.formations,
-        liens: rgpdData.liens
+        formations: rgpdData.formations
     };
 }
 
@@ -1742,7 +1731,7 @@ function computeRgpdResult() {
         return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
     }
     if (!rgpdData.ready) {
-        console.warn('[RGPD] Tables Liste_PE / Lien_intercircos non chargées : contrôle désactivé.');
+        console.warn("[RGPD] Table Liste_PE non chargée : contrôle désactivé.");
         return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
     }
     return RgpdPurge.computeCandidates(rgpdDataBundle());
@@ -1792,8 +1781,8 @@ function openRgpdModal() {
     const totalRows = candidates.reduce((sum, c) => sum + c.totalRows, 0);
 
     intro.textContent = candidates.length === 1
-        ? "1 enseignant est retiré depuis plus de 5 ans. Toutes les lignes le concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :"
-        : candidates.length + " enseignants sont retirés depuis plus de 5 ans. Toutes les lignes les concernant (Formations, Lien_intercircos, Liste_PE) seront supprimées :";
+        ? "1 enseignant est retiré depuis plus de 5 ans. Toutes les lignes le concernant (Formations, Liste_PE) seront supprimées :"
+        : candidates.length + " enseignants sont retirés depuis plus de 5 ans. Toutes les lignes les concernant (Formations, Liste_PE) seront supprimées :";
 
     list.textContent = '';
     candidates.forEach(c => {
@@ -1806,7 +1795,6 @@ function openRgpdModal() {
             + ' (' + c.daysSinceRetrait + ' jours) · '
             + c.totalRows + ' ligne' + (c.totalRows > 1 ? 's' : '')
             + ' (' + c.formationRowIds.length + ' Formations, '
-            + c.lienRowIds.length + ' Lien_intercircos, '
             + c.listePeRowIds.length + ' Liste_PE)';
         li.append(name, detail);
         list.appendChild(li);
