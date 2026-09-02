@@ -20,7 +20,8 @@ const state = {
         search: false,
         collapse: false,
         modal: false,
-        rgpd: false
+        rgpd: false,
+        addTeacher: false
     }
 };
 
@@ -262,6 +263,7 @@ async function loadAllData(skipMerge) {
         attachSearchListener();
         attachGlobalCollapseHandler();
         attachRgpdListeners();
+        attachAddTeacherListeners();
         renderDashboard();
         hideStatus();
     } catch (err) {
@@ -862,6 +864,16 @@ function buildEcoleCard(ecole) {
     personnelsSection.className = 'personnels-section';
     personnelsSection.appendChild(buildPersonnelsTable(ecole));
     card.appendChild(personnelsSection);
+
+    const footer = document.createElement('div');
+    footer.className = 'ecole-card-footer';
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'add-teacher-btn';
+    addBtn.textContent = 'Ajouter un enseignant';
+    addBtn.addEventListener('click', () => openAddTeacherModal(ecole));
+    footer.appendChild(addBtn);
+    card.appendChild(footer);
 
     return card;
 }
@@ -2155,6 +2167,601 @@ function attachRgpdListeners() {
     confirmBtn.addEventListener('click', confirmRgpdPurge);
 
     state.listenersAttached.rgpd = true;
+}
+
+/* ==========================================================================
+   « Ajouter un enseignant » : rattacher une personne existante à une école
+   ========================================================================== */
+
+const addTeacherState = {
+    ecole: null,        // école cible (carte depuis laquelle on a cliqué)
+    person: null,       // personne sélectionnée dans les résultats
+    busy: false
+};
+
+// Libellé complet d'une école : « Nom, Adresse_2, Commune ».
+function formatEcoleFull(ecole) {
+    if (!ecole) return 'école inconnue';
+    return [
+        sanitizeText(ecole.Nom_etablissement || ''),
+        sanitizeText(ecole.Adresse_2 || ''),
+        sanitizeText(ecole.Nom_commune || '')
+    ].filter(Boolean).join(', ') || 'école inconnue';
+}
+
+function getEcoleById(rowId) {
+    return state.ecoles.find(e => e.id === rowId) || null;
+}
+
+// Personnes visibles, regroupées par ID_PE, avec leurs lignes de l'année
+// courante. Une personne sans ID_PE est identifiée par sa ligne.
+function buildPersonIndex() {
+    const byKey = new Map();
+    for (const record of state.personnels) {
+        const idPe = sanitizeText(record.ID_PE || '');
+        const key = idPe || ('row:' + record.id);
+        let person = byKey.get(key);
+        if (!person) {
+            person = { key, idPe, rows: [], identity: '', mail: '' };
+            byKey.set(key, person);
+        }
+        person.rows.push(record);
+    }
+
+    for (const person of byKey.values()) {
+        // Identité prise sur la ligne la plus récente renseignée.
+        for (const row of person.rows) {
+            if (!person.identity) person.identity = getPersonnelIdentity(row);
+            if (!person.mail) person.mail = sanitizeText(row.Mail || '');
+        }
+        person.yearRows = person.rows.filter(r =>
+            state.currentYear === null || getPersonnelSchoolYearStart(r) === state.currentYear);
+        person.affectations = person.yearRows
+            .filter(r => (getPersonnelEcoleRowId(r) || 0) > 0)
+            .map(r => ({ row: r, ecole: getEcoleById(getPersonnelEcoleRowId(r)) }));
+    }
+
+    return byKey;
+}
+
+function searchPersons(query, excludeEcoleId) {
+    const persons = buildPersonIndex();
+    const scored = [];
+
+    for (const person of persons.values()) {
+        const nom = normalizeStr(person.rows[0].Nom || '');
+        const prenom = normalizeStr(person.rows[0].Prenom || '');
+        const idPe = normalizeStr(person.idPe);
+
+        const rank = Math.min(
+            ecoleMatchRank(nom, query) === -1 ? 99 : ecoleMatchRank(nom, query),
+            ecoleMatchRank(prenom, query) === -1 ? 99 : ecoleMatchRank(prenom, query),
+            ecoleMatchRank(idPe, query) === -1 ? 99 : ecoleMatchRank(idPe, query)
+        );
+        if (rank === 99) continue;
+
+        // Déjà rattaché à l'école cible : rien à ajouter.
+        if (person.affectations.some(a => a.row && getPersonnelEcoleRowId(a.row) === excludeEcoleId)) {
+            continue;
+        }
+
+        scored.push({ person, rank, sortKey: nom + ' ' + prenom });
+    }
+
+    scored.sort((a, b) => (a.rank - b.rank) || a.sortKey.localeCompare(b.sortKey, 'fr'));
+    return scored.slice(0, 30).map(x => x.person);
+}
+
+function showAddTeacherPanel(name) {
+    document.querySelectorAll('#add-teacher-modal .add-teacher-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.panel !== name);
+    });
+}
+
+function openAddTeacherModal(ecole) {
+    addTeacherState.ecole = ecole;
+    addTeacherState.person = null;
+
+    document.getElementById('add-teacher-ecole').textContent = 'École : ' + formatEcoleFull(ecole);
+    const input = document.getElementById('add-teacher-search');
+    input.value = '';
+    document.getElementById('add-teacher-results').textContent = '';
+    document.getElementById('add-teacher-empty').classList.add('hidden');
+
+    showAddTeacherPanel('search');
+    document.getElementById('add-teacher-overlay').classList.remove('hidden');
+    input.focus();
+}
+
+function closeAddTeacherModal() {
+    document.getElementById('add-teacher-overlay').classList.add('hidden');
+    addTeacherState.ecole = null;
+    addTeacherState.person = null;
+}
+
+function renderAddTeacherResults() {
+    const query = normalizeStr(document.getElementById('add-teacher-search').value);
+    const list = document.getElementById('add-teacher-results');
+    const empty = document.getElementById('add-teacher-empty');
+    list.textContent = '';
+
+    if (!query) {
+        empty.classList.add('hidden');
+        return;
+    }
+
+    const persons = searchPersons(query, addTeacherState.ecole ? addTeacherState.ecole.id : 0);
+    empty.classList.toggle('hidden', persons.length > 0);
+
+    persons.forEach(person => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.setAttribute('role', 'option');
+
+        const name = document.createElement('strong');
+        name.textContent = person.identity || '(identité inconnue)';
+
+        const meta = document.createElement('span');
+        meta.className = 'add-teacher-result-meta';
+        const affectations = person.affectations
+            .map(a => formatEcoleFull(a.ecole))
+            .filter(Boolean);
+        meta.textContent = (person.idPe ? ' · ' + person.idPe : '')
+            + ' · ' + (affectations.length
+                ? affectations.join(' ; ')
+                : 'aucune affectation');
+
+        item.append(name, meta);
+        item.addEventListener('click', () => openAddTeacherConfirm(person));
+        list.appendChild(item);
+    });
+}
+
+function openAddTeacherConfirm(person) {
+    addTeacherState.person = person;
+
+    const cible = addTeacherState.ecole;
+    const identity = person.identity || 'cet enseignant';
+    const textEl = document.getElementById('add-teacher-confirm-text');
+    const listEl = document.getElementById('add-teacher-affectations');
+    const actions = document.getElementById('add-teacher-confirm-actions');
+
+    listEl.textContent = '';
+    listEl.classList.add('hidden');
+    actions.textContent = '';
+
+    const addAction = (label, primary, onClick) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = label;
+        if (primary) btn.className = 'primary';
+        btn.addEventListener('click', onClick);
+        actions.appendChild(btn);
+        return btn;
+    };
+
+    const cancel = () => showAddTeacherPanel('search');
+
+    if (person.affectations.length === 0) {
+        // Cas 1 : aucune affectation.
+        textEl.textContent = 'Rattacher ' + identity + ' à ' + formatEcoleFull(cible) + ' ?';
+        addAction('Annuler', false, cancel);
+        addAction('Confirmer', true, () => applyAffectations([cible.id]));
+
+    } else if (person.affectations.length === 1) {
+        // Cas 2 : une seule affectation existante.
+        const actuelle = person.affectations[0];
+        textEl.textContent = identity + ' est actuellement rattaché(e) à '
+            + formatEcoleFull(actuelle.ecole)
+            + '. Souhaitez-vous conserver cette affectation ou la remplacer par '
+            + formatEcoleFull(cible) + ' ?';
+        addAction('Annuler', false, cancel);
+        addAction('Remplacer l\'affectation', false, () => applyAffectations([cible.id]));
+        addAction('Conserver les deux affectations', true,
+            () => applyAffectations([getPersonnelEcoleRowId(actuelle.row), cible.id]));
+
+    } else {
+        // Cas 3 : plusieurs affectations — l'utilisateur choisit ce qu'il garde.
+        textEl.textContent = identity + ' a actuellement plusieurs affectations. '
+            + 'Veuillez sélectionner les affectations à conserver.';
+        listEl.classList.remove('hidden');
+
+        const entries = person.affectations.map(a => ({
+            ecoleId: getPersonnelEcoleRowId(a.row),
+            label: formatEcoleFull(a.ecole),
+            checked: true
+        }));
+        entries.push({ ecoleId: cible.id, label: formatEcoleFull(cible), checked: false });
+
+        entries.forEach(entry => {
+            const li = document.createElement('li');
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = entry.checked;
+            cb.dataset.ecoleId = String(entry.ecoleId);
+            label.append(cb, document.createTextNode(' ' + entry.label));
+            li.appendChild(label);
+            listEl.appendChild(li);
+        });
+
+        addAction('Annuler', false, cancel);
+        addAction('Enregistrer', true, () => {
+            const keep = Array.from(listEl.querySelectorAll('input:checked'))
+                .map(cb => parseInt(cb.dataset.ecoleId, 10))
+                .filter(Number.isFinite);
+            applyAffectations(keep);
+        });
+    }
+
+    showAddTeacherPanel('confirm');
+}
+
+/**
+ * Aligne les affectations de l'année courante sur la liste d'écoles demandée.
+ * Une affectation retirée dont une nouvelle prend la place voit simplement son
+ * UAI réécrit (la ligne est déplacée) ; une affectation retirée sans
+ * remplacement est détachée et datée, comme le bouton « Retirer de l'école ».
+ */
+async function applyAffectations(keepEcoleIds) {
+    if (addTeacherState.busy) return;
+    const person = addTeacherState.person;
+    const cible = addTeacherState.ecole;
+    if (!person || !cible) return;
+
+    const keep = new Set(keepEcoleIds.filter(id => Number.isFinite(id) && id > 0));
+    const current = new Map();
+    person.affectations.forEach(a => current.set(getPersonnelEcoleRowId(a.row), a.row));
+
+    const toRemove = [];
+    for (const [ecoleId, row] of current) {
+        if (!keep.has(ecoleId)) toRemove.push(row);
+    }
+    const toAdd = [];
+    for (const ecoleId of keep) {
+        if (!current.has(ecoleId)) toAdd.push(ecoleId);
+    }
+
+    if (!toRemove.length && !toAdd.length) {
+        closeAddTeacherModal();
+        return;
+    }
+
+    const actions = [];
+    const anneeScolaire = person.yearRows.length
+        ? person.yearRows[0].Annee_scolaire
+        : (person.rows[0] && person.rows[0].Annee_scolaire);
+
+    // Lignes détachées de l'année, réutilisables avant d'en créer une nouvelle.
+    const reusable = person.yearRows.filter(r => (getPersonnelEcoleRowId(r) || 0) <= 0);
+
+    for (const ecoleId of toAdd) {
+        const moved = toRemove.shift();
+        if (moved) {
+            actions.push(['UpdateRecord', 'Liste_PE', moved.id, { UAI: ecoleId, Retrait: null }]);
+            continue;
+        }
+        const recycled = reusable.shift();
+        if (recycled) {
+            actions.push(['UpdateRecord', 'Liste_PE', recycled.id, { UAI: ecoleId, Retrait: null }]);
+            continue;
+        }
+        const source = person.yearRows[0] || person.rows[0];
+        actions.push(['AddRecord', 'Liste_PE', null, {
+            ID_PE: person.idPe,
+            Civilite: source.Civilite || '',
+            Nom: source.Nom || '',
+            Prenom: source.Prenom || '',
+            Mail: source.Mail || '',
+            Annee_scolaire: anneeScolaire,
+            UAI: ecoleId,
+            Fonction: '',
+            Quotite_de_service: source.Quotite_de_service || '',
+            Retrait: null
+        }]);
+    }
+
+    // Affectations retirées sans remplacement : détachées et datées.
+    for (const row of toRemove) {
+        actions.push(['UpdateRecord', 'Liste_PE', row.id, {
+            UAI: 0,
+            Fonction: '',
+            Niveau_x_: ['L'],
+            Retrait: todayDateEpochSeconds()
+        }]);
+    }
+
+    addTeacherState.busy = true;
+    try {
+        await grist.docApi.applyUserActions(actions);
+        showToast('Affectations mises à jour pour ' + (person.identity || 'l\'enseignant') + '.', 'success');
+        closeAddTeacherModal();
+        await loadAllData();
+    } catch (err) {
+        console.error('[Ajout enseignant] Échec :', err);
+        showToast('Erreur lors de la mise à jour des affectations.', 'error');
+    } finally {
+        addTeacherState.busy = false;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Création d'une fiche enseignant
+   -------------------------------------------------------------------------- */
+
+const CREATE_MAIL_PATTERN = /^[^\W][a-zA-Z0-9\-._]+[^\W]@ac-montpellier\.fr$/;
+const CREATE_ID_PE_PATTERN = /^[A-Za-z0-9-]+$/;
+
+const DECHARGE_FIELDS = [
+    { field: 'D_dir', label: 'Décharge de direction' },
+    { field: 'D_synd_', label: 'Décharge syndicale' },
+    { field: 'TP', label: 'Temps partiel' },
+    { field: 'Autre', label: 'Autre (préciser)' }
+];
+
+// Majuscules sans accent ni caractère parasite (Nom / Prénom).
+function toUpperNoAccent(value) {
+    return sanitizeText(value)
+        .normalize('NFD')
+        .replace(new RegExp('[\u0300-\u036f]', 'g'), '')
+        .toUpperCase()
+        .replace(/[^A-Z \-']/g, '');
+}
+
+function fillSelect(select, options, selected) {
+    select.textContent = '';
+    options.forEach(value => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value;
+        if (value === selected) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+function setCreateEcole(ecole) {
+    document.getElementById('create-ecole-id').value = ecole ? String(ecole.id) : '';
+    document.getElementById('create-ecole-search').value = ecole ? formatEcoleFull(ecole) : '';
+    document.getElementById('create-uai').value =
+        ecole ? sanitizeText(ecole.Identifiant_de_l_etablissement || '') : '';
+    document.getElementById('create-circonscription').value =
+        ecole ? sanitizeText(ecole.Circonscription || '') : '';
+    document.getElementById('create-ecole-results').textContent = '';
+}
+
+function buildCreateDecharges() {
+    const container = document.getElementById('create-decharges');
+    container.textContent = '';
+
+    DECHARGE_FIELDS.forEach(({ field, label }) => {
+        const row = document.createElement('div');
+        row.className = 'create-decharge-row';
+
+        const toggleLabel = document.createElement('label');
+        const toggle = document.createElement('input');
+        toggle.type = 'checkbox';
+        toggle.dataset.dechargeToggle = field;
+        toggleLabel.append(toggle, document.createTextNode(' ' + label));
+
+        const select = document.createElement('select');
+        select.multiple = true;
+        select.size = 4;
+        select.dataset.dechargeDays = field;
+        select.classList.add('hidden');
+        fillSelect(select, DECHARGES_OPTIONS[field] || []);
+
+        const preciser = document.createElement('input');
+        preciser.type = 'text';
+        preciser.id = 'create-preciser';
+        preciser.placeholder = 'Préciser';
+        preciser.classList.add('hidden');
+
+        toggle.addEventListener('change', () => {
+            select.classList.toggle('hidden', !toggle.checked);
+            if (field === 'Autre') preciser.classList.toggle('hidden', !toggle.checked);
+            if (!toggle.checked) {
+                Array.from(select.options).forEach(o => { o.selected = false; });
+                if (field === 'Autre') preciser.value = '';
+            }
+        });
+
+        row.append(toggleLabel, select);
+        if (field === 'Autre') row.appendChild(preciser);
+        container.appendChild(row);
+    });
+}
+
+function buildCreateNiveaux() {
+    const container = document.getElementById('create-niveaux');
+    container.textContent = '';
+    NIVEAUX_OPTIONS.forEach(niveau => {
+        const label = document.createElement('label');
+        label.className = 'create-niveau';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = niveau;
+        label.append(cb, document.createTextNode(' ' + niveau));
+        container.appendChild(label);
+    });
+}
+
+function openCreateTeacherForm() {
+    fillSelect(document.getElementById('create-civilite'), ['Madame', 'Monsieur']);
+    fillSelect(document.getElementById('create-fonction'), FONCTION_OPTIONS);
+    fillSelect(document.getElementById('create-quotite'), ['50%', '75%', '80%', '100%'], '100%');
+
+    ['create-nom', 'create-prenom', 'create-id-pe', 'create-mail'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+
+    buildCreateDecharges();
+    buildCreateNiveaux();
+    setCreateEcole(addTeacherState.ecole);
+    showCreateError('');
+
+    showAddTeacherPanel('create');
+    document.getElementById('create-nom').focus();
+}
+
+function showCreateError(message) {
+    const el = document.getElementById('create-teacher-error');
+    el.textContent = message;
+    el.classList.toggle('hidden', !message);
+}
+
+function renderCreateEcoleResults() {
+    const query = normalizeStr(document.getElementById('create-ecole-search').value);
+    const list = document.getElementById('create-ecole-results');
+    list.textContent = '';
+    if (!query) return;
+
+    rankedEcoleMatches(state.ecoles, query, 20).forEach(ecole => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.setAttribute('role', 'option');
+        item.textContent = formatEcoleFull(ecole);
+        item.addEventListener('click', () => setCreateEcole(ecole));
+        list.appendChild(item);
+    });
+}
+
+function collectCreateDecharges() {
+    const values = {};
+    let preciser = '';
+    let error = '';
+
+    DECHARGE_FIELDS.forEach(({ field, label }) => {
+        const toggle = document.querySelector('[data-decharge-toggle="' + field + '"]');
+        const select = document.querySelector('[data-decharge-days="' + field + '"]');
+        if (!toggle || !toggle.checked) {
+            values[field] = ['L'];
+            return;
+        }
+        const days = Array.from(select.selectedOptions).map(o => o.value).filter(Boolean);
+        if (!days.length && !error) {
+            error = 'Sélectionnez au moins un jour pour « ' + label +' ».';
+        }
+        values[field] = ['L', ...days];
+        if (field === 'Autre') {
+            preciser = sanitizeText(document.getElementById('create-preciser').value);
+        }
+    });
+
+    return { values, preciser, error };
+}
+
+async function submitCreateTeacher() {
+    if (addTeacherState.busy) return;
+
+    const civilite = document.getElementById('create-civilite').value;
+    const nom = toUpperNoAccent(document.getElementById('create-nom').value);
+    const prenom = toUpperNoAccent(document.getElementById('create-prenom').value);
+    const idPe = sanitizeText(document.getElementById('create-id-pe').value);
+    const mail = sanitizeText(document.getElementById('create-mail').value);
+    const fonction = document.getElementById('create-fonction').value;
+    const quotite = document.getElementById('create-quotite').value;
+    const ecoleId = parseInt(document.getElementById('create-ecole-id').value, 10);
+
+    document.getElementById('create-nom').value = nom;
+    document.getElementById('create-prenom').value = prenom;
+
+    if (!civilite || !nom || !prenom || !idPe || !fonction || !quotite || !Number.isFinite(ecoleId)) {
+        showCreateError('Civilité, nom, prénom, identifiant académique, école, fonction et quotité sont obligatoires.');
+        return;
+    }
+    if (!CREATE_ID_PE_PATTERN.test(idPe)) {
+        showCreateError('L\'identifiant académique doit être alphanumérique (tiret accepté, sans espace ni accent).');
+        return;
+    }
+    if (mail && !CREATE_MAIL_PATTERN.test(mail)) {
+        showCreateError('Adresse mail invalide (attendu : …@ac-montpellier.fr).');
+        return;
+    }
+
+    const decharges = collectCreateDecharges();
+    if (decharges.error) {
+        showCreateError(decharges.error);
+        return;
+    }
+
+    const niveaux = Array.from(document.querySelectorAll('#create-niveaux input:checked'))
+        .map(cb => cb.value);
+
+    const anneeScolaire = state.currentYear !== null
+        ? state.currentYear + '-' + (state.currentYear + 1)
+        : '';
+
+    const fields = {
+        ID_PE: idPe,
+        Civilite: civilite,
+        Nom: nom,
+        Prenom: prenom,
+        Mail: mail,
+        Annee_scolaire: anneeScolaire,
+        UAI: ecoleId,
+        Fonction: fonction,
+        Quotite_de_service: quotite,
+        Niveau_x_: ['L', ...niveaux],
+        Preciser: decharges.preciser,
+        Retrait: null
+    };
+    Object.assign(fields, decharges.values);
+
+    addTeacherState.busy = true;
+    showCreateError('');
+    try {
+        await grist.docApi.applyUserActions([['AddRecord', 'Liste_PE', null, fields]]);
+        showToast('Fiche créée pour ' + [civilite, prenom, nom].filter(Boolean).join(' ') + '.', 'success');
+        closeAddTeacherModal();
+        await loadAllData();
+    } catch (err) {
+        console.error('[Création fiche] Échec :', err);
+        showCreateError('Erreur lors de la création de la fiche.');
+    } finally {
+        addTeacherState.busy = false;
+    }
+}
+
+function attachAddTeacherListeners() {
+    if (state.listenersAttached.addTeacher) return;
+
+    const overlay = document.getElementById('add-teacher-overlay');
+    const input = document.getElementById('add-teacher-search');
+    if (!overlay || !input) return;
+
+    input.addEventListener('input', renderAddTeacherResults);
+
+    overlay.querySelectorAll('[data-add-teacher-close]').forEach(btn => {
+        btn.addEventListener('click', closeAddTeacherModal);
+    });
+
+    overlay.addEventListener('click', evt => {
+        if (evt.target === overlay) closeAddTeacherModal();
+    });
+
+    document.addEventListener('keydown', evt => {
+        if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeAddTeacherModal();
+        }
+    });
+
+    document.getElementById('add-teacher-notfound-link')
+        .addEventListener('click', () => showAddTeacherPanel('notfound'));
+
+    document.getElementById('add-teacher-create-btn')
+        .addEventListener('click', openCreateTeacherForm);
+
+    document.getElementById('create-ecole-search')
+        .addEventListener('input', renderCreateEcoleResults);
+    document.getElementById('create-teacher-submit')
+        .addEventListener('click', submitCreateTeacher);
+
+    ['create-nom', 'create-prenom'].forEach(id => {
+        const input = document.getElementById(id);
+        input.addEventListener('blur', () => { input.value = toUpperNoAccent(input.value); });
+    });
+
+    state.listenersAttached.addTeacher = true;
 }
 
 function openChangeSchoolModal(personnelRecord) {

@@ -63,6 +63,128 @@
         </div>
     </div>
 
+    <!-- Popup ajout d'un enseignant -->
+    <div id="add-teacher-overlay" class="hidden">
+        <div id="add-teacher-modal" role="dialog" aria-modal="true" aria-labelledby="add-teacher-title">
+
+            <!-- Écran 1 : recherche -->
+            <section class="add-teacher-panel" data-panel="search">
+                <h2 id="add-teacher-title">Ajouter un enseignant</h2>
+                <p class="add-teacher-target" id="add-teacher-ecole"></p>
+                <label for="add-teacher-search">Nom, prénom ou identifiant académique</label>
+                <input type="search" id="add-teacher-search" autocomplete="off"
+                    placeholder="Rechercher un enseignant...">
+                <div id="add-teacher-results" class="search-results" role="listbox"></div>
+                <p id="add-teacher-empty" class="add-teacher-empty hidden">Aucun enseignant ne correspond.</p>
+                <p class="add-teacher-notfound">
+                    <button type="button" id="add-teacher-notfound-link" class="link-button">
+                        Je ne trouve pas l'enseignant(e) recherché(e).
+                    </button>
+                </p>
+                <div class="modal-actions">
+                    <button type="button" data-add-teacher-close>Fermer</button>
+                </div>
+            </section>
+
+            <!-- Écran 2 : confirmation du rattachement -->
+            <section class="add-teacher-panel hidden" data-panel="confirm">
+                <h2 id="add-teacher-confirm-title">Rattacher un enseignant</h2>
+                <p id="add-teacher-confirm-text"></p>
+                <ul id="add-teacher-affectations" class="add-teacher-affectations hidden"></ul>
+                <div class="modal-actions" id="add-teacher-confirm-actions"></div>
+            </section>
+
+            <!-- Écran 4 : création d'une fiche -->
+            <section class="add-teacher-panel hidden" data-panel="create">
+                <h2>Créer une fiche enseignant</h2>
+                <p id="create-teacher-error" class="create-teacher-error hidden" role="alert"></p>
+
+                <div class="create-grid">
+                    <div class="create-field">
+                        <label for="create-civilite">Civilité *</label>
+                        <select id="create-civilite"></select>
+                    </div>
+                    <div class="create-field">
+                        <label for="create-nom">Nom *</label>
+                        <input type="text" id="create-nom" autocomplete="off"
+                            aria-describedby="create-nom-hint">
+                        <small id="create-nom-hint">Majuscules sans accent</small>
+                    </div>
+                    <div class="create-field">
+                        <label for="create-prenom">Prénom *</label>
+                        <input type="text" id="create-prenom" autocomplete="off"
+                            aria-describedby="create-prenom-hint">
+                        <small id="create-prenom-hint">Majuscules sans accent</small>
+                    </div>
+                    <div class="create-field">
+                        <label for="create-id-pe">Identifiant académique *</label>
+                        <input type="text" id="create-id-pe" autocomplete="off"
+                            aria-describedby="create-id-pe-hint">
+                        <small id="create-id-pe-hint">Alphanumérique, tiret accepté, sans espace</small>
+                    </div>
+                    <div class="create-field">
+                        <label for="create-mail">Mail</label>
+                        <input type="email" id="create-mail" autocomplete="off"
+                            placeholder="prenom.nom@ac-montpellier.fr">
+                    </div>
+                    <div class="create-field">
+                        <label for="create-fonction">Fonction *</label>
+                        <select id="create-fonction"></select>
+                    </div>
+                    <div class="create-field">
+                        <label for="create-quotite">Quotité de service *</label>
+                        <select id="create-quotite"></select>
+                    </div>
+                    <div class="create-field create-field--wide">
+                        <label for="create-ecole-search">École *</label>
+                        <input type="search" id="create-ecole-search" autocomplete="off"
+                            placeholder="Commune, adresse ou nom d'établissement...">
+                        <div id="create-ecole-results" class="search-results" role="listbox"></div>
+                        <input type="hidden" id="create-ecole-id">
+                    </div>
+                    <div class="create-field">
+                        <label for="create-uai">UAI</label>
+                        <input type="text" id="create-uai" readonly>
+                    </div>
+                    <div class="create-field">
+                        <label for="create-circonscription">Circonscription</label>
+                        <input type="text" id="create-circonscription" readonly>
+                    </div>
+                </div>
+
+                <details class="create-section">
+                    <summary>Décharges et temps partiel</summary>
+                    <div id="create-decharges" class="create-decharges"></div>
+                </details>
+
+                <details class="create-section">
+                    <summary>Niveaux</summary>
+                    <div id="create-niveaux" class="create-niveaux"></div>
+                </details>
+
+                <div class="modal-actions">
+                    <button type="button" data-add-teacher-close>Annuler</button>
+                    <button type="button" id="create-teacher-submit" class="primary">Créer la fiche</button>
+                </div>
+            </section>
+
+            <!-- Écran 3 : enseignant introuvable -->
+            <section class="add-teacher-panel hidden" data-panel="notfound">
+                <h2>Enseignant introuvable</h2>
+                <p>
+                    Si vous ne voyez pas l'enseignant(e) recherché(e), il/elle est peut-être en dehors
+                    de votre périmètre d'attribution. Vous pouvez contacter sa circonscription d'origine
+                    pour qu'il/elle soit retiré(e) de son école de rattachement, ou créer une nouvelle fiche.
+                </p>
+                <div class="modal-actions">
+                    <button type="button" data-add-teacher-close>Fermer</button>
+                    <button type="button" id="add-teacher-create-btn" class="primary">Créer une fiche</button>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
     <!-- Popup purge RGPD -->
     <div id="conservation-modal-overlay" class="hidden">
         <div id="conservation-modal" role="dialog" aria-modal="true" aria-labelledby="conservation-modal-title">

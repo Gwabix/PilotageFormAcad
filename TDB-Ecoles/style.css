@@ -1119,6 +1119,359 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 }
 
 /* ==========================================================================
+   Ajout d'un enseignant
+   ========================================================================== */
+.ecole-card-footer {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0 18px 16px;
+}
+
+.add-teacher-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.add-teacher-btn:hover,
+.add-teacher-btn:focus-visible {
+    background: var(--color-primary);
+    color: #fff;
+    outline: none;
+}
+
+#add-teacher-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 26, 35, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+#add-teacher-overlay.hidden {
+    display: none;
+}
+
+#add-teacher-modal {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    width: min(560px, 100%);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px 22px;
+}
+
+#add-teacher-modal h2 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    color: var(--color-primary-dark);
+}
+
+.add-teacher-panel.hidden {
+    display: none;
+}
+
+.add-teacher-target {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 0 0 14px 0;
+}
+
+#add-teacher-modal label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+}
+
+#add-teacher-search {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+#add-teacher-search:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(26, 95, 180, 0.15);
+}
+
+#add-teacher-results {
+    position: static;
+    margin-top: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+    box-shadow: none;
+}
+
+#add-teacher-results:empty {
+    display: none;
+}
+
+#add-teacher-results .search-result-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.add-teacher-result-meta {
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+}
+
+.add-teacher-empty {
+    margin: 10px 0 0 0;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--color-text-muted);
+}
+
+.add-teacher-empty.hidden {
+    display: none;
+}
+
+.add-teacher-notfound {
+    margin: 14px 0 0 0;
+}
+
+.link-button {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+    color: var(--color-primary-dark);
+    outline: none;
+}
+
+#add-teacher-confirm-text {
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 0 0 12px 0;
+}
+
+.add-teacher-affectations {
+    margin: 0 0 4px 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.add-teacher-affectations.hidden {
+    display: none;
+}
+
+.add-teacher-affectations label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: 400;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#add-teacher-modal .modal-actions button {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+#add-teacher-modal .modal-actions button:hover {
+    background: #f0f2f4;
+}
+
+#add-teacher-modal .modal-actions button.primary {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+    font-weight: 600;
+}
+
+#add-teacher-modal .modal-actions button.primary:hover {
+    background: var(--color-primary-dark);
+}
+
+/* ----- Formulaire de création ----- */
+.create-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+    margin-bottom: 14px;
+}
+
+.create-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    position: relative;
+}
+
+.create-field--wide {
+    grid-column: 1 / -1;
+}
+
+.create-field input,
+.create-field select {
+    width: 100%;
+    padding: 5px 7px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 13px;
+}
+
+.create-field input:focus,
+.create-field select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(26, 95, 180, 0.15);
+}
+
+.create-field input[readonly] {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+}
+
+.create-field small {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+#create-ecole-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 5;
+}
+
+#create-ecole-results:empty {
+    display: none;
+}
+
+.create-teacher-error {
+    margin: 0 0 12px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius);
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.create-teacher-error.hidden {
+    display: none;
+}
+
+.create-section {
+    margin-bottom: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+}
+
+.create-section > summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-primary-dark);
+}
+
+.create-decharge-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.create-decharge-row > label {
+    flex: 0 0 190px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 400;
+    margin: 0;
+    cursor: pointer;
+}
+
+.create-decharge-row select,
+.create-decharge-row input[type="text"] {
+    flex: 1 1 160px;
+    min-width: 0;
+    padding: 4px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 12.5px;
+}
+
+.create-decharge-row select.hidden,
+.create-decharge-row input.hidden {
+    display: none;
+}
+
+.create-niveaux {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 10px;
+}
+
+.create-niveau {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 400;
+    margin: 0;
+    cursor: pointer;
+}
+
+@media (max-width: 560px) {
+    .create-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ==========================================================================
    Modal purge RGPD
    ========================================================================== */
 #conservation-modal-overlay {
