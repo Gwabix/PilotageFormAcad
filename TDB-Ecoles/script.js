@@ -765,7 +765,7 @@ function buildPersonnelsTable(ecole) {
     personnels
         .sort((a, b) => String(a.Nom || '').localeCompare(String(b.Nom || ''), 'fr'))
         .forEach(p => {
-            tbody.appendChild(buildPersonnelRow(p, ecole.id));
+            tbody.appendChild(buildPersonnelRow(p, ecole));
         });
 
     table.appendChild(tbody);
@@ -950,6 +950,99 @@ function bindChangeSchoolTooltip(button, personnel) {
     });
 }
 
+const quitSchoolTooltipState = {
+    el: null,
+    listenersBound: false
+};
+
+function getEcoleLabel(ecole) {
+    if (!ecole) return "l'école";
+    const label = [
+        sanitizeText(ecole.Nom_etablissement || ''),
+        sanitizeText(ecole.Adresse_2 || ''),
+        sanitizeText(ecole.Nom_commune || '')
+    ].filter(Boolean).join(' ').trim();
+    return label || "l'école";
+}
+
+function ensureQuitSchoolTooltip() {
+    if (quitSchoolTooltipState.el) return quitSchoolTooltipState.el;
+
+    const tooltip = document.createElement('div');
+    tooltip.id = 'quit-school-tooltip';
+    tooltip.className = 'quit-school-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+
+    const identity = document.createElement('strong');
+    identity.className = 'tooltip-identity';
+
+    const tail = document.createElement('span');
+    tail.className = 'tooltip-tail';
+
+    tooltip.append(document.createTextNode('Retirer '), identity, tail);
+    document.body.appendChild(tooltip);
+
+    quitSchoolTooltipState.el = tooltip;
+
+    if (!quitSchoolTooltipState.listenersBound) {
+        const hide = () => tooltip.classList.remove('visible');
+        window.addEventListener('scroll', hide, true);
+        window.addEventListener('resize', hide);
+        quitSchoolTooltipState.listenersBound = true;
+    }
+
+    return tooltip;
+}
+
+function positionQuitSchoolTooltip(button, tooltip) {
+    const rect = button.getBoundingClientRect();
+    const margin = 8;
+
+    tooltip.style.left = '0px';
+    tooltip.style.top = '0px';
+
+    const ttRect = tooltip.getBoundingClientRect();
+    let left = rect.left + (rect.width / 2) - (ttRect.width / 2);
+    let top = rect.top - ttRect.height - margin;
+
+    if (left < margin) left = margin;
+    const maxLeft = window.innerWidth - ttRect.width - margin;
+    if (left > maxLeft) left = Math.max(margin, maxLeft);
+
+    if (top < margin) {
+        top = rect.bottom + margin;
+    }
+
+    tooltip.style.left = Math.round(left) + 'px';
+    tooltip.style.top = Math.round(top) + 'px';
+}
+
+function bindQuitSchoolTooltip(button, personnel, ecole) {
+    const tooltip = ensureQuitSchoolTooltip();
+    const identity = getPersonnelIdentity(personnel) || 'cet enseignant';
+    const ecoleLabel = getEcoleLabel(ecole);
+
+    button.removeAttribute('title');
+    button.setAttribute('aria-label', 'Retirer ' + identity + ' de ' + ecoleLabel + '.');
+
+    const show = () => {
+        tooltip.querySelector('.tooltip-identity').textContent = identity;
+        tooltip.querySelector('.tooltip-tail').textContent = ' de ' + ecoleLabel + '.';
+
+        tooltip.classList.add('visible');
+        positionQuitSchoolTooltip(button, tooltip);
+    };
+
+    const hide = () => {
+        tooltip.classList.remove('visible');
+    };
+
+    button.addEventListener('mouseenter', show);
+    button.addEventListener('focus', show);
+    button.addEventListener('mouseleave', hide);
+    button.addEventListener('blur', hide);
+}
+
 const quotiteTooltipState = { el: null, listenersBound: false };
 
 function ensureQuotiteWarningTooltip() {
@@ -1010,7 +1103,7 @@ function bindQuotiteWarningTooltip(cell) {
     cell.addEventListener('focusout', hide);
 }
 
-function buildPersonnelRow(p, ecoleId) {
+function buildPersonnelRow(p, ecole) {
     const fragment = document.createDocumentFragment();
 
     // Vérifie s'il y a des jours enregistrés dans la cellule Grist
@@ -1176,8 +1269,8 @@ function buildPersonnelRow(p, ecoleId) {
     const quitBtn = document.createElement('button');
     quitBtn.type = 'button';
     quitBtn.className = 'quit-school-btn';
-    quitBtn.textContent = "A quitté l'école";
-    quitBtn.title = "Retire l'enseignant de l'école : vide l'établissement, la fonction et les niveaux, et enregistre la date du jour comme date de retrait.";
+    quitBtn.textContent = "Retirer de l'école";
+    bindQuitSchoolTooltip(quitBtn, p, ecole);
     quitBtn.addEventListener('click', () => {
         quitBtn.disabled = true;
         handleQuitSchool(p).finally(() => { quitBtn.disabled = false; });

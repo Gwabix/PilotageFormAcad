@@ -967,7 +967,8 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     color: var(--color-primary);
 }
 
-.change-school-tooltip {
+.change-school-tooltip,
+.quit-school-tooltip {
     position: fixed;
     z-index: 1100;
     pointer-events: none;
@@ -975,9 +976,6 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     visibility: hidden;
     transform: translateY(2px);
     transition: opacity 0.08s ease, transform 0.08s ease, visibility 0s linear 0.08s;
-    background: #d6eaf8;
-    color: #1858a8;
-    border: 1px solid #1a5fb44f;
     border-radius: 6px;
     padding: 8px 10px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
@@ -987,7 +985,20 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     font-size: 12px;
 }
 
-.change-school-tooltip.visible {
+.change-school-tooltip {
+    background: #d6eaf8;
+    color: #1858a8;
+    border: 1px solid #1a5fb44f;
+}
+
+.quit-school-tooltip {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    border: 1px solid rgba(198, 40, 40, 0.35);
+}
+
+.change-school-tooltip.visible,
+.quit-school-tooltip.visible {
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
@@ -1002,6 +1013,10 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 .change-school-tooltip .tooltip-identity {
     display: block;
     margin-top: 2px;
+    font-weight: 700;
+}
+
+.quit-school-tooltip .tooltip-identity {
     font-weight: 700;
 }
 
