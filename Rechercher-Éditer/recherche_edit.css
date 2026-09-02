@@ -67,6 +67,11 @@ h2 {
     gap: 4px;
 }
 
+/* display:flex ci-dessus l'emporterait sur la règle UA [hidden] */
+.form-group[hidden] {
+    display: none;
+}
+
 .form-group--ecole {
     grid-column: 1 / -1;
 }

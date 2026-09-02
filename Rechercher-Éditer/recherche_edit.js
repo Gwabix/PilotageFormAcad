@@ -175,6 +175,12 @@ async function loadData() {
             Preciser: sanitizeGristValue(pe.Preciser[i]),
         }));
 
+        // Nom normalisé pré-calculé : la recherche par nom balaye toute la
+        // table à chaque frappe (plusieurs dizaines de milliers de lignes).
+        for (const record of listePEData) {
+            record._normNom = normalizeStr(record.Nom);
+        }
+
         // Chargement de la table Ecoles
         const ec = await grist.docApi.fetchTable('Ecoles');
         const ecoleUaiColumn = ec['$Identifiant_de_l_etablissement']
@@ -345,7 +351,7 @@ function handleNomInput() {
     const allMatches = [...new Set(
         listePEData
             .filter(p => p.Annee_scolaire === year
-                && normalizeStr(p.Nom).includes(normalized))
+                && (p._normNom !== undefined ? p._normNom : normalizeStr(p.Nom)).includes(normalized))
             .map(p => p.Nom)
     )];
     const startsWith = allMatches.filter(n => normalizeStr(n).startsWith(normalized)).sort();
@@ -466,6 +472,7 @@ function updatePrenomSelect(nom) {
 
     const sel = document.getElementById('prenom-select');
     sel.innerHTML = '';
+    document.getElementById('ecole-select-group').hidden = true;
 
     if (prenoms.length === 0) {
         addOption(sel, '', '— Aucun prénom trouvé —');
@@ -493,6 +500,7 @@ function resetPrenomAndForm() {
     sel.innerHTML = '';
     addOption(sel, '', '— Sélectionnez d\'abord un nom —');
     sel.disabled = true;
+    document.getElementById('ecole-select-group').hidden = true;
     currentNom = '';
     currentRecordId = null;
     currentRecordData = null;
@@ -506,22 +514,66 @@ function addOption(select, value, text) {
     select.appendChild(opt);
 }
 
-function loadRecordForCurrentSelection() {
+// Toutes les affectations correspondant à la sélection nom / prénom / année.
+// Un enseignant peut exercer sur plusieurs écoles : il a alors une ligne
+// Liste_PE par école.
+function getMatchingRecords() {
     const prenom = document.getElementById('prenom-select').value;
-    if (!prenom) { hideEditSection(); return; }
+    if (!prenom) return [];
 
     const year = getSelectedYear();
-    const record = listePEData.find(p =>
+    return listePEData.filter(p =>
         p.Nom === currentNom
         && p.Prenom === prenom
         && p.Annee_scolaire === year
     );
+}
 
-    if (!record) {
-        showStatus('Aucun enregistrement trouvé pour cette sélection.', 'error');
+function ecoleLabelForRecord(record) {
+    const ecole = findEcoleByUaiOrId(normalizeEcoleRef(record.UAI));
+    if (!ecole) return 'École non renseignée';
+    return ecole.nomCompletCommune || ecole.nom || 'École non renseignée';
+}
+
+// Affiche le sélecteur d'école uniquement en cas d'affectations multiples.
+function updateEcoleSelect(records) {
+    const group = document.getElementById('ecole-select-group');
+    const sel = document.getElementById('ecole-select');
+    if (!group || !sel) return;
+
+    if (records.length < 2) {
+        group.hidden = true;
+        sel.innerHTML = '';
+        return;
+    }
+
+    const previous = sel.value;
+    sel.innerHTML = '';
+    records.forEach(record => addOption(sel, String(record.id), ecoleLabelForRecord(record)));
+
+    const stillThere = records.some(r => String(r.id) === previous);
+    sel.value = stillThere ? previous : String(records[0].id);
+    group.hidden = false;
+}
+
+function loadRecordForCurrentSelection() {
+    const records = getMatchingRecords();
+
+    if (records.length === 0) {
+        document.getElementById('ecole-select-group').hidden = true;
+        if (document.getElementById('prenom-select').value) {
+            showStatus('Aucun enregistrement trouvé pour cette sélection.', 'error');
+        }
         hideEditSection();
         return;
     }
+
+    updateEcoleSelect(records);
+
+    const selectedId = records.length > 1
+        ? safeParseInt(document.getElementById('ecole-select').value, 0)
+        : records[0].id;
+    const record = records.find(r => r.id === selectedId) || records[0];
 
     currentRecordId = record.id;
     currentRecordData = { ...record };
@@ -1001,6 +1053,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Changement de prénom
     document.getElementById('prenom-select').addEventListener('change', loadRecordForCurrentSelection);
+
+    // Changement d'école (affectations multiples)
+    document.getElementById('ecole-select').addEventListener('change', loadRecordForCurrentSelection);
 
     // Autocomplete Préciser
     const preciserInput = document.getElementById('edit-preciser');

@@ -118,6 +118,7 @@ async function loadData() {
             rgpdData.formations = recordsFromTable(tableauTable);
             rgpdData.liens = recordsFromTable(liensTable);
             rgpdData.ready = true;
+            buildIdPeIndex();
         } catch (rgpdErr) {
             console.warn('[RGPD] Tables indisponibles, contrôle désactivé.', rgpdErr);
             rgpdData.ready = false;
@@ -870,8 +871,10 @@ function createGraphs(formations, countMode = 'enseignants') {
             const uniqueFiches = new Set(items.map(item => item.id_fiche).filter(id => id));
             return uniqueFiches.size;
         } else {
-            // Compter les enseignants (lignes)
-            return items.length;
+            // Compter les PERSONNES distinctes : un enseignant affecté à
+            // plusieurs écoles a une ligne Formations par école, il ne doit
+            // être compté qu'une fois.
+            return countDistinctEnseignants(items);
         }
     };
 
@@ -1270,7 +1273,7 @@ function toggleGraphsCountMode(graphsId, mode = 'enseignants') {
             const uniqueFiches = new Set(items.map(item => item.id_fiche).filter(id => id));
             return uniqueFiches.size;
         } else {
-            return items.length;
+            return countDistinctEnseignants(items);
         }
     };
 
@@ -1661,6 +1664,31 @@ function exportToCSV(type) {
 
 const rgpdData = { listePe: [], formations: [], liens: [], ready: false };
 const rgpdUiState = { candidates: [], busy: false };
+
+/* Index rowId Liste_PE -> ID_PE texte, pour compter des personnes et non des
+   lignes : un enseignant affecté à plusieurs écoles a plusieurs lignes
+   Liste_PE, donc plusieurs lignes Formations pour une même formation. */
+let idPeTexteParLigne = new Map();
+
+function buildIdPeIndex() {
+    idPeTexteParLigne = new Map();
+    for (const row of rgpdData.listePe) {
+        const idPe = row.ID_PE === null || row.ID_PE === undefined ? '' : String(row.ID_PE).trim();
+        if (idPe) idPeTexteParLigne.set(row.id, idPe);
+    }
+}
+
+// Nombre de personnes distinctes parmi des lignes Formations.
+// Sans index disponible, on retombe sur le nombre de lignes.
+function countDistinctEnseignants(items) {
+    if (idPeTexteParLigne.size === 0) return items.length;
+    const keys = new Set();
+    for (const item of items) {
+        const rowId = item.id_pe;
+        keys.add(idPeTexteParLigne.get(rowId) || ('ligne:' + rowId));
+    }
+    return keys.size;
+}
 
 function recordsFromTable(table) {
     const records = [];
