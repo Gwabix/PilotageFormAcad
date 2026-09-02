@@ -1019,6 +1019,19 @@ function ensureChangeSchoolTooltip() {
     return tooltip;
 }
 
+/**
+ * Suffixe d'accord en genre, d'après la civilité de l'enseignant :
+ *   « Madame » -> « e », « Monsieur » -> rien, civilité absente -> « (e) ».
+ * Réservé aux messages qui désignent UNE personne identifiée ; les textes
+ * génériques (aucune personne connue) gardent la forme parenthésée.
+ */
+function suffixeGenre(civilite) {
+    const valeur = sanitizeText(civilite).toLowerCase();
+    if (valeur === 'madame') return 'e';
+    if (valeur === 'monsieur') return '';
+    return '(e)';
+}
+
 function getPersonnelIdentity(p) {
     return [sanitizeText(p.Civilite || ''), sanitizeText(p.Prenom || ''), sanitizeText(p.Nom || '')]
         .filter(Boolean)
@@ -1983,7 +1996,8 @@ async function handleQuitSchool(personnelRecord) {
         ]);
 
         showUndoableToast(
-            (identity || 'Enseignant') + " retiré de l'école.",
+            (identity || 'Enseignant') + ' retiré' + suffixeGenre(personnelRecord.Civilite)
+                + " de l'école.",
             () => restoreTeacherAssignment(personnelRecord.id, previous, identity)
         );
         await loadAllData();
@@ -2199,17 +2213,18 @@ function buildPersonIndex() {
         const key = idPe || ('row:' + record.id);
         let person = byKey.get(key);
         if (!person) {
-            person = { key, idPe, rows: [], identity: '', mail: '' };
+            person = { key, idPe, rows: [], identity: '', mail: '', civilite: '' };
             byKey.set(key, person);
         }
         person.rows.push(record);
     }
 
     for (const person of byKey.values()) {
-        // Identité prise sur la ligne la plus récente renseignée.
+        // Identité prise sur la première ligne renseignée.
         for (const row of person.rows) {
             if (!person.identity) person.identity = getPersonnelIdentity(row);
             if (!person.mail) person.mail = sanitizeText(row.Mail || '');
+            if (!person.civilite) person.civilite = sanitizeText(row.Civilite || '');
         }
         person.yearRows = person.rows.filter(r =>
             state.currentYear === null || getPersonnelSchoolYearStart(r) === state.currentYear);
@@ -2377,7 +2392,7 @@ function openAddTeacherConfirm(person) {
         // Cas 2 : une seule affectation existante.
         const actuelle = person.affectations[0];
         renderConfirmText(textEl, [
-            identity + ' est actuellement rattaché(e) à',
+            identity + ' est actuellement rattaché' + suffixeGenre(person.civilite) + ' à',
             'br',
             { ecole: formatEcoleFull(actuelle.ecole) },
             'br',

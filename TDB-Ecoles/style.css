@@ -1271,6 +1271,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     font-size: 13.5px;
     line-height: 1.7;
     margin: 0 0 14px 0;
+    text-align: center;
 }
 
 /* Nom d'établissement mis en avant (texte de confirmation et cases à cocher) */
@@ -1305,7 +1306,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 }
 
 #add-teacher-modal .modal-actions {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 #add-teacher-modal .modal-actions button {
