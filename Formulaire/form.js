@@ -1246,6 +1246,54 @@ function removeEcole(ecoleId) {
     updateEcolesSelection();
 }
 
+/* --------------------------------------------------------------------------
+   Affectations partagées.
+   Un même enseignant (ID_PE) peut apparaître sur plusieurs des écoles
+   sélectionnées : ces lignes sont LIÉES. La première pilote la sélection, les
+   suivantes s'affichent cochées mais grisées. Chaque ligne produit bien sa
+   propre fiche Formations (la formation remonte pour les deux écoles dans
+   Pilotage), mais l'enseignant n'est compté qu'une fois dans Nb_PE.
+   -------------------------------------------------------------------------- */
+let enseignantGroupOf = new Map();    // rowId Liste_PE -> clé de groupe
+let enseignantGroupRows = new Map();  // clé de groupe -> [rowId] (ordre d'affichage)
+
+function enseignantGroupKey(ens) {
+    const idPe = ens.idPE === null || ens.idPE === undefined ? '' : String(ens.idPE).trim();
+    return idPe || ('row:' + ens.id);
+}
+
+function buildEnseignantGroups(rows) {
+    enseignantGroupOf = new Map();
+    enseignantGroupRows = new Map();
+    for (const ens of rows) {
+        const key = enseignantGroupKey(ens);
+        enseignantGroupOf.set(ens.id, key);
+        let bucket = enseignantGroupRows.get(key);
+        if (!bucket) { bucket = []; enseignantGroupRows.set(key, bucket); }
+        bucket.push(ens.id);
+    }
+}
+
+function getEnseignantGroupRows(ensId) {
+    const key = enseignantGroupOf.get(ensId);
+    const rows = key ? enseignantGroupRows.get(key) : null;
+    return (rows && rows.length) ? rows : [ensId];
+}
+
+// Seule la première ligne d'un groupe est pilotable ; les autres suivent.
+function isEnseignantPilote(ensId) {
+    return getEnseignantGroupRows(ensId)[0] === ensId;
+}
+
+// Nombre de personnes distinctes parmi les lignes sélectionnées.
+function countSelectedEnseignants() {
+    const keys = new Set();
+    for (const [id, data] of enseignantsMap.entries()) {
+        if (data.selected) keys.add(enseignantGroupOf.get(id) || ('row:' + id));
+    }
+    return keys.size;
+}
+
 function updateEnseignantsList() {
     const container = document.getElementById('enseignantsContainer');
 
@@ -1281,6 +1329,8 @@ function updateEnseignantsList() {
         });
     });
 
+    buildEnseignantGroups(filteredEnseignants);
+
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : Template complexe avec 8 variables dynamiques, toutes échappées.
     // IMPORTANT : Lors de l'ajout de nouvelles variables, utiliser escapeHtml() pour le contenu
@@ -1292,15 +1342,18 @@ function updateEnseignantsList() {
             const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
             return `<label class="enseignant-niveau-item"><input type="checkbox" id="niveau_${escapeHtmlAttribute(ens.id)}_${escapeHtmlAttribute(niveau)}" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-niveau="${escapeHtmlAttribute(niveau)}" ${checked}><span>${escapeHtml(niveau)}</span></label>`;
         }).join('');
+        const lie = !isEnseignantPilote(ens.id);
+        const lieTitre = 'Déjà sélectionné sur une autre école : la case suit celle de la première école. Compté une seule fois dans le nombre d\'enseignants.';
         return `
-          <div class="enseignant-item">
+          <div class="enseignant-item${lie ? ' enseignant-lie' : ''}">
             <div class="enseignant-header">
-              <input type="checkbox" 
-                     id="ens_${escapeHtmlAttribute(ens.id)}" 
+              <input type="checkbox"
+                     id="ens_${escapeHtmlAttribute(ens.id)}"
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
-                     checked>
+                     checked${lie ? ' disabled title="' + escapeHtmlAttribute(lieTitre) + '"' : ''}>
               <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
                             <span class="enseignant-school">${ecole ? escapeHtml(getEcoleDisplayName(ecole)) : ''}</span>
+                            ${lie ? `<span class="enseignant-lie-badge" title="${escapeHtmlAttribute(lieTitre)}">déjà compté</span>` : ''}
             </div>
             <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
               <span class="enseignant-niveaux-label">Niveaux :</span>
@@ -1329,17 +1382,27 @@ function updateEnseignantsList() {
 
 function toggleEnseignant(ensId) {
     const checkbox = document.getElementById(`ens_${ensId}`);
-    const niveauxDiv = document.getElementById(`niveaux_${ensId}`);
+    if (!checkbox) return;
+    const checked = checkbox.checked;
 
-    if (enseignantsMap.has(ensId)) {
-        enseignantsMap.get(ensId).selected = checkbox.checked;
-    }
+    // Propage à toutes les lignes du même enseignant (ses autres écoles).
+    getEnseignantGroupRows(ensId).forEach(rowId => {
+        if (enseignantsMap.has(rowId)) {
+            enseignantsMap.get(rowId).selected = checked;
+        }
 
-    if (niveauxDiv) {
-        niveauxDiv.style.opacity = checkbox.checked ? '1' : '0.5';
-        const niveauxCheckboxes = niveauxDiv.querySelectorAll('input[type="checkbox"]');
-        niveauxCheckboxes.forEach(cb => cb.disabled = !checkbox.checked);
-    }
+        const rowCheckbox = document.getElementById(`ens_${rowId}`);
+        if (rowCheckbox && rowCheckbox !== checkbox) rowCheckbox.checked = checked;
+
+        // Les niveaux restent propres à chaque école : on ne fait que les
+        // (dés)activer selon l'état de sélection.
+        const niveauxDiv = document.getElementById(`niveaux_${rowId}`);
+        if (niveauxDiv) {
+            niveauxDiv.style.opacity = checked ? '1' : '0.5';
+            niveauxDiv.querySelectorAll('input[type="checkbox"]')
+                .forEach(cb => { cb.disabled = !checked; });
+        }
+    });
 }
 
 function updateNiveaux(ensId) {
@@ -1831,7 +1894,9 @@ async function validerFormulaire() {
         .filter(([id, data]) => data.selected);
 
     const nbEcoles = selectedEcoles.length;
-    const nbPE = selectedEnseignants.length;
+    // Personnes distinctes : un enseignant présent sur 2 écoles compte pour 1,
+    // même si 2 lignes Formations sont créées (une par école).
+    const nbPE = countSelectedEnseignants();
 
     // Générer un identifiant unique pour cette fiche basé sur l'horodatage
     const now = new Date();

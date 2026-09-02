@@ -405,6 +405,35 @@ select:focus,
     margin-left: 10px;
 }
 
+/* Ligne liée : même enseignant déjà présent sur une autre école sélectionnée.
+   La case suit celle de la première école et n'est pas pilotable ici. */
+.enseignant-item.enseignant-lie {
+    border-style: dashed;
+    background-color: #f4f6f8;
+}
+
+.enseignant-item.enseignant-lie .enseignant-name {
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+.enseignant-header input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.enseignant-lie-badge {
+    flex-shrink: 0;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: #e8eaed;
+    color: #5f6b7a;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .niveaux-checkboxes {
     display: flex;
     flex-wrap: wrap;
