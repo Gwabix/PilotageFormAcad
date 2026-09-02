@@ -76,6 +76,57 @@ function sanitizeGristData(value) {
     return value;
 }
 
+/* --------------------------------------------------------------------------
+   Index des enseignants.
+   Liste_PE peut compter plusieurs dizaines de milliers de lignes : on remplace
+   les .find() en boucle par des accès indexés. Un même ID_PE peut avoir
+   plusieurs lignes la même année (affectations partagées) : l'index par ID_PE
+   renvoie donc TOUTES ses lignes.
+   -------------------------------------------------------------------------- */
+let enseignantsById = new Map();
+let enseignantsByIdPe = new Map();
+
+function enseignantKey(ens) {
+    return ens.id_pe || String(ens.id);
+}
+
+function buildEnseignantsIndex() {
+    enseignantsById = new Map();
+    enseignantsByIdPe = new Map();
+    for (const ens of enseignantsData) {
+        enseignantsById.set(ens.id, ens);
+        const key = enseignantKey(ens);
+        let bucket = enseignantsByIdPe.get(key);
+        if (!bucket) { bucket = []; enseignantsByIdPe.set(key, bucket); }
+        bucket.push(ens);
+    }
+}
+
+// Toutes les lignes d'un enseignant pour une année (1 par école d'affectation).
+function getEnseignantRows(idPeText, year) {
+    const rows = enseignantsByIdPe.get(idPeText) || [];
+    return year ? rows.filter(e => e.annee_scolaire === year) : rows;
+}
+
+// Lignes Liste_PE référencées par au moins une formation, toutes écoles
+// confondues : sert à savoir si une PERSONNE a été formée, quelle que soit
+// l'école par laquelle la formation a été saisie.
+let listePeRowIdsAvecFormation = new Set();
+
+function buildFormationsIndex() {
+    listePeRowIdsAvecFormation = new Set();
+    for (const formation of tableauBordData) {
+        if (formation.id_pe) listePeRowIdsAvecFormation.add(formation.id_pe);
+    }
+}
+
+// L'enseignant a-t-il une formation sur l'année, via l'une quelconque de ses
+// affectations ?
+function enseignantAUneFormation(ens, year) {
+    return getEnseignantRows(enseignantKey(ens), year)
+        .some(row => listePeRowIdsAvecFormation.has(row.id));
+}
+
 function findEcoleByRowId(rowId) {
     const n = Number(rowId);
     if (!Number.isInteger(n) || n <= 0) return null;
@@ -164,6 +215,8 @@ async function loadData() {
             annee_scolaire: sanitizeGristData(enseignantsTable.Annee_scolaire[index]) || ''
         }));
 
+        buildEnseignantsIndex();
+
         const formateursTable = await grist.docApi.fetchTable('Formateurs');
         formateursData = formateursTable.id.map((id, index) => ({
             id: id,
@@ -194,6 +247,8 @@ async function loadData() {
             type_formation: tableauTable.Type_de_formation[index] || '',
             formateurs: cleanChoiceList(tableauTable.Formateur_s_[index])
         }));
+
+        buildFormationsIndex();
 
         ecolesAvecEnseignantData = ecolesData.filter(ecoleHasEnseignant);
 
@@ -402,7 +457,7 @@ function navigateToEnseignant(ensId) {
     selectEnseignant(ensId);
 
     // Remplir le champ de recherche
-    const ens = enseignantsData.find(e => e.id === ensId);
+    const ens = enseignantsById.get(ensId);
     if (ens) {
         document.getElementById('searchEnseignant').value = `${ens.prenom} ${ens.nom}`;
     }
@@ -523,7 +578,7 @@ function updateHighlightEnseignant() {
 function selectEnseignant(ensId) {
     document.getElementById('searchResultsEnseignant').style.display = 'none';
 
-    const enseignant = enseignantsData.find(e => e.id === ensId);
+    const enseignant = enseignantsById.get(ensId);
     if (!enseignant) return;
 
     // Identifier la personne par son id_pe texte (stable à travers les années)
@@ -585,15 +640,14 @@ function selectEnseignant(ensId) {
             const totalHeures = yearFormations.reduce((sum, f) => sum + (f.temps_formation || 0), 0);
             const heuresLabel = totalHeures > 0 ? `(${totalHeures}h)` : '';
 
-            // Trouver l'entrée Liste_PE pour cette personne et cette année
-            const ensAnnee = enseignantsData.find(e => (e.id_pe || String(e.id)) === idPeText && e.annee_scolaire === year);
-            let yearSubtitle = '';
-            if (ensAnnee) {
-                const ecoleAnnee = findEcoleByRowId(ensAnnee.ecole_rowid);
+            // Toutes les affectations Liste_PE de cette personne pour l'année
+            // (un enseignant peut exercer sur plusieurs écoles).
+            const affectations = getEnseignantRows(idPeText, year);
+            const yearSubtitle = affectations.map(ens => {
+                const ecoleAnnee = findEcoleByRowId(ens.ecole_rowid);
                 const ecoleNomAnnee = ecoleAnnee ? ecoleAnnee.nom_complement_commune : '';
-                const parts = [ensAnnee.fonction, ecoleNomAnnee].filter(p => p && p.trim());
-                yearSubtitle = parts.join(' – ');
-            }
+                return [ens.fonction, ecoleNomAnnee].filter(p => p && p.trim()).join(' – ');
+            }).filter(Boolean).join(' | ');
 
             html += `<div class="year-card">`;
             html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">`;
@@ -1961,7 +2015,7 @@ function selectEcole(ecoleId) {
                 });
 
                 enseignantsFormation.forEach(ensId => {
-                    const ens = enseignantsData.find(e => e.id === ensId);
+                    const ens = enseignantsById.get(ensId);
                     if (ens) {
                         const niveauxStr = ens.niveaux && ens.niveaux.length > 0
                             ? ` - Niveau(x) : ${ens.niveaux.map(n => escapeHtml(n)).join(', ')}`
@@ -1980,15 +2034,18 @@ function selectEcole(ecoleId) {
             const enseignantsAnnee = enseignantsEcole.filter(e => e.annee_scolaire === year);
             const seenPe = new Set();
             const enseignantsAnneeUniques = enseignantsAnnee.filter(e => {
-                const key = e.id_pe || String(e.id);
+                const key = enseignantKey(e);
                 if (seenPe.has(key)) return false;
                 seenPe.add(key);
                 return true;
             });
-            const enseignantsSansFormation = enseignantsAnneeUniques.filter(ens => {
-                const hasFormation = yearFormations.some(f => f.id_pe === ens.id);
-                return !hasFormation;
-            });
+
+            // Une formation est rattachée à UNE ligne Liste_PE. Un enseignant
+            // affecté à plusieurs écoles a plusieurs lignes : il n'est signalé
+            // « sans formation » que si AUCUNE de ses affectations de l'année
+            // n'est référencée par une formation (toutes écoles confondues).
+            const enseignantsSansFormation = enseignantsAnneeUniques
+                .filter(ens => !enseignantAUneFormation(ens, year));
 
             if (enseignantsSansFormation.length > 0) {
                 html += `<div class="formation-group">`;
@@ -2322,7 +2379,7 @@ function exportToCSV(type) {
 
     if (type === 'enseignant') {
         const idPeText = currentSelection.id;
-        const enseignant = enseignantsData.find(e => (e.id_pe || String(e.id)) === idPeText);
+        const enseignant = (enseignantsByIdPe.get(idPeText) || [])[0];
         if (!enseignant) return;
 
         filename = `formations_${enseignant.nom}_${enseignant.prenom}.csv`;
@@ -2359,7 +2416,7 @@ function exportToCSV(type) {
         const formations = tableauBordData.filter(tb => isSameEcoleRef(getRecordEcoleRef(tb), ecole));
 
         formations.sort((a, b) => (a.annee || '').localeCompare(b.annee || '')).forEach(formation => {
-            const enseignant = enseignantsData.find(e => e.id === formation.id_pe);
+            const enseignant = enseignantsById.get(formation.id_pe);
             const niveaux = formation.niveau_x_ && formation.niveau_x_.length > 0
                 ? formation.niveau_x_.join(', ')
                 : (enseignant && enseignant.niveaux ? enseignant.niveaux.join(', ') : '');
