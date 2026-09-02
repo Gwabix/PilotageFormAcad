@@ -8,11 +8,12 @@
  * rester dans ce fichier, jamais dupliquée dans les widgets.
  *
  * Règle métier :
- *  - Un enseignant (clé texte Liste_PE.ID_PE) est purgeable si son retrait
- *    EFFECTIF le plus récent date de plus de RETENTION_DAYS jours.
- *  - Un retrait est ignoré si l'enseignant réapparaît ensuite : une ligne
- *    Liste_PE d'année scolaire POSTÉRIEURE, rattachée à une école (UAI) et
- *    SANS date de retrait annule tout retrait antérieur.
+ *  - Un enseignant (clé texte Liste_PE.ID_PE) encore rattaché à AU MOINS UNE
+ *    école sans date de retrait est en poste : il n'est jamais purgeable.
+ *    Cela couvre la réapparition une année ultérieure comme les affectations
+ *    partagées (retiré de l'école A mais toujours en poste sur l'école B).
+ *  - Sinon, on part de sa date de retrait la plus récente : il est purgeable
+ *    si elle remonte à plus de RETENTION_DAYS jours.
  *  - Le contrôle n'est exécuté que si l'utilisateur voit STRICTEMENT PLUS de
  *    MIN_DEPARTEMENTS départements dans Liste_PE. En deçà, les règles d'accès
  *    Grist peuvent masquer une mutation inter-départementale et faire passer
@@ -46,14 +47,6 @@
 
     function epochSecondsToDayIndex(seconds) {
         return Math.floor(seconds / SECONDS_PER_DAY);
-    }
-
-    // "2025-2026" -> 2025
-    function parseSchoolYearStart(rawValue) {
-        if (rawValue === null || rawValue === undefined) return null;
-        const text = String(rawValue);
-        const match = text.match(/(\d{4})\s*[-/]\s*\d{2,4}/) || text.match(/\b(\d{4})\b/);
-        return match ? parseInt(match[1], 10) : null;
     }
 
     // Reference / ReferenceList Grist -> premier rowId numérique, ou 0.
@@ -134,28 +127,24 @@
         const candidates = [];
 
         for (const [key, rows] of byTeacher) {
-            let maxReappearanceYear = null;
+            // Un enseignant encore rattaché à AU MOINS UNE école sans date de
+            // retrait est toujours en poste : aucun de ses retraits ne compte.
+            // (Couvre à la fois la réapparition une année ultérieure et les
+            // affectations partagées : retiré de l'école A, toujours sur B.)
+            let stillAssigned = false;
             for (const row of rows) {
-                if (parseDateEpochSeconds(row.Retrait) !== null) continue;
-                if (refRowId(row.UAI) <= 0) continue;
-                const year = parseSchoolYearStart(row.Annee_scolaire);
-                if (year === null) continue;
-                if (maxReappearanceYear === null || year > maxReappearanceYear) {
-                    maxReappearanceYear = year;
+                if (refRowId(row.UAI) > 0 && parseDateEpochSeconds(row.Retrait) === null) {
+                    stillAssigned = true;
+                    break;
                 }
             }
+            if (stillAssigned) continue;
 
+            // Plus aucune affectation : on part du retrait le plus récent.
             let latestRetraitEpoch = null;
             for (const row of rows) {
                 const retraitEpoch = parseDateEpochSeconds(row.Retrait);
                 if (retraitEpoch === null) continue;
-
-                const retraitYear = parseSchoolYearStart(row.Annee_scolaire);
-                const cancelled = maxReappearanceYear !== null
-                    && retraitYear !== null
-                    && maxReappearanceYear > retraitYear;
-                if (cancelled) continue;
-
                 if (latestRetraitEpoch === null || retraitEpoch > latestRetraitEpoch) {
                     latestRetraitEpoch = retraitEpoch;
                 }

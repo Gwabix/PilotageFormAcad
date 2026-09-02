@@ -5,7 +5,7 @@ const state = {
     personnels: [],
     formations: [],
     liens: [],
-    rgpdTablesLoaded: false,
+    relatedTablesLoaded: false,
     ecolesTable: null,
     personnelsTable: null,
     mappings: {},
@@ -156,7 +156,31 @@ function initGrist() {
     loadAllData();
 }
 
-async function loadAllData() {
+// Fusionne les lignes Liste_PE en double (même IDunique : même enseignant,
+// même année, même école). Retourne true si des lignes ont été fusionnées.
+async function mergeDuplicateListePe() {
+    if (typeof ListePeMerge === 'undefined' || !state.relatedTablesLoaded) return false;
+
+    const groups = ListePeMerge.findDuplicateGroups(state.personnels);
+    if (!groups.length) return false;
+
+    const { actions, summary, removedCount } =
+        ListePeMerge.buildMergeActions(groups, state.formations, state.liens);
+    if (!actions.length) return false;
+
+    try {
+        await grist.docApi.applyUserActions(actions);
+        console.info('[Doublons] ' + removedCount + ' ligne(s) supprimée(s) par fusion :', summary);
+        showToast(removedCount + ' ligne' + (removedCount > 1 ? 's' : '')
+            + ' en double fusionnée' + (removedCount > 1 ? 's' : '') + '.', 'success');
+        return true;
+    } catch (err) {
+        console.error('[Doublons] Fusion impossible :', err);
+        return false;
+    }
+}
+
+async function loadAllData(skipMerge) {
     try {
         showStatus('Chargement des données...', false);
 
@@ -165,10 +189,17 @@ async function loadAllData() {
 
         state.ecoles = tableToRecords(ecolesData);
         state.personnels = tableToRecords(personnelsData);
+        invalidateYearIndex();
 
-        // Tables nécessaires à la purge RGPD (Formations + Lien_intercircos).
-        // Si l'une est indisponible, on désactive le contrôle plutôt que de
-        // risquer une suppression partielle.
+        // Nom normalisé pré-calculé : la recherche le réutilise à chaque frappe.
+        for (const ecole of state.ecoles) {
+            ecole._normCommuneNom = normalizeStr(ecole.Commune_Nom || '');
+        }
+
+        // Tables liées (Formations + Lien_intercircos), nécessaires à la purge
+        // RGPD et au repointage des références lors de la fusion des doublons.
+        // Si l'une est indisponible, on désactive ces deux traitements plutôt
+        // que de risquer une suppression ou une fusion partielle.
         try {
             const [formationsData, liensData] = await Promise.all([
                 grist.docApi.fetchTable('Formations'),
@@ -176,12 +207,18 @@ async function loadAllData() {
             ]);
             state.formations = tableToRecords(formationsData);
             state.liens = tableToRecords(liensData);
-            state.rgpdTablesLoaded = true;
-        } catch (rgpdErr) {
-            console.warn('[RGPD] Tables indisponibles, contrôle désactivé.', rgpdErr);
+            state.relatedTablesLoaded = true;
+        } catch (relatedErr) {
+            console.warn('[Liste_PE] Tables liées indisponibles : purge RGPD et fusion des doublons désactivées.', relatedErr);
             state.formations = [];
             state.liens = [];
-            state.rgpdTablesLoaded = false;
+            state.relatedTablesLoaded = false;
+        }
+
+        // Fusion automatique des doublons (même IDunique) avant tout rendu.
+        // Une seule tentative par cycle de chargement.
+        if (!skipMerge && await mergeDuplicateListePe()) {
+            return loadAllData(true);
         }
 
         const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
@@ -474,11 +511,56 @@ function attachFilterListeners() {
     state.listenersAttached.filters = true;
 }
 
+/* --------------------------------------------------------------------------
+   Index par année scolaire.
+   Liste_PE peut compter plusieurs dizaines de milliers de lignes : on ne
+   rebalaye pas la table pour chaque école. L'index est reconstruit uniquement
+   quand l'année change ou quand les données sont rechargées.
+   Un même enseignant peut avoir plusieurs lignes la même année (affectations
+   partagées) : chacune est rangée sous son école.
+   -------------------------------------------------------------------------- */
+const yearIndex = {
+    year: undefined,
+    personnels: null,
+    byEcoleRowId: null,
+    scopedEcoles: null
+};
+
+function invalidateYearIndex() {
+    yearIndex.year = undefined;
+    yearIndex.personnels = null;
+    yearIndex.byEcoleRowId = null;
+    yearIndex.scopedEcoles = null;
+}
+
+function ensureYearIndex() {
+    if (yearIndex.personnels && yearIndex.year === state.currentYear) return;
+
+    const personnels = [];
+    const byEcoleRowId = new Map();
+
+    for (const record of state.personnels) {
+        if (state.currentYear !== null && getPersonnelSchoolYearStart(record) !== state.currentYear) {
+            continue;
+        }
+        personnels.push(record);
+
+        const rowId = getPersonnelEcoleRowId(record);
+        if (rowId === null || rowId <= 0) continue;
+        let bucket = byEcoleRowId.get(rowId);
+        if (!bucket) { bucket = []; byEcoleRowId.set(rowId, bucket); }
+        bucket.push(record);
+    }
+
+    yearIndex.year = state.currentYear;
+    yearIndex.personnels = personnels;
+    yearIndex.byEcoleRowId = byEcoleRowId;
+    yearIndex.scopedEcoles = state.ecoles.filter(ecole => byEcoleRowId.has(ecole.id));
+}
+
 function getYearFilteredPersonnels() {
-    return state.personnels.filter(record => {
-        if (state.currentYear === null) return true;
-        return getPersonnelSchoolYearStart(record) === state.currentYear;
-    });
+    ensureYearIndex();
+    return yearIndex.personnels;
 }
 
 function getPersonnelEcoleRowId(record) {
@@ -490,14 +572,8 @@ function getPersonnelEcoleRowId(record) {
 }
 
 function getYearScopedEcoles() {
-    const eligibleRowIds = new Set();
-
-    getYearFilteredPersonnels().forEach(record => {
-        const rowId = getPersonnelEcoleRowId(record);
-        if (rowId !== null) eligibleRowIds.add(rowId);
-    });
-
-    return state.ecoles.filter(ecole => eligibleRowIds.has(ecole.id));
+    ensureYearIndex();
+    return yearIndex.scopedEcoles;
 }
 
 function getScopeSelectionMessage() {
@@ -537,7 +613,8 @@ function getFilteredEcoles() {
 }
 
 function getPersonnelsForEcole(ecole) {
-    return getYearFilteredPersonnels().filter(record => getPersonnelEcoleRowId(record) === ecole.id);
+    ensureYearIndex();
+    return yearIndex.byEcoleRowId.get(ecole.id) || [];
 }
 
 // Pertinence d'un texte normalisé pour une requête normalisée :
@@ -567,7 +644,9 @@ function ecoleMatchRank(normalizedText, normalizedQuery) {
 function rankedEcoleMatches(ecoles, query, limit) {
     const scored = [];
     for (const ecole of ecoles) {
-        const text = normalizeStr(ecole.Commune_Nom || '');
+        const text = ecole._normCommuneNom !== undefined
+            ? ecole._normCommuneNom
+            : normalizeStr(ecole.Commune_Nom || '');
         const rank = ecoleMatchRank(text, query);
         if (rank !== -1) scored.push({ ecole, rank, text });
     }
@@ -801,6 +880,7 @@ function buildPersonnelsTable(ecole) {
 
     const tbody = document.createElement('tbody');
     personnels
+        .slice() // ne pas trier l'index en place
         .sort((a, b) => String(a.Nom || '').localeCompare(String(b.Nom || ''), 'fr'))
         .forEach(p => {
             tbody.appendChild(buildPersonnelRow(p, ecole));
@@ -1936,7 +2016,7 @@ function computeRgpdResult() {
         console.warn('[RGPD] Module ../shared/rgpd-purge.js non chargé.');
         return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
     }
-    if (!state.rgpdTablesLoaded) {
+    if (!state.relatedTablesLoaded) {
         console.warn('[RGPD] Tables Formations / Lien_intercircos non chargées : contrôle désactivé.');
         return { sufficientScope: false, visibleDepartementCount: 0, candidates: [] };
     }
@@ -1956,7 +2036,7 @@ function refreshRgpdBanner() {
 
     if (!result.candidates.length) {
         notice.classList.add('hidden');
-        if (state.rgpdTablesLoaded && typeof RgpdPurge !== 'undefined') {
+        if (state.relatedTablesLoaded && typeof RgpdPurge !== 'undefined') {
             console.info('[RGPD] Alerte masquée —', RgpdPurge.diagnose(rgpdDataBundle()));
         }
         return;
