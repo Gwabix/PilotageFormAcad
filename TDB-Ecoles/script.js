@@ -540,6 +540,41 @@ function getPersonnelsForEcole(ecole) {
     return getYearFilteredPersonnels().filter(record => getPersonnelEcoleRowId(record) === ecole.id);
 }
 
+// Pertinence d'un texte normalisé pour une requête normalisée :
+//   0 = le texte commence par la requête
+//   1 = un mot du texte commence par la requête
+//   2 = la requête apparaît en sous-chaîne (au milieu d'un mot)
+//  -1 = aucune correspondance
+function ecoleMatchRank(normalizedText, normalizedQuery) {
+    if (!normalizedQuery) return -1;
+    let best = -1;
+    let from = 0;
+    while (true) {
+        const idx = normalizedText.indexOf(normalizedQuery, from);
+        if (idx === -1) break;
+        const rank = idx === 0
+            ? 0
+            : (/[^a-z0-9]/.test(normalizedText.charAt(idx - 1)) ? 1 : 2);
+        if (best === -1 || rank < best) best = rank;
+        if (best === 0) break;
+        from = idx + 1;
+    }
+    return best;
+}
+
+// Écoles correspondant à la requête, triées : correspondances en début de mot
+// d'abord, puis ordre alphabétique. `query` doit déjà être normalisée.
+function rankedEcoleMatches(ecoles, query, limit) {
+    const scored = [];
+    for (const ecole of ecoles) {
+        const text = normalizeStr(ecole.Commune_Nom || '');
+        const rank = ecoleMatchRank(text, query);
+        if (rank !== -1) scored.push({ ecole, rank, text });
+    }
+    scored.sort((a, b) => (a.rank - b.rank) || a.text.localeCompare(b.text, 'fr'));
+    return scored.slice(0, limit).map(x => x.ecole);
+}
+
 function attachSearchListener() {
     if (state.listenersAttached.search) return;
 
@@ -557,9 +592,7 @@ function attachSearchListener() {
             return;
         }
 
-        const matches = getFilteredEcoles()
-            .filter(e => normalizeStr(e.Commune_Nom || '').includes(query))
-            .slice(0, 30);
+        const matches = rankedEcoleMatches(getFilteredEcoles(), query, 30);
 
         if (!matches.length) {
             resultsBox.classList.add('hidden');
@@ -578,12 +611,17 @@ function attachSearchListener() {
             resultsBox.appendChild(item);
         });
 
+        // Premier résultat sélectionné par défaut (validable par Entrée).
+        activeIndex = 0;
+        const firstItem = resultsBox.querySelector('.search-result-item');
+        if (firstItem) firstItem.classList.add('active');
+
         resultsBox.classList.remove('hidden');
     });
 
     input.addEventListener('keydown', (evt) => {
         const items = Array.from(resultsBox.querySelectorAll('.search-result-item'));
-        if (!items.length) return;
+        if (!items.length || resultsBox.classList.contains('hidden')) return;
 
         if (evt.key === 'ArrowDown') {
             evt.preventDefault();
@@ -2079,20 +2117,28 @@ function attachModalListeners() {
     const selectedDisplay = document.getElementById('modal-selected-display');
     const selectedUaiField = document.getElementById('modal-selected-uai');
     const overlay = document.getElementById('modal-overlay');
+    let modalActiveIndex = -1;
+
+    const selectModalEcole = (e) => {
+        selectedUaiField.value = String(e.id);
+        selectedDisplay.textContent = sanitizeText(e.Commune_Nom || '');
+        selectedDisplay.classList.remove('hidden');
+        resultsBox.classList.add('hidden');
+        input.value = '';
+        confirmBtn.disabled = false;
+    };
 
     input.addEventListener('input', () => {
         const query = normalizeStr(input.value);
         resultsBox.innerHTML = '';
+        modalActiveIndex = -1;
 
         if (!query) {
             resultsBox.classList.add('hidden');
             return;
         }
 
-        const matches = state.ecoles
-            .filter(e => normalizeStr(e.Commune_Nom || '').includes(query))
-            .sort((a, b) => String(a.Commune_Nom || '').localeCompare(String(b.Commune_Nom || ''), 'fr'))
-            .slice(0, 30);
+        const matches = rankedEcoleMatches(state.ecoles, query, 30);
 
         if (!matches.length) {
             resultsBox.classList.add('hidden');
@@ -2104,18 +2150,40 @@ function attachModalListeners() {
             item.className = 'search-result-item';
             item.setAttribute('role', 'option');
             item.textContent = sanitizeText(e.Commune_Nom || e.Nom_etablissement || '');
-            item.addEventListener('click', () => {
-                selectedUaiField.value = String(e.id);
-                selectedDisplay.textContent = sanitizeText(e.Commune_Nom || '');
-                selectedDisplay.classList.remove('hidden');
-                resultsBox.classList.add('hidden');
-                input.value = '';
-                confirmBtn.disabled = false;
-            });
+            item.dataset.ecoleId = String(e.id);
+            item.addEventListener('click', () => selectModalEcole(e));
             resultsBox.appendChild(item);
         });
 
+        // Premier résultat sélectionné par défaut (validable par Entrée).
+        modalActiveIndex = 0;
+        const firstItem = resultsBox.querySelector('.search-result-item');
+        if (firstItem) firstItem.classList.add('active');
+
         resultsBox.classList.remove('hidden');
+    });
+
+    input.addEventListener('keydown', (evt) => {
+        const items = Array.from(resultsBox.querySelectorAll('.search-result-item'));
+        if (!items.length || resultsBox.classList.contains('hidden')) return;
+
+        if (evt.key === 'ArrowDown') {
+            evt.preventDefault();
+            modalActiveIndex = Math.min(modalActiveIndex + 1, items.length - 1);
+            updateActiveItem(items, modalActiveIndex);
+        } else if (evt.key === 'ArrowUp') {
+            evt.preventDefault();
+            modalActiveIndex = Math.max(modalActiveIndex - 1, 0);
+            updateActiveItem(items, modalActiveIndex);
+        } else if (evt.key === 'Enter') {
+            evt.preventDefault();
+            const item = items[modalActiveIndex] || items[0];
+            const ecole = item && state.ecoles.find(x => x.id === parseInt(item.dataset.ecoleId, 10));
+            if (ecole) selectModalEcole(ecole);
+        } else if (evt.key === 'Escape') {
+            evt.stopPropagation();
+            resultsBox.classList.add('hidden');
+        }
     });
 
     document.addEventListener('click', (evt) => {
