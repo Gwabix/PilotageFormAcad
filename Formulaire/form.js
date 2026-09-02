@@ -1988,8 +1988,20 @@ async function validerFormulaire() {
         records.push(record);
     }
 
+    // Les niveaux sont mis à jour dans Liste_PE AVANT la création des lignes
+    // Formations : Formations.Niveau_x_ est figé par une formule par défaut,
+    // évaluée au moment de la création. Créer d'abord figerait les anciens
+    // niveaux. Tout part dans la même transaction.
+    const niveauxActions = [];
+    for (const [ensId, data] of enseignantsMap.entries()) {
+        if (data.selected) {
+            niveauxActions.push(['UpdateRecord', 'Liste_PE', ensId, { Niveau_x_: ['L', ...data.niveaux] }]);
+        }
+    }
+
     try {
         await grist.docApi.applyUserActions([
+            ...niveauxActions,
             ['BulkAddRecord', 'Formations', records.map(() => null), records.reduce((acc, record) => {
                 Object.keys(record).forEach(key => {
                     if (!acc[key]) acc[key] = [];
@@ -1998,17 +2010,6 @@ async function validerFormulaire() {
                 return acc;
             }, {})]
         ]);
-
-        // Mettre à jour Niveau_x_ dans Liste_PE pour chaque enseignant sélectionné
-        const niveauxActions = [];
-        for (const [ensId, data] of enseignantsMap.entries()) {
-            if (data.selected) {
-                niveauxActions.push(['UpdateRecord', 'Liste_PE', ensId, { Niveau_x_: ['L', ...data.niveaux] }]);
-            }
-        }
-        if (niveauxActions.length > 0) {
-            await grist.docApi.applyUserActions(niveauxActions);
-        }
 
         alert(`✓ ${records.length} ligne(s) créée(s) avec succès dans le tableau des formations.`);
 
@@ -3756,9 +3757,9 @@ async function updateFiche() {
             ]);
         }
 
-        await grist.docApi.applyUserActions(actions);
-
-        // Mettre à jour Niveau_x_ dans Liste_PE pour chaque enseignant sélectionné
+        // Les niveaux sont mis à jour dans Liste_PE AVANT les lignes Formations :
+        // Formations.Niveau_x_ est figé par une formule par défaut, évaluée à la
+        // création. Tout part dans la même transaction.
         const niveauxActions = [];
         document.querySelectorAll('.edit-ens-checkbox:checked').forEach(checkbox => {
             const ensId = safeParseInt(checkbox.getAttribute('data-ens-id'), 0, 1);
@@ -3773,9 +3774,8 @@ async function updateFiche() {
             }
             niveauxActions.push(['UpdateRecord', 'Liste_PE', ensId, { Niveau_x_: ['L', ...niveaux] }]);
         });
-        if (niveauxActions.length > 0) {
-            await grist.docApi.applyUserActions(niveauxActions);
-        }
+
+        await grist.docApi.applyUserActions([...niveauxActions, ...actions]);
 
         alert(`✓ Fiche ${idFiche} mise à jour avec succès (${selectedEnseignantsData.length} ligne(s)) !`);
 
