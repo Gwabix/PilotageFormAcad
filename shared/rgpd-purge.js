@@ -258,13 +258,9 @@
     }
 
     global.RgpdPurge = {
-        RETENTION_DAYS,
-        MIN_DEPARTEMENTS,
         computeCandidates,
         buildPurgeActions,
         diagnose,
-        formatEpochDate,
-        todayDateEpochSeconds,
-        parseDateEpochSeconds
+        formatEpochDate
     };
 })(typeof window !== 'undefined' ? window : this);

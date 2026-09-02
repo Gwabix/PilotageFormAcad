@@ -119,7 +119,7 @@ async function loadData() {
             rgpdData.liens = recordsFromTable(liensTable);
             rgpdData.ready = true;
         } catch (rgpdErr) {
-            console.warn('RGPD : tables indisponibles, contrôle désactivé.', rgpdErr);
+            console.warn('[RGPD] Tables indisponibles, contrôle désactivé.', rgpdErr);
             rgpdData.ready = false;
         }
 
@@ -1704,13 +1704,6 @@ function computeRgpdResult() {
     return RgpdPurge.computeCandidates(rgpdDataBundle());
 }
 
-// Diagnostic disponible en console : window.rgpdDiagnostic()
-window.rgpdDiagnostic = function () {
-    if (typeof RgpdPurge === 'undefined') return { moduleLoaded: false };
-    return Object.assign({ moduleLoaded: true, rgpdDataReady: rgpdData.ready },
-        RgpdPurge.diagnose(rgpdDataBundle()));
-};
-
 function refreshRgpdBanner() {
     const notice = document.getElementById('retention-check');
     const text = document.getElementById('retention-check-text');
@@ -1735,7 +1728,6 @@ function refreshRgpdBanner() {
         ? '⚠️ Contrôle RGPD : 1 enseignant retiré depuis plus de 5 ans doit être purgé du fichier.'
         : '⚠️ Contrôle RGPD : ' + n + ' enseignants retirés depuis plus de 5 ans doivent être purgés du fichier.';
     notice.classList.remove('hidden');
-    console.info('[RGPD] Alerte affichée : ' + n + ' enseignant(s) à purger.');
 }
 
 function openRgpdModal() {
