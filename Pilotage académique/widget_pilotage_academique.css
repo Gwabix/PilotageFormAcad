@@ -1230,7 +1230,7 @@ body {
 /* ==========================================================================
    Surveillance / purge RGPD
    ========================================================================== */
-.retention-check {
+.conservation-check {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1247,16 +1247,16 @@ body {
     color-scheme: light;
 }
 
-.retention-check.hidden {
+.conservation-check.hidden {
     display: none;
 }
 
-.retention-check #retention-check-text {
+.conservation-check #conservation-check-text {
     flex: 1 1 auto;
     color: #8a1f1f;
 }
 
-#retention-review-btn {
+#conservation-review-btn {
     flex: 0 0 auto;
     padding: 8px 18px;
     border: none;
@@ -1269,11 +1269,11 @@ body {
     transition: background-color 0.2s ease;
 }
 
-#retention-review-btn:hover {
+#conservation-review-btn:hover {
     background-color: #a02818;
 }
 
-.retention-modal-overlay {
+.conservation-modal-overlay {
     position: fixed;
     inset: 0;
     background: rgba(20, 26, 35, 0.5);
@@ -1285,11 +1285,11 @@ body {
     color-scheme: light;
 }
 
-.retention-modal-overlay.hidden {
+.conservation-modal-overlay.hidden {
     display: none;
 }
 
-.retention-modal {
+.conservation-modal {
     background: #fff;
     color: #1c1f24;
     border-radius: 8px;
@@ -1300,24 +1300,24 @@ body {
     padding: 22px 24px;
 }
 
-.retention-modal #retention-modal-list,
-.retention-modal #retention-modal-list strong {
+.conservation-modal #conservation-modal-list,
+.conservation-modal #conservation-modal-list strong {
     color: #1c1f24;
 }
 
-.retention-modal h2 {
+.conservation-modal h2 {
     margin: 0 0 6px 0;
     font-size: 18px;
     color: #c0392b;
 }
 
-#retention-modal-intro {
+#conservation-modal-intro {
     margin: 0 0 12px 0;
     font-size: 13px;
     color: #5a6270;
 }
 
-#retention-modal-list {
+#conservation-modal-list {
     margin: 0;
     padding: 0 0 0 18px;
     max-height: 42vh;
@@ -1326,29 +1326,29 @@ body {
     line-height: 1.5;
 }
 
-#retention-modal-list li {
+#conservation-modal-list li {
     margin-bottom: 4px;
 }
 
-.retention-item-detail {
+.conservation-item-detail {
     color: #5a6270;
 }
 
-#retention-modal-warning {
+#conservation-modal-warning {
     margin: 14px 0 0 0;
     font-size: 12.5px;
     font-weight: 700;
     color: #c0392b;
 }
 
-.retention-modal-actions {
+.conservation-modal-actions {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 18px;
 }
 
-.retention-modal-actions button {
+.conservation-modal-actions button {
     padding: 8px 16px;
     border: 1px solid #cbd2d9;
     border-radius: 6px;
@@ -1358,28 +1358,28 @@ body {
     cursor: pointer;
 }
 
-#retention-cancel-btn:hover {
+#conservation-cancel-btn:hover {
     background: #f0f2f4;
 }
 
-#retention-confirm-btn {
+#conservation-confirm-btn {
     background: #c0392b;
     border-color: #c0392b;
     color: #fff;
     font-weight: 600;
 }
 
-#retention-confirm-btn:disabled {
+#conservation-confirm-btn:disabled {
     background: #d9a2a2;
     border-color: #d9a2a2;
     cursor: not-allowed;
 }
 
-#retention-confirm-btn:not(:disabled):hover {
+#conservation-confirm-btn:not(:disabled):hover {
     background: #a02818;
 }
 
-#retention-toast-container {
+#conservation-toast-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
@@ -1389,7 +1389,7 @@ body {
     z-index: 3500;
 }
 
-.retention-toast {
+.conservation-toast {
     padding: 10px 16px;
     border-radius: 6px;
     background: #27ae60;
@@ -1399,6 +1399,6 @@ body {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-.retention-toast.error {
+.conservation-toast.error {
     background: #c0392b;
 }

@@ -37,9 +37,9 @@
 
     <div id="status-banner" class="hidden" role="status" aria-live="polite"></div>
 
-    <div id="retention-check" class="hidden" role="alert">
-        <span id="retention-check-text"></span>
-        <button type="button" id="retention-review-btn">Examiner et purger</button>
+    <div id="conservation-check" class="hidden" role="alert">
+        <span id="conservation-check-text"></span>
+        <button type="button" id="conservation-review-btn">Examiner et purger</button>
     </div>
 
     <main id="ecoles-container" aria-live="polite">
@@ -64,15 +64,15 @@
     </div>
 
     <!-- Popup purge RGPD -->
-    <div id="retention-modal-overlay" class="hidden">
-        <div id="retention-modal" role="dialog" aria-modal="true" aria-labelledby="retention-modal-title">
-            <h2 id="retention-modal-title">Purge RGPD</h2>
-            <p id="retention-modal-intro"></p>
-            <ul id="retention-modal-list"></ul>
-            <p id="retention-modal-warning">Cette suppression est définitive et ne peut pas être annulée.</p>
+    <div id="conservation-modal-overlay" class="hidden">
+        <div id="conservation-modal" role="dialog" aria-modal="true" aria-labelledby="conservation-modal-title">
+            <h2 id="conservation-modal-title">Purge RGPD</h2>
+            <p id="conservation-modal-intro"></p>
+            <ul id="conservation-modal-list"></ul>
+            <p id="conservation-modal-warning">Cette suppression est définitive et ne peut pas être annulée.</p>
             <div class="modal-actions">
-                <button type="button" id="retention-cancel-btn">Annuler</button>
-                <button type="button" id="retention-confirm-btn">Supprimer définitivement</button>
+                <button type="button" id="conservation-cancel-btn">Annuler</button>
+                <button type="button" id="conservation-confirm-btn">Supprimer définitivement</button>
             </div>
         </div>
     </div>

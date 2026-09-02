@@ -20,9 +20,9 @@
             <button class="tab" id="tabAcademie" data-tab="academie">Académie</button>
         </div>
 
-        <div id="retention-check" class="retention-check hidden" role="alert">
-            <span id="retention-check-text"></span>
-            <button type="button" id="retention-review-btn">Examiner et purger</button>
+        <div id="conservation-check" class="conservation-check hidden" role="alert">
+            <span id="conservation-check-text"></span>
+            <button type="button" id="conservation-review-btn">Examiner et purger</button>
         </div>
 
         <div id="departement" class="tab-content active">
@@ -41,20 +41,20 @@
     </div>
 
     <!-- Popup purge RGPD -->
-    <div id="retention-modal-overlay" class="retention-modal-overlay hidden">
-        <div id="retention-modal" class="retention-modal" role="dialog" aria-modal="true" aria-labelledby="retention-modal-title">
-            <h2 id="retention-modal-title">Purge RGPD</h2>
-            <p id="retention-modal-intro"></p>
-            <ul id="retention-modal-list"></ul>
-            <p id="retention-modal-warning">Cette suppression est définitive et ne peut pas être annulée.</p>
-            <div class="retention-modal-actions">
-                <button type="button" id="retention-cancel-btn">Annuler</button>
-                <button type="button" id="retention-confirm-btn">Supprimer définitivement</button>
+    <div id="conservation-modal-overlay" class="conservation-modal-overlay hidden">
+        <div id="conservation-modal" class="conservation-modal" role="dialog" aria-modal="true" aria-labelledby="conservation-modal-title">
+            <h2 id="conservation-modal-title">Purge RGPD</h2>
+            <p id="conservation-modal-intro"></p>
+            <ul id="conservation-modal-list"></ul>
+            <p id="conservation-modal-warning">Cette suppression est définitive et ne peut pas être annulée.</p>
+            <div class="conservation-modal-actions">
+                <button type="button" id="conservation-cancel-btn">Annuler</button>
+                <button type="button" id="conservation-confirm-btn">Supprimer définitivement</button>
             </div>
         </div>
     </div>
 
-    <div id="retention-toast-container" aria-live="polite"></div>
+    <div id="conservation-toast-container" aria-live="polite"></div>
 
     <button id="scrollTopBtn" title="Retour haut de page">
         <span class="arrow-viewport">
