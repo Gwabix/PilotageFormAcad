@@ -2687,7 +2687,7 @@ function renderCreateEcoleResults() {
 function collectCreateDecharges() {
     const values = {};
     let preciser = '';
-    let error = '';
+    const manquants = [];
 
     DECHARGE_FIELDS.forEach(({ field, label }) => {
         const toggle = document.querySelector('[data-decharge-toggle="' + field + '"]');
@@ -2696,16 +2696,26 @@ function collectCreateDecharges() {
             values[field] = ['L'];
             return;
         }
+
         const days = Array.from(daysContainer.querySelectorAll('input:checked'))
             .map(cb => cb.value).filter(Boolean);
-        if (!days.length && !error) {
-            error = 'Sélectionnez au moins un jour pour « ' + label +' ».';
+        if (!days.length) {
+            manquants.push('au moins un jour pour « ' + label + ' »');
         }
         values[field] = ['L', ...days];
+
         if (field === 'Autre') {
             preciser = sanitizeText(document.getElementById('create-preciser').value);
+            if (!preciser) {
+                manquants.push('une précision pour « ' + label + ' »');
+            }
         }
     });
+
+    // Tous les manques sont signalés d'un coup, pas seulement le premier.
+    const error = manquants.length
+        ? 'Veuillez renseigner : ' + manquants.join(', ') + '.'
+        : '';
 
     return { values, preciser, error };
 }
