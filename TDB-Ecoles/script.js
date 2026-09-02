@@ -156,13 +156,32 @@ function initGrist() {
     loadAllData();
 }
 
+// Charge une table Grist ; retourne null (sans faire échouer le chargement)
+// si elle est absente ou inaccessible.
+async function fetchTableRecords(tableId) {
+    try {
+        return tableToRecords(await grist.docApi.fetchTable(tableId));
+    } catch (err) {
+        console.warn('[Liste_PE] Table « ' + tableId + ' » non chargée :',
+            (err && err.message) ? err.message : err);
+        return null;
+    }
+}
+
 // Fusionne les lignes Liste_PE en double (même IDunique : même enseignant,
 // même année, même école). Retourne true si des lignes ont été fusionnées.
 async function mergeDuplicateListePe() {
-    if (typeof ListePeMerge === 'undefined' || !state.relatedTablesLoaded) return false;
+    if (typeof ListePeMerge === 'undefined') {
+        console.warn('[Doublons] Module ../shared/liste-pe-merge.js non chargé.');
+        return false;
+    }
+    if (!state.relatedTablesLoaded) return false; // déjà signalé au chargement
 
     const groups = ListePeMerge.findDuplicateGroups(state.personnels);
-    if (!groups.length) return false;
+    if (!groups.length) {
+        console.info('[Doublons] Aucun doublon détecté sur ' + state.personnels.length + ' lignes Liste_PE.');
+        return false;
+    }
 
     const { actions, summary, removedCount } =
         ListePeMerge.buildMergeActions(groups, state.formations, state.liens);
@@ -196,23 +215,24 @@ async function loadAllData(skipMerge) {
             ecole._normCommuneNom = normalizeStr(ecole.Commune_Nom || '');
         }
 
-        // Tables liées (Formations + Lien_intercircos), nécessaires à la purge
-        // RGPD et au repointage des références lors de la fusion des doublons.
-        // Si l'une est indisponible, on désactive ces deux traitements plutôt
-        // que de risquer une suppression ou une fusion partielle.
-        try {
-            const [formationsData, liensData] = await Promise.all([
-                grist.docApi.fetchTable('Formations'),
-                grist.docApi.fetchTable('Lien_intercircos')
-            ]);
-            state.formations = tableToRecords(formationsData);
-            state.liens = tableToRecords(liensData);
-            state.relatedTablesLoaded = true;
-        } catch (relatedErr) {
-            console.warn('[Liste_PE] Tables liées indisponibles : purge RGPD et fusion des doublons désactivées.', relatedErr);
-            state.formations = [];
-            state.liens = [];
-            state.relatedTablesLoaded = false;
+        // Tables liées, chargées indépendamment l'une de l'autre.
+        //  - Formations : INDISPENSABLE (ses lignes référencent Liste_PE et
+        //    doivent être repointées avant toute fusion ou suppression).
+        //  - Lien_intercircos : OPTIONNELLE (la table peut ne pas exister).
+        const [formationsRecords, liensRecords] = await Promise.all([
+            fetchTableRecords('Formations'),
+            fetchTableRecords('Lien_intercircos')
+        ]);
+
+        state.formations = formationsRecords || [];
+        state.liens = liensRecords || [];
+        state.relatedTablesLoaded = formationsRecords !== null;
+
+        if (liensRecords === null) {
+            console.info('[Liste_PE] Table Lien_intercircos absente : ignorée.');
+        }
+        if (!state.relatedTablesLoaded) {
+            console.warn('[Liste_PE] Table Formations indisponible : purge RGPD et fusion des doublons désactivées.');
         }
 
         // Fusion automatique des doublons (même IDunique) avant tout rendu.

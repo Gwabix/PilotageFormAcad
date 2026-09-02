@@ -109,20 +109,25 @@ async function loadData() {
         // Données brutes pour le contrôle RGPD (module partagé RgpdPurge).
         // Si une table est indisponible, on désactive le contrôle plutôt que
         // de risquer une suppression partielle.
-        try {
-            const [listePeTable, liensTable] = await Promise.all([
-                grist.docApi.fetchTable('Liste_PE'),
-                grist.docApi.fetchTable('Lien_intercircos')
-            ]);
-            rgpdData.listePe = recordsFromTable(listePeTable);
-            rgpdData.formations = recordsFromTable(tableauTable);
-            rgpdData.liens = recordsFromTable(liensTable);
-            rgpdData.ready = true;
-            buildIdPeIndex();
-        } catch (rgpdErr) {
-            console.warn('[RGPD] Tables indisponibles, contrôle désactivé.', rgpdErr);
-            rgpdData.ready = false;
+        // Liste_PE est indispensable ; Lien_intercircos est optionnelle
+        // (la table peut ne pas exister dans le document).
+        const [listePeRecords, liensRecords] = await Promise.all([
+            fetchTableRecords('Liste_PE'),
+            fetchTableRecords('Lien_intercircos')
+        ]);
+
+        rgpdData.listePe = listePeRecords || [];
+        rgpdData.formations = recordsFromTable(tableauTable);
+        rgpdData.liens = liensRecords || [];
+        rgpdData.ready = listePeRecords !== null;
+
+        if (liensRecords === null) {
+            console.info('[RGPD] Table Lien_intercircos absente : ignorée.');
         }
+        if (!rgpdData.ready) {
+            console.warn('[RGPD] Table Liste_PE indisponible : contrôle désactivé.');
+        }
+        buildIdPeIndex();
 
         // Bandeau RGPD — isolé du rendu principal du widget.
         try {
@@ -1688,6 +1693,17 @@ function countDistinctEnseignants(items) {
         keys.add(idPeTexteParLigne.get(rowId) || ('ligne:' + rowId));
     }
     return keys.size;
+}
+
+// Charge une table Grist ; retourne null si elle est absente ou inaccessible.
+async function fetchTableRecords(tableId) {
+    try {
+        return recordsFromTable(await grist.docApi.fetchTable(tableId));
+    } catch (err) {
+        console.warn('[RGPD] Table « ' + tableId + ' » non chargée :',
+            (err && err.message) ? err.message : err);
+        return null;
+    }
 }
 
 function recordsFromTable(table) {
