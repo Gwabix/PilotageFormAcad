@@ -2314,6 +2314,27 @@ function renderAddTeacherResults() {
     });
 }
 
+/**
+ * Compose le texte de confirmation sans innerHTML.
+ * Chaque partie est une chaîne, la clé 'br' pour un retour à la ligne,
+ * ou { ecole: '…' } pour un nom d'établissement mis en avant.
+ */
+function renderConfirmText(target, parts) {
+    target.textContent = '';
+    parts.forEach(part => {
+        if (part === 'br') {
+            target.appendChild(document.createElement('br'));
+        } else if (typeof part === 'string') {
+            target.appendChild(document.createTextNode(part));
+        } else if (part && part.ecole) {
+            const strong = document.createElement('strong');
+            strong.className = 'add-teacher-ecole-name';
+            strong.textContent = part.ecole;
+            target.appendChild(strong);
+        }
+    });
+}
+
 function openAddTeacherConfirm(person) {
     addTeacherState.person = person;
 
@@ -2327,11 +2348,13 @@ function openAddTeacherConfirm(person) {
     listEl.classList.add('hidden');
     actions.textContent = '';
 
-    const addAction = (label, primary, onClick) => {
+    // Seul « Annuler » est secondaire ; toutes les autres actions sont
+    // au même niveau d'importance.
+    const addAction = (label, onClick, secondary) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = label;
-        if (primary) btn.className = 'primary';
+        btn.className = secondary ? 'secondary' : 'primary';
         btn.addEventListener('click', onClick);
         actions.appendChild(btn);
         return btn;
@@ -2341,26 +2364,40 @@ function openAddTeacherConfirm(person) {
 
     if (person.affectations.length === 0) {
         // Cas 1 : aucune affectation.
-        textEl.textContent = 'Rattacher ' + identity + ' à ' + formatEcoleFull(cible) + ' ?';
-        addAction('Annuler', false, cancel);
-        addAction('Confirmer', true, () => applyAffectations([cible.id]));
+        renderConfirmText(textEl, [
+            'Rattacher ' + identity + ' à',
+            'br',
+            { ecole: formatEcoleFull(cible) },
+            ' ?'
+        ]);
+        addAction('Annuler', cancel, true);
+        addAction('Confirmer', () => applyAffectations([cible.id]));
 
     } else if (person.affectations.length === 1) {
         // Cas 2 : une seule affectation existante.
         const actuelle = person.affectations[0];
-        textEl.textContent = identity + ' est actuellement rattaché(e) à '
-            + formatEcoleFull(actuelle.ecole)
-            + '. Souhaitez-vous conserver cette affectation ou la remplacer par '
-            + formatEcoleFull(cible) + ' ?';
-        addAction('Annuler', false, cancel);
-        addAction('Remplacer l\'affectation', false, () => applyAffectations([cible.id]));
-        addAction('Conserver les deux affectations', true,
+        renderConfirmText(textEl, [
+            identity + ' est actuellement rattaché(e) à',
+            'br',
+            { ecole: formatEcoleFull(actuelle.ecole) },
+            'br',
+            'souhaitez-vous conserver cette affectation ou la remplacer par',
+            'br',
+            { ecole: formatEcoleFull(cible) },
+            '.'
+        ]);
+        addAction('Annuler', cancel, true);
+        addAction('Remplacer l\'affectation', () => applyAffectations([cible.id]));
+        addAction('Conserver les deux affectations',
             () => applyAffectations([getPersonnelEcoleRowId(actuelle.row), cible.id]));
 
     } else {
         // Cas 3 : plusieurs affectations — l'utilisateur choisit ce qu'il garde.
-        textEl.textContent = identity + ' a actuellement plusieurs affectations. '
-            + 'Veuillez sélectionner les affectations à conserver.';
+        renderConfirmText(textEl, [
+            identity + ' a actuellement plusieurs affectations.',
+            'br',
+            'Veuillez sélectionner les affectations à conserver.'
+        ]);
         listEl.classList.remove('hidden');
 
         const entries = person.affectations.map(a => ({
@@ -2377,13 +2414,16 @@ function openAddTeacherConfirm(person) {
             cb.type = 'checkbox';
             cb.checked = entry.checked;
             cb.dataset.ecoleId = String(entry.ecoleId);
-            label.append(cb, document.createTextNode(' ' + entry.label));
+            const name = document.createElement('strong');
+            name.className = 'add-teacher-ecole-name';
+            name.textContent = entry.label;
+            label.append(cb, name);
             li.appendChild(label);
             listEl.appendChild(li);
         });
 
-        addAction('Annuler', false, cancel);
-        addAction('Enregistrer', true, () => {
+        addAction('Annuler', cancel, true);
+        addAction('Enregistrer', () => {
             const keep = Array.from(listEl.querySelectorAll('input:checked'))
                 .map(cb => parseInt(cb.dataset.ecoleId, 10))
                 .filter(Number.isFinite);

@@ -1269,8 +1269,14 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 
 #add-teacher-confirm-text {
     font-size: 13.5px;
-    line-height: 1.5;
-    margin: 0 0 12px 0;
+    line-height: 1.7;
+    margin: 0 0 14px 0;
+}
+
+/* Nom d'établissement mis en avant (texte de confirmation et cases à cocher) */
+.add-teacher-ecole-name {
+    font-weight: 700;
+    color: var(--color-primary-dark);
 }
 
 .add-teacher-affectations {
@@ -1285,6 +1291,10 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     display: none;
 }
 
+.add-teacher-affectations li + li {
+    margin-top: 6px;
+}
+
 .add-teacher-affectations label {
     display: flex;
     align-items: flex-start;
@@ -1292,6 +1302,10 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     font-weight: 400;
     font-size: 13px;
     cursor: pointer;
+}
+
+#add-teacher-modal .modal-actions {
+    flex-wrap: wrap;
 }
 
 #add-teacher-modal .modal-actions button {
@@ -1304,7 +1318,7 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
     font-size: 0.9rem;
 }
 
-#add-teacher-modal .modal-actions button:hover {
+#add-teacher-modal .modal-actions button.secondary:hover {
     background: #f0f2f4;
 }
 
