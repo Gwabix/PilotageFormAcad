@@ -3,9 +3,19 @@
 /*
  * Module partagé — fusion automatique des lignes Liste_PE en double.
  *
- * Un doublon = même enseignant, même année scolaire ET même école
- * (équivalent de `IDunique`). Les affectations partagées — même enseignant,
- * même année, écoles DIFFÉRENTES — ne sont donc JAMAIS fusionnées.
+ * Deux remises en ordre, appliquées en une seule transaction :
+ *
+ *  1. LIGNES FANTÔMES — pour un même (ID_PE, année), une ligne sans école
+ *     alors qu'une autre ligne de la même personne/année est affectée. Cas
+ *     typique : la circonscription A crée une fiche avant que B ne libère
+ *     l'enseignant. La ligne détachée est supprimée, ses fiches Formations
+ *     repointées vers la ligne conservée.
+ *
+ *  2. DOUBLONS — même enseignant, même année scolaire ET même école
+ *     (équivalent de `IDunique`), fusionnés selon les règles ci-dessous.
+ *
+ * Les affectations partagées — même enseignant, même année, écoles
+ * DIFFÉRENTES — ne sont JAMAIS ni supprimées ni fusionnées.
  *
  * Cas particulier : deux lignes détachées (UAI vide) du même enseignant sur
  * la même année — typiquement un enseignant retiré de ses deux écoles — SONT
@@ -199,14 +209,56 @@
     }
 
     /**
-     * Actions Grist pour fusionner les doublons, dans l'ordre :
-     * repointage Formations -> mise à jour des survivants -> suppression des
-     * doublons (une seule transaction).
+     * Lignes « fantômes » : pour un même (ID_PE, année), une ligne SANS école
+     * alors qu'au moins une autre ligne de la même personne et de la même
+     * année EST affectée. Cas typique : la circonscription A crée une fiche
+     * avant que B ne libère l'enseignant — la ligne détachée de B n'a plus
+     * lieu d'être.
      *
-     * @param {object[]} groups résultat de findDuplicateGroups
+     * N'affecte jamais deux lignes affectées (affectation partagée), ni une
+     * personne détachée partout (traitée par la fusion des doublons).
+     *
+     * @returns {{ row: object, target: object }[]} ligne à supprimer, et ligne
+     *          affectée vers laquelle repointer ses fiches Formations.
+     */
+    function findOrphanRows(listePe) {
+        const byPersonYear = new Map();
+        for (const row of listePe) {
+            const idPe = text(row.ID_PE);
+            if (!idPe) continue;
+            const key = idPe + ' | ' + text(row.Annee_scolaire);
+            let bucket = byPersonYear.get(key);
+            if (!bucket) { bucket = []; byPersonYear.set(key, bucket); }
+            bucket.push(row);
+        }
+
+        const orphans = [];
+        for (const rows of byPersonYear.values()) {
+            const affected = rows.filter(r => refRowId(r.UAI) > 0);
+            const detached = rows.filter(r => refRowId(r.UAI) <= 0);
+            if (!affected.length || !detached.length) continue;
+
+            const target = affected.slice().sort((a, b) => {
+                const diff = parseQuotite(b.Quotite_de_service) - parseQuotite(a.Quotite_de_service);
+                return diff !== 0 ? diff : a.id - b.id;
+            })[0];
+
+            detached.forEach(row => orphans.push({ row, target }));
+        }
+        return orphans;
+    }
+
+    /**
+     * Actions Grist de remise en ordre de Liste_PE, en une seule transaction :
+     *   1. suppression des lignes fantômes (leurs Formations sont repointées
+     *      vers la ligne affectée conservée) ;
+     *   2. fusion des doublons restants.
+     * Ordre des actions : repointage -> mises à jour -> suppressions.
+     *
+     * @param {object[]} listePe enregistrements Liste_PE
      * @param {object[]} formations enregistrements Formations
      */
-    function buildMergeActions(groups, formations) {
+    function buildCleanupActions(listePe, formations) {
         const formationsByRow = indexByReferencedRow(formations || [], 'ID_PE');
 
         const formationIds = [];
@@ -214,9 +266,36 @@
         const survivorIds = [];
         const survivorValues = [];
         const removeIds = [];
-        const summary = [];
+        const summary = { fantomes: [], fusions: [] };
 
-        for (const group of groups) {
+        // 1. Lignes fantômes
+        const orphans = findOrphanRows(listePe);
+        const orphanIds = new Set();
+
+        for (const { row, target } of orphans) {
+            const linked = formationsByRow.get(row.id) || [];
+            for (const record of linked) {
+                formationIds.push(record.id);
+                formationTargets.push(target.id);
+            }
+            orphanIds.add(row.id);
+            removeIds.push(row.id);
+            summary.fantomes.push({
+                identity: [text(row.Civilite), text(row.Prenom), text(row.Nom)]
+                    .filter(Boolean).join(' '),
+                anneeScolaire: text(row.Annee_scolaire),
+                removedId: row.id,
+                keptId: target.id,
+                movedFormations: linked.length
+            });
+        }
+
+        // 2. Fusion des doublons parmi les lignes restantes
+        const remaining = orphanIds.size
+            ? listePe.filter(row => !orphanIds.has(row.id))
+            : listePe;
+
+        for (const group of findDuplicateGroups(remaining)) {
             const { survivor, losers, merged } = mergeGroup(group.rows);
             let movedFormations = 0;
 
@@ -234,7 +313,7 @@
                 survivorValues.push(merged);
             }
 
-            summary.push({
+            summary.fusions.push({
                 key: group.key,
                 identity: [text(survivor.Civilite), text(survivor.Prenom), text(survivor.Nom)]
                     .filter(Boolean).join(' '),
@@ -261,7 +340,8 @@
 
     global.ListePeMerge = {
         findDuplicateGroups,
+        findOrphanRows,
         mergeGroup,
-        buildMergeActions
+        buildCleanupActions
     };
 })(typeof window !== 'undefined' ? window : this);

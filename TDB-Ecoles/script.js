@@ -168,33 +168,30 @@ async function fetchTableRecords(tableId) {
     }
 }
 
-// Fusionne les lignes Liste_PE en double (même IDunique : même enseignant,
-// même année, même école). Retourne true si des lignes ont été fusionnées.
-async function mergeDuplicateListePe() {
+// Remise en ordre de Liste_PE : suppression des lignes fantômes (détachées
+// alors que la personne est affectée ailleurs la même année) et fusion des
+// doublons. Retourne true si des lignes ont été supprimées.
+async function cleanupListePe() {
     if (typeof ListePeMerge === 'undefined') {
-        console.warn('[Doublons] Module ../shared/liste-pe-merge.js non chargé.');
+        console.warn('[Liste_PE] Module ../shared/liste-pe-merge.js non chargé.');
         return false;
     }
     if (!state.relatedTablesLoaded) return false; // déjà signalé au chargement
 
-    const groups = ListePeMerge.findDuplicateGroups(state.personnels);
-    if (!groups.length) {
-        console.info("[Doublons] Aucun doublon détecté sur " + state.personnels.length + " lignes Liste_PE.");
-        return false;
-    }
-
     const { actions, summary, removedCount } =
-        ListePeMerge.buildMergeActions(groups, state.formations);
+        ListePeMerge.buildCleanupActions(state.personnels, state.formations);
     if (!actions.length) return false;
 
     try {
         await grist.docApi.applyUserActions(actions);
-        console.info('[Doublons] ' + removedCount + ' ligne(s) supprimée(s) par fusion :', summary);
+        console.info('[Liste_PE] ' + removedCount + ' ligne(s) supprimée(s) — '
+            + summary.fantomes.length + ' fantôme(s), '
+            + summary.fusions.length + ' fusion(s) :', summary);
         showToast(removedCount + ' ligne' + (removedCount > 1 ? 's' : '')
-            + ' en double fusionnée' + (removedCount > 1 ? 's' : '') + '.', 'success');
+            + ' en double supprimée' + (removedCount > 1 ? 's' : '') + '.', 'success');
         return true;
     } catch (err) {
-        console.error('[Doublons] Fusion impossible :', err);
+        console.error('[Liste_PE] Remise en ordre impossible :', err);
         return false;
     }
 }
@@ -225,9 +222,9 @@ async function loadAllData(skipMerge) {
             console.warn('[Liste_PE] Table Formations indisponible : purge RGPD et fusion des doublons désactivées.');
         }
 
-        // Fusion automatique des doublons (même IDunique) avant tout rendu.
+        // Remise en ordre automatique (fantômes + doublons) avant tout rendu.
         // Une seule tentative par cycle de chargement.
-        if (!skipMerge && await mergeDuplicateListePe()) {
+        if (!skipMerge && await cleanupListePe()) {
             return loadAllData(true);
         }
 
