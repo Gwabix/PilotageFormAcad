@@ -2595,12 +2595,19 @@ function buildCreateDecharges() {
         toggle.dataset.dechargeToggle = field;
         toggleLabel.append(toggle, document.createTextNode(' ' + label));
 
-        const select = document.createElement('select');
-        select.multiple = true;
-        select.size = 4;
-        select.dataset.dechargeDays = field;
-        select.classList.add('hidden');
-        fillSelect(select, DECHARGES_OPTIONS[field] || []);
+        // Cases à cocher plutôt qu'un <select multiple>, qui exigerait Ctrl.
+        const days = document.createElement('div');
+        days.className = 'create-decharge-days hidden';
+        days.dataset.dechargeDays = field;
+        (DECHARGES_OPTIONS[field] || []).forEach(jour => {
+            const dayLabel = document.createElement('label');
+            dayLabel.className = 'create-decharge-day';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = jour;
+            dayLabel.append(cb, document.createTextNode(' ' + jour));
+            days.appendChild(dayLabel);
+        });
 
         const preciser = document.createElement('input');
         preciser.type = 'text';
@@ -2609,15 +2616,15 @@ function buildCreateDecharges() {
         preciser.classList.add('hidden');
 
         toggle.addEventListener('change', () => {
-            select.classList.toggle('hidden', !toggle.checked);
+            days.classList.toggle('hidden', !toggle.checked);
             if (field === 'Autre') preciser.classList.toggle('hidden', !toggle.checked);
             if (!toggle.checked) {
-                Array.from(select.options).forEach(o => { o.selected = false; });
+                days.querySelectorAll('input').forEach(cb => { cb.checked = false; });
                 if (field === 'Autre') preciser.value = '';
             }
         });
 
-        row.append(toggleLabel, select);
+        row.append(toggleLabel, days);
         if (field === 'Autre') row.appendChild(preciser);
         container.appendChild(row);
     });
@@ -2684,12 +2691,13 @@ function collectCreateDecharges() {
 
     DECHARGE_FIELDS.forEach(({ field, label }) => {
         const toggle = document.querySelector('[data-decharge-toggle="' + field + '"]');
-        const select = document.querySelector('[data-decharge-days="' + field + '"]');
+        const daysContainer = document.querySelector('[data-decharge-days="' + field + '"]');
         if (!toggle || !toggle.checked) {
             values[field] = ['L'];
             return;
         }
-        const days = Array.from(select.selectedOptions).map(o => o.value).filter(Boolean);
+        const days = Array.from(daysContainer.querySelectorAll('input:checked'))
+            .map(cb => cb.value).filter(Boolean);
         if (!days.length && !error) {
             error = 'Sélectionnez au moins un jour pour « ' + label +' ».';
         }
