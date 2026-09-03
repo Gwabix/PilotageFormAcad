@@ -172,6 +172,11 @@
                 return '<span class="tag' + (warn ? " warn" : "") + '">' + esc(text) + '</span>';
             }
 
+            function plainList(text) {
+                if (!text) { return DASH; }
+                return '<span class="list-plain">' + esc(text) + '</span>';
+            }
+
             function renderPe(pe) {
                 var nameParts = [];
                 if (pe.civilite) { nameParts.push(pe.civilite); }
@@ -194,7 +199,7 @@
                 h.push("</td><td>" + tag(pe.francais, false) + "</td>");
                 h.push("<td>" + tag(pe.maths, false) + "</td>");
                 h.push("<td>" + tag(pe.autres, pe.warn) + "</td>");
-                h.push("<td>" + tag(pe.formateurs, false) + "</td></tr>");
+                h.push("<td>" + plainList(pe.formateurs) + "</td></tr>");
                 return h.join("");
             }
 

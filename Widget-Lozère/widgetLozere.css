@@ -364,6 +364,14 @@
             border-color: var(--warn-bd)
         }
 
+        .list-plain {
+            display: inline-block;
+            max-width: 100%;
+            font-size: 12px;
+            white-space: pre-line;
+            overflow-wrap: break-word
+        }
+
         .empty-state {
             text-align: center;
             color: var(--muted);
