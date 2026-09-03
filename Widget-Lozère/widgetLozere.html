@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ecoles et PE</title>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <link rel="stylesheet" href="widgetLozere.css">
+</head>
+
+<body>
+    <div id="app">
+        <div id="topbar">
+            <div id="search-wrap">
+                <input id="search-input" type="text"
+                    placeholder="Rechercher une ecole, commune, circonscription, UAI..." autocomplete="off"
+                    spellcheck="false">
+                <button id="search-clear" type="button" title="Effacer" aria-label="Effacer">&times;</button>
+                <div id="suggestions" role="listbox"></div>
+            </div>
+            <div id="toolbar">
+                <button class="btn" id="btn-expand" type="button">Tout déplier</button>
+                <button class="btn" id="btn-collapse" type="button">Tout replier</button>
+                <span id="count-info"></span>
+            </div>
+        </div>
+        <div id="list"></div>
+    </div>
+    <script src="widgetLozere.js"></script>
+</body>
+</html>
