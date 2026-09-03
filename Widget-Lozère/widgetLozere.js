@@ -418,9 +418,6 @@
                 bind();
                 grist.ready({ requiredAccess: "read table" });
                 grist.onRecords(function (records) {
-                    if (window.console && console.log) {
-                        console.log("[widgetLozere] DEBUG premier enregistrement reçu de Grist :", records && records[0]);
-                    }
                     schools = buildSchools(Array.isArray(records) ? records : []);
                     render();
                 });
