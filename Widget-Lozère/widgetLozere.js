@@ -182,8 +182,9 @@
                 if (pe.quotite) { subParts.push(pe.quotite); }
                 if (pe.niveaux) { subParts.push(pe.niveaux); }
                 var sub = subParts.join(DOT);
+                var isPartTime = !!pe.quotite && pe.quotite !== "100%";
                 var h = [];
-                h.push("<tr><td>");
+                h.push(isPartTime ? '<tr class="quotite-partial"><td>' : "<tr><td>");
                 h.push('<div class="pe-name">');
                 h.push(full ? esc(full) : DASH);
                 h.push("</div>");
