@@ -15,6 +15,7 @@
             var T_ECOLE = "\u00E9cole";
             var T_ECOLES = "\u00E9cole(s)";
             var T_FR = "Fran\u00E7ais";
+            var T_FORM = "Formateurs (pr\u00E9visionnel)";
             var CHEV = "\u25B6";
             var DOT = " \u00B7 ";
             var DASH = '<span class="cell-empty">&mdash;</span>';
@@ -83,10 +84,10 @@
                     return { text: T_EVAL, warn: false };
                 }
                 if (laicite === false) {
-                    return { text: base ? base + " + " + T_LAICITE6 : T_LAICITE6, warn: true };
+                    return { text: base ? base + "\n+ " + T_LAICITE6 : T_LAICITE6, warn: true };
                 }
                 if (cps === false) {
-                    return { text: base ? base + " + " + T_CPS6 : T_CPS6, warn: true };
+                    return { text: base ? base + "\n+ " + T_CPS6 : T_CPS6, warn: true };
                 }
                 return { text: base, warn: false };
             }
@@ -114,7 +115,7 @@
                     var lai = toBool(rec.Laicite_OK);
                     var cps = toBool(rec.CPS_OK);
                     var au = computeAutres(txt(rec.Autres), lai, cps);
-                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: txt(rec.Francais), maths: txt(rec.Maths), autres: au.text, warn: au.warn });
+                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: txt(rec.Francais), maths: txt(rec.Maths), autres: au.text, warn: au.warn, formateurs: txt(rec.Formateurs) });
                 }
                 var list = [];
                 for (var j = 0; j < order.length; j++) { list.push(map[order[j]]); }
@@ -192,7 +193,8 @@
                 if (sub) { h.push('<div class="pe-sub">' + esc(sub) + "</div>"); }
                 h.push("</td><td>" + tag(pe.francais, false) + "</td>");
                 h.push("<td>" + tag(pe.maths, false) + "</td>");
-                h.push("<td>" + tag(pe.autres, pe.warn) + "</td></tr>");
+                h.push("<td>" + tag(pe.autres, pe.warn) + "</td>");
+                h.push("<td>" + tag(pe.formateurs, false) + "</td></tr>");
                 return h.join("");
             }
 
@@ -221,6 +223,7 @@
                     th.push("<th>" + esc(T_FR) + "</th>");
                     th.push("<th>Maths</th>");
                     th.push("<th>Autres</th>");
+                    th.push("<th>" + esc(T_FORM) + "</th>");
                     th.push("</tr></thead><tbody>");
                     th.push(rows.join(""));
                     th.push("</tbody></table>");

@@ -261,8 +261,34 @@
 
         table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             font-size: 13px
+        }
+
+        th:nth-child(1),
+        td:nth-child(1) {
+            width: 20%
+        }
+
+        th:nth-child(2),
+        td:nth-child(2) {
+            width: 23%
+        }
+
+        th:nth-child(3),
+        td:nth-child(3) {
+            width: 23%
+        }
+
+        th:nth-child(4),
+        td:nth-child(4) {
+            width: 23%
+        }
+
+        th:nth-child(5),
+        td:nth-child(5) {
+            width: 11%
         }
 
         thead th {
@@ -276,13 +302,14 @@
             padding: 7px 10px;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
-            white-space: nowrap
+            white-space: normal
         }
 
         tbody td {
             padding: 7px 10px;
             border-bottom: 1px solid #f1f3f6;
-            vertical-align: top
+            vertical-align: top;
+            overflow-wrap: break-word
         }
 
         tbody tr:last-child td {
@@ -318,6 +345,7 @@
 
         .tag {
             display: inline-block;
+            max-width: 100%;
             background: #eff6ff;
             color: #1e40af;
             border: 1px solid #bfdbfe;
@@ -325,7 +353,8 @@
             padding: 1px 7px;
             font-size: 12px;
             margin: 1px 3px 1px 0;
-            white-space: pre-line
+            white-space: pre-line;
+            overflow-wrap: break-word
         }
 
         .tag.warn {
