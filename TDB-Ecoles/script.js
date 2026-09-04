@@ -37,6 +37,11 @@ const REQUIRED_PERSONNEL_FIELDS = [
 
 const SCHOOL_YEAR_FIELDS = ['Annee_scolaire'];
 
+// Valeurs de Liste_PE.Quotite_de_service, alignées sur la base RH source
+// (« Quotité modalité de service » : 50, 75, 80, 83 ou vide = 100).
+// Doit rester synchronisé avec les choix de la colonne côté Grist.
+const QUOTITE_OPTIONS = ['50%', '75%', '80%', '83%', '100%'];
+
 // La logique RGPD (détection + suppression) vit dans ../shared/rgpd-purge.js
 // (objet global RgpdPurge), partagé avec le widget « Pilotage académique ».
 
@@ -1280,7 +1285,7 @@ function buildPersonnelRow(p, ecole) {
     trMain.appendChild(buildMailCell(p));
     trMain.appendChild(buildEditableCell(p, 'Fonction', 'select', FONCTION_OPTIONS));
 
-    const quotiteCell = buildEditableCell(p, 'Quotite_de_service', 'select', ['50%', '75%', '80%', '100%']);
+    const quotiteCell = buildEditableCell(p, 'Quotite_de_service', 'select', QUOTITE_OPTIONS);
     trMain.appendChild(quotiteCell);
 
     // Création des 4 cases de contrôle (Interrupteurs UI : cochés au chargement si des jours sont présents)
@@ -2647,7 +2652,7 @@ function buildCreateNiveaux() {
 function openCreateTeacherForm() {
     fillSelect(document.getElementById('create-civilite'), ['Madame', 'Monsieur']);
     fillSelect(document.getElementById('create-fonction'), FONCTION_OPTIONS);
-    fillSelect(document.getElementById('create-quotite'), ['50%', '75%', '80%', '100%'], '100%');
+    fillSelect(document.getElementById('create-quotite'), QUOTITE_OPTIONS, '100%');
 
     ['create-nom', 'create-prenom', 'create-id-pe', 'create-mail'].forEach(id => {
         document.getElementById(id).value = '';
