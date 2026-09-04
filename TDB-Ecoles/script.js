@@ -2741,11 +2741,11 @@ async function submitCreateTeacher() {
     document.getElementById('create-prenom').value = prenom;
 
     if (!civilite || !nom || !prenom || !idPe || !fonction || !quotite || !Number.isFinite(ecoleId)) {
-        showCreateError('Civilité, nom, prénom, identifiant académique, école, fonction et quotité sont obligatoires.');
+        showCreateError('Civilité, nom, prénom, identifiant personnel, école, fonction et quotité sont obligatoires.');
         return;
     }
     if (!CREATE_ID_PE_PATTERN.test(idPe)) {
-        showCreateError('L\'identifiant académique doit être alphanumérique (tiret accepté, sans espace ni accent).');
+        showCreateError('L\'identifiant personnel doit être alphanumérique (tiret accepté, sans espace ni accent).');
         return;
     }
     if (mail && !CREATE_MAIL_PATTERN.test(mail)) {
