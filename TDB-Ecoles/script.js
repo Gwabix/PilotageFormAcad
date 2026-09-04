@@ -2547,7 +2547,9 @@ async function applyAffectations(keepEcoleIds) {
    -------------------------------------------------------------------------- */
 
 const CREATE_MAIL_PATTERN = /^[^\W][a-zA-Z0-9\-._]+[^\W]@ac-montpellier\.fr$/;
-const CREATE_ID_PE_PATTERN = /^[A-Za-z0-9-]+$/;
+// Identifiant personnel (clé) : 4 à 6 chiffres.
+// Stocké en TEXTE dans Liste_PE.ID_PE, pour ne pas perdre un zéro initial.
+const CREATE_ID_PE_PATTERN = /^\d{4,6}$/;
 
 const DECHARGE_FIELDS = [
     { field: 'D_dir', label: 'Décharge de direction' },
@@ -2745,7 +2747,7 @@ async function submitCreateTeacher() {
         return;
     }
     if (!CREATE_ID_PE_PATTERN.test(idPe)) {
-        showCreateError('L\'identifiant personnel doit être alphanumérique (tiret accepté, sans espace ni accent).');
+        showCreateError('L\'identifiant personnel doit comporter 4 à 6 chiffres.');
         return;
     }
     if (mail && !CREATE_MAIL_PATTERN.test(mail)) {
