@@ -5,8 +5,8 @@
             var T_LAICITE6 = "La\u00EFcit\u00E9 (6h)";
             var T_CPS = "CPS";
             var T_CPS6 = "CPS (6h)";
-            var T_PFM = "Plan Filles et Maths";
-            var T_PFM_CPS = "Plan Filles et Maths ou CPS";
+            var T_SMVSS = "Plan Filles et Maths";
+            var T_SMVSS_CPS = "Plan Filles et Maths ou CPS";
             var T_EVAL = "\u00C9valuation d'\u00E9cole";
             var T_NOMOD = "Modalit\u00E9 non renseign\u00E9e";
             var T_NOPE = "Aucun PE rattach\u00E9 \u00E0 cette \u00E9cole.";
@@ -74,10 +74,10 @@
             }
 
             function computeAutres(base, laicite, cps) {
-                if (base === T_PFM_CPS) {
+                if (base === T_SMVSS_CPS) {
                     if (laicite === false) { return { text: T_LAICITE, warn: false }; }
                     if (cps === false) { return { text: T_CPS, warn: false }; }
-                    return { text: T_PFM, warn: false };
+                    return { text: T_SMVSS, warn: false };
                 }
                 if (base === T_EVAL) {
                     if (laicite === false) { return { text: T_LAICITE, warn: false }; }
@@ -115,7 +115,7 @@
                     var lai = toBool(rec.Laicite_OK);
                     var cps = toBool(rec.CPS_OK);
                     var au = computeAutres(txt(rec.Autres), lai, cps);
-                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: txt(rec.Francais), maths: txt(rec.Maths), autres: au.text, warn: au.warn, formateurs: txt(rec.Formateurs) });
+                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_serv), niveaux: txt(rec.Niveaux), francais: au.text, maths: au.text, autres: au.text, warn: au.warn, formateurs: txt(rec.Formateurs) });
                 }
                 var list = [];
                 for (var j = 0; j < order.length; j++) { list.push(map[order[j]]); }
