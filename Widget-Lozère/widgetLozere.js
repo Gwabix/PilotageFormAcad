@@ -115,7 +115,7 @@
                     var lai = toBool(rec.Laicite_OK);
                     var cps = toBool(rec.CPS_OK);
                     var au = computeAutres(txt(rec.Autres), lai, cps);
-                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_serv), niveaux: txt(rec.Niveaux), francais: au.text, maths: au.text, autres: au.text, warn: au.warn, formateurs: txt(rec.Formateurs) });
+                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: txt(rec.Francais), maths: txt(rec.Maths), autres: au.text, warn: au.warn, formateurs: txt(rec.Formateurs) });
                 }
                 var list = [];
                 for (var j = 0; j < order.length; j++) { list.push(map[order[j]]); }
