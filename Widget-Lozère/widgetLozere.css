@@ -397,6 +397,24 @@
             background: var(--primary-light)
         }
 
+        .print-probe-host {
+            position: absolute;
+            left: -10000px;
+            top: 0;
+            visibility: hidden;
+            pointer-events: none
+        }
+
+        .print-probe {
+            display: inline-block;
+            white-space: nowrap;
+            font-family: inherit;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .03em
+        }
+
         #print-root {
             display: none
         }
@@ -491,10 +509,16 @@
                 border-bottom: 1px solid #e5e7eb
             }
 
-            .print-school th,
             .print-school td {
                 overflow-wrap: anywhere;
                 word-break: break-word
+            }
+
+            .print-school thead th {
+                white-space: normal;
+                overflow-wrap: normal;
+                word-break: normal;
+                hyphens: none
             }
 
             .print-school tbody tr {

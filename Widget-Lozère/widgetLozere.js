@@ -256,9 +256,67 @@
             }
 
             var PRINT_W = [24, 20, 20, 22, 14];
-            var PRINT_W_EMPTY = 5;
+            var PRINT_HEAD = ["Enseignant", T_FR, "Maths", "Autres", T_FORM];
+            var PRINT_ROOT_MM = 276;
+            var PRINT_CELL_PAD = 14;
+            var printMin = null;
+
+            // Largeur minimale d'une colonne : le mot le plus long de son en-tete,
+            // mesure avec la typographie d'impression. L'en-tete peut donc se
+            // replier entre deux mots mais n'est jamais coupe ni tronque.
+            function measurePrintMin() {
+                var host = document.createElement("div");
+                host.className = "print-probe-host";
+                host.style.width = PRINT_ROOT_MM + "mm";
+                var probe = document.createElement("span");
+                probe.className = "print-probe";
+                host.appendChild(probe);
+                document.body.appendChild(host);
+                var ref = host.getBoundingClientRect().width;
+                var out = [];
+                for (var i = 0; i < PRINT_HEAD.length; i++) {
+                    var words = PRINT_HEAD[i].split(/\s+/);
+                    var max = 0;
+                    for (var w = 0; w < words.length; w++) {
+                        probe.textContent = words[w];
+                        var wd = probe.getBoundingClientRect().width;
+                        if (wd > max) { max = wd; }
+                    }
+                    out.push(ref > 0 ? (max + PRINT_CELL_PAD) / ref * 100 : 10);
+                }
+                document.body.removeChild(host);
+                return out;
+            }
+
+            // Repartit 100% entre les colonnes selon leurs poids, en remontant
+            // toute colonne qui passerait sous son minimum.
+            function spreadWidths(weights, mins) {
+                var n = weights.length;
+                var fixed = [];
+                var i;
+                for (i = 0; i < n; i++) { fixed.push(null); }
+                for (var pass = 0; pass <= n; pass++) {
+                    var sumW = 0;
+                    var taken = 0;
+                    for (i = 0; i < n; i++) {
+                        if (fixed[i] === null) { sumW += weights[i]; } else { taken += fixed[i]; }
+                    }
+                    var avail = 100 - taken;
+                    var raised = false;
+                    var out = [];
+                    for (i = 0; i < n; i++) {
+                        if (fixed[i] !== null) { out.push(fixed[i]); continue; }
+                        var w = (sumW > 0 && avail > 0) ? avail * weights[i] / sumW : 0;
+                        if (w < mins[i] - 0.01) { fixed[i] = mins[i]; raised = true; }
+                        out.push(w);
+                    }
+                    if (!raised) { return out; }
+                }
+                return weights.slice();
+            }
 
             function printColWidths(sc) {
+                if (!printMin) { printMin = measurePrintMin(); }
                 var used = [true, false, false, false, false];
                 for (var i = 0; i < sc.pe.length; i++) {
                     var p = sc.pe[i];
@@ -267,16 +325,19 @@
                     if (p.autres) { used[3] = true; }
                     if (p.formateurs) { used[4] = true; }
                 }
-                var sum = 0;
-                var empty = 0;
-                for (var j = 0; j < 5; j++) {
-                    if (used[j]) { sum += PRINT_W[j]; } else { empty++; }
-                }
-                var avail = 100 - empty * PRINT_W_EMPTY;
+                var weights = [];
+                for (var j = 0; j < 5; j++) { weights.push(used[j] ? PRINT_W[j] : 0); }
+                var raw = spreadWidths(weights, printMin);
                 var out = [];
+                var total = 0;
+                var widest = 0;
                 for (var k = 0; k < 5; k++) {
-                    out.push(used[k] ? Math.round(avail * PRINT_W[k] / sum * 100) / 100 : PRINT_W_EMPTY);
+                    var v = Math.round(raw[k] * 100) / 100;
+                    out.push(v);
+                    total += v;
+                    if (used[k] && v > out[widest]) { widest = k; }
                 }
+                out[widest] = Math.round((out[widest] + 100 - total) * 100) / 100;
                 return out;
             }
 
