@@ -425,7 +425,10 @@
             }
 
             #print-root {
-                display: block !important
+                display: block !important;
+                width: 276mm;
+                max-width: 100%;
+                margin: 0 auto
             }
 
             .print-school {
@@ -465,6 +468,7 @@
 
             .print-school table {
                 width: 100%;
+                max-width: 100%;
                 table-layout: fixed;
                 border-collapse: collapse;
                 font-size: 10px
@@ -487,6 +491,12 @@
                 border-bottom: 1px solid #e5e7eb
             }
 
+            .print-school th,
+            .print-school td {
+                overflow-wrap: anywhere;
+                word-break: break-word
+            }
+
             .print-school tbody tr {
                 break-inside: avoid;
                 page-break-inside: avoid
@@ -502,7 +512,9 @@
 
             .print-school .tag {
                 font-size: 9.5px;
-                padding: 1px 5px
+                padding: 1px 5px;
+                max-width: 100%;
+                margin-right: 0
             }
 
             .print-school .list-plain {
