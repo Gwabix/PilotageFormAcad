@@ -5,8 +5,8 @@
             var T_LAICITE6 = "La\u00EFcit\u00E9 (6h)";
             var T_CPS = "CPS";
             var T_CPS6 = "CPS (6h)";
-            var T_SMVSS = "Plan Filles et Maths";
-            var T_SMVSS_CPS = "Plan Filles et Maths ou CPS";
+            var T_SMVSS = "Sant\u00E9 mentale / VSS";
+            var T_SMVSS_CPS = "Sant\u00E9 mentale / VSS ou CPS";
             var T_EVAL = "\u00C9valuation d'\u00E9cole";
             var T_NOMOD = "Modalit\u00E9 non renseign\u00E9e";
             var T_NOPE = "Aucun PE rattach\u00E9 \u00E0 cette \u00E9cole.";
