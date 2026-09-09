@@ -74,6 +74,7 @@
             }
 
             function computeAutres(base, laicite, cps) {
+                var hasSmvssCps = !!base && base.indexOf(T_SMVSS_CPS) !== -1;
                 if (base === T_SMVSS_CPS) {
                     if (laicite === false) { return { text: T_LAICITE, warn: false }; }
                     if (cps === false) { return { text: T_CPS, warn: false }; }
@@ -86,8 +87,8 @@
                 if (laicite === false) {
                     return { text: base ? base + "\n+ " + T_LAICITE6 : T_LAICITE6, warn: true };
                 }
-                if (cps === false) {
-                    return { text: base ? base + "\n+ " + T_CPS6 : T_CPS6, warn: true };
+                if (cps === false && hasSmvssCps) {
+                    return { text: base + "\n+ " + T_CPS6, warn: true };
                 }
                 return { text: base, warn: false };
             }
@@ -254,6 +255,100 @@
                 return h.join("");
             }
 
+            var PRINT_W = [24, 20, 20, 22, 14];
+            var PRINT_W_EMPTY = 5;
+
+            function printColWidths(sc) {
+                var used = [true, false, false, false, false];
+                for (var i = 0; i < sc.pe.length; i++) {
+                    var p = sc.pe[i];
+                    if (p.francais) { used[1] = true; }
+                    if (p.maths) { used[2] = true; }
+                    if (p.autres) { used[3] = true; }
+                    if (p.formateurs) { used[4] = true; }
+                }
+                var sum = 0;
+                var empty = 0;
+                for (var j = 0; j < 5; j++) {
+                    if (used[j]) { sum += PRINT_W[j]; } else { empty++; }
+                }
+                var avail = 100 - empty * PRINT_W_EMPTY;
+                var out = [];
+                for (var k = 0; k < 5; k++) {
+                    out.push(used[k] ? Math.round(avail * PRINT_W[k] / sum * 100) / 100 : PRINT_W_EMPTY);
+                }
+                return out;
+            }
+
+            function renderPrintPe(pe) {
+                var nameParts = [];
+                if (pe.civilite) { nameParts.push(pe.civilite); }
+                if (pe.nom) { nameParts.push(pe.nom); }
+                if (pe.prenom) { nameParts.push(pe.prenom); }
+                var full = nameParts.join(" ");
+                var isPartTime = !!pe.quotite && pe.quotite !== "100%";
+                var subParts = [];
+                if (pe.fonction) { subParts.push(esc(pe.fonction)); }
+                if (pe.quotite) {
+                    subParts.push(isPartTime ? "<strong>" + esc(pe.quotite) + "</strong>" : esc(pe.quotite));
+                }
+                if (pe.niveaux) { subParts.push(esc(pe.niveaux)); }
+                var h = [];
+                h.push(isPartTime ? '<tr class="quotite-partial"><td>' : "<tr><td>");
+                h.push('<div class="pe-name">' + (full ? esc(full) : DASH) + "</div>");
+                if (pe.mail) { h.push('<div class="pe-sub">' + esc(pe.mail) + "</div>"); }
+                if (subParts.length) { h.push('<div class="pe-sub">' + subParts.join(DOT) + "</div>"); }
+                h.push("</td><td>" + tag(pe.francais, false) + "</td>");
+                h.push("<td>" + tag(pe.maths, false) + "</td>");
+                h.push("<td>" + tag(pe.autres, pe.warn) + "</td>");
+                h.push("<td>" + plainList(pe.formateurs) + "</td></tr>");
+                return h.join("");
+            }
+
+            function renderPrintSchool(sc) {
+                var meta = [];
+                if (sc.uai) { meta.push("UAI " + sc.uai); }
+                if (sc.circo) { meta.push(sc.circo); }
+                if (sc.dept) { meta.push(sc.dept); }
+                var h = [];
+                h.push('<section class="print-school">');
+                h.push('<header class="print-head"><h2>');
+                h.push(sc.ecole ? esc(sc.ecole) : ("UAI " + esc(sc.uai || "?")));
+                h.push("</h2>");
+                if (meta.length) { h.push('<div class="print-meta">' + esc(meta.join(DOT)) + "</div>"); }
+                h.push('<div class="print-mod">' + esc(sc.modalite || T_NOMOD) + DOT + sc.pe.length + " PE</div>");
+                h.push("</header>");
+                if (sc.pe.length === 0) {
+                    h.push('<div class="no-pe">' + esc(T_NOPE) + "</div>");
+                } else {
+                    var w = printColWidths(sc);
+                    h.push("<table><colgroup>");
+                    for (var c = 0; c < w.length; c++) { h.push('<col style="width:' + w[c] + '%">'); }
+                    h.push("</colgroup><thead><tr>");
+                    h.push("<th>Enseignant</th>");
+                    h.push("<th>" + esc(T_FR) + "</th>");
+                    h.push("<th>Maths</th>");
+                    h.push("<th>Autres</th>");
+                    h.push("<th>" + esc(T_FORM) + "</th>");
+                    h.push("</tr></thead><tbody>");
+                    for (var i = 0; i < sc.pe.length; i++) { h.push(renderPrintPe(sc.pe[i])); }
+                    h.push("</tbody></table>");
+                }
+                h.push("</section>");
+                return h.join("");
+            }
+
+            function exportPdf() {
+                var root = document.getElementById("print-root");
+                var vis = filterSchools(document.getElementById("search-input").value);
+                if (vis.length === 0) { return; }
+                var parts = [];
+                for (var i = 0; i < vis.length; i++) { parts.push(renderPrintSchool(vis[i])); }
+                root.innerHTML = parts.join("");
+                closeSugg();
+                window.print();
+            }
+
             function render() {
                 var listEl = document.getElementById("list");
                 var cntEl = document.getElementById("count-info");
@@ -412,6 +507,12 @@
                     openKeys = {};
                     targetKey = null;
                     render();
+                });
+
+                document.getElementById("btn-pdf").addEventListener("click", exportPdf);
+
+                window.addEventListener("afterprint", function () {
+                    document.getElementById("print-root").innerHTML = "";
                 });
 
                 document.addEventListener("mousedown", function (e) {

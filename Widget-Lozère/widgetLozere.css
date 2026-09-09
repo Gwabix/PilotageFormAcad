@@ -268,28 +268,28 @@
             font-size: 13px
         }
 
-        th:nth-child(1),
-        td:nth-child(1) {
+        .school-body th:nth-child(1),
+        .school-body td:nth-child(1) {
             width: 20%
         }
 
-        th:nth-child(2),
-        td:nth-child(2) {
+        .school-body th:nth-child(2),
+        .school-body td:nth-child(2) {
             width: 23%
         }
 
-        th:nth-child(3),
-        td:nth-child(3) {
+        .school-body th:nth-child(3),
+        .school-body td:nth-child(3) {
             width: 23%
         }
 
-        th:nth-child(4),
-        td:nth-child(4) {
+        .school-body th:nth-child(4),
+        .school-body td:nth-child(4) {
             width: 23%
         }
 
-        th:nth-child(5),
-        td:nth-child(5) {
+        .school-body th:nth-child(5),
+        .school-body td:nth-child(5) {
             width: 11%
         }
 
@@ -385,4 +385,127 @@
             font-style: italic;
             font-size: 13px;
             border-top: 1px solid var(--border)
+        }
+
+        #btn-pdf {
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600
+        }
+
+        #btn-pdf:hover {
+            background: var(--primary-light)
+        }
+
+        #print-root {
+            display: none
+        }
+
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 12mm 10mm
+            }
+
+            html,
+            body {
+                height: auto;
+                background: #fff;
+                background-color: #fff
+            }
+
+            body {
+                font-size: 11px;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact
+            }
+
+            #app {
+                display: none !important
+            }
+
+            #print-root {
+                display: block !important
+            }
+
+            .print-school {
+                break-after: page;
+                page-break-after: always
+            }
+
+            .print-school:last-child {
+                break-after: auto;
+                page-break-after: auto
+            }
+
+            .print-head {
+                border-bottom: 2px solid var(--primary);
+                padding-bottom: 6px;
+                margin-bottom: 10px
+            }
+
+            .print-head h2 {
+                margin: 0;
+                font-size: 16px;
+                color: #111827
+            }
+
+            .print-meta {
+                font-size: 11px;
+                color: var(--muted);
+                margin-top: 2px
+            }
+
+            .print-mod {
+                font-size: 11px;
+                font-weight: 600;
+                color: #065f46;
+                margin-top: 3px
+            }
+
+            .print-school table {
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
+                font-size: 10px
+            }
+
+            .print-school thead {
+                display: table-header-group
+            }
+
+            .print-school thead th {
+                background: #f1f5f9;
+                border-top: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+                padding: 5px 6px;
+                font-size: 9px
+            }
+
+            .print-school tbody td {
+                padding: 5px 6px;
+                border-bottom: 1px solid #e5e7eb
+            }
+
+            .print-school tbody tr {
+                break-inside: avoid;
+                page-break-inside: avoid
+            }
+
+            .print-school tbody tr.quotite-partial {
+                background: #FFE0E1 !important
+            }
+
+            .print-school .pe-sub {
+                font-size: 9px
+            }
+
+            .print-school .tag {
+                font-size: 9.5px;
+                padding: 1px 5px
+            }
+
+            .print-school .list-plain {
+                font-size: 9.5px
+            }
         }
