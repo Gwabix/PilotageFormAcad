@@ -210,6 +210,9 @@ function applyCreateFichePermission() {
     const createBtn = document.getElementById('add-teacher-create-btn');
     if (createBtn) createBtn.classList.toggle('hidden', !allowed);
 
+    const topbarBtn = document.getElementById('topbar-create-fiche-btn');
+    if (topbarBtn) topbarBtn.classList.toggle('hidden', !allowed);
+
     const withCreate = document.getElementById('add-teacher-notfound-create');
     const withoutCreate = document.getElementById('add-teacher-notfound-nocreate');
     if (withCreate) withCreate.classList.toggle('hidden', !allowed);
@@ -2787,6 +2790,22 @@ function buildCreateNiveaux() {
     });
 }
 
+/**
+ * Création de fiche depuis la barre supérieure, sans passer par une école.
+ *
+ * Aucune école de contexte : le champ École démarre vide et l'utilisateur la
+ * recherche. Le panneau vit dans la modale d'ajout d'enseignant, qu'il faut
+ * donc ouvrir, openCreateTeacherForm() ne faisant que changer de panneau.
+ */
+function openCreateTeacherFromTopbar() {
+    if (!state.canCreateFiche) return;
+
+    addTeacherState.ecole = null;
+    addTeacherState.person = null;
+    document.getElementById('add-teacher-overlay').classList.remove('hidden');
+    openCreateTeacherForm();
+}
+
 function openCreateTeacherForm() {
     // Le bouton est masqué dans ce cas : garde-fou si le panneau est atteint
     // autrement, l'écriture serait de toute façon refusée par Grist.
@@ -2968,6 +2987,11 @@ function attachAddTeacherListeners() {
 
     document.getElementById('add-teacher-create-btn')
         .addEventListener('click', openCreateTeacherForm);
+
+    const topbarCreateBtn = document.getElementById('topbar-create-fiche-btn');
+    if (topbarCreateBtn) {
+        topbarCreateBtn.addEventListener('click', openCreateTeacherFromTopbar);
+    }
 
     document.getElementById('create-ecole-search')
         .addEventListener('input', renderCreateEcoleResults);

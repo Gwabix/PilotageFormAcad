@@ -177,6 +177,34 @@ body {
     color: var(--color-text-muted);
 }
 
+/* Création de fiche depuis la barre supérieure. Masqué pour qui n'est pas
+   habilité — voir applyCreateFichePermission(). Les filtres voisins empilent
+   un libellé au-dessus d'un select : le bouton reste centré sur leur hauteur,
+   la barre alignant ses enfants au centre. */
+#topbar-create-fiche-btn {
+    flex: 0 0 auto;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius);
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#topbar-create-fiche-btn:hover {
+    background: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+}
+
+#topbar-create-fiche-btn:focus-visible {
+    outline: 2px solid var(--color-chrome-text);
+    outline-offset: 2px;
+}
+
 #topbar-filters,
 #filters-bar {
     display: flex;
