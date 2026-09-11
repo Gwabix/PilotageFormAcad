@@ -47,6 +47,16 @@
     box-sizing: border-box;
 }
 
+/* Classe utilitaire de masquage.
+   Elle manquait : ce fichier ne contenait que des règles « X.hidden »
+   ciblant chacune un élément précis, si bien qu'un .hidden posé sur tout
+   autre élément restait sans effet. Le !important l'emporte sur la
+   spécificité d'un sélecteur d'ID, ce qui rend ces règles redondantes ;
+   elles sont conservées telles quelles, leur déclaration étant identique. */
+.hidden {
+    display: none !important;
+}
+
 body {
     margin: 0;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;

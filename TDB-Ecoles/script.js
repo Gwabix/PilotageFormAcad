@@ -12,6 +12,9 @@ const state = {
     currentCirconscription: null,
     currentYear: null,
     yearOptions: [],
+    // Habilitation à créer une fiche enseignant, déduite de la visibilité de
+    // Personnes.CreateFiche. Voir detectCreateFichePermission().
+    canCreateFiche: false,
     fieldMap: {},
     personnelFieldMap: {},
     listenersAttached: {
@@ -172,6 +175,47 @@ async function fetchTableRecords(tableId) {
     }
 }
 
+/* --------------------------------------------------------------------------
+   Habilitation à créer une fiche enseignant.
+
+   La colonne Personnes.CreateFiche sert d'autorisation : les règles d'accès
+   Grist ne la montrent qu'aux utilisateurs habilités. Sa VISIBILITÉ est donc
+   le signal, indépendamment de la valeur portée par chaque ligne.
+
+   On interroge les DONNÉES de la table, où une colonne masquée par les règles
+   d'accès est absente de la réponse. Les tables système ne conviendraient pas :
+   elles décrivent la structure du document sans tenir compte des droits, et
+   répondraient donc toujours que la colonne existe.
+
+   Table illisible : même traitement qu'une colonne masquée. Mieux vaut
+   proposer le contact de la circonscription d'origine qu'un bouton dont
+   l'écriture sera refusée.
+   -------------------------------------------------------------------------- */
+
+async function detectCreateFichePermission() {
+    try {
+        const personnes = await grist.docApi.fetchTable('Personnes');
+        return Object.prototype.hasOwnProperty.call(personnes, 'CreateFiche');
+    } catch (err) {
+        console.info('[CreateFiche] Table Personnes illisible, création de fiche désactivée : '
+            + ((err && err.message) ? err.message : err));
+        return false;
+    }
+}
+
+// Bouton de création et texte de l'écran « Enseignant introuvable ».
+function applyCreateFichePermission() {
+    const allowed = state.canCreateFiche;
+
+    const createBtn = document.getElementById('add-teacher-create-btn');
+    if (createBtn) createBtn.classList.toggle('hidden', !allowed);
+
+    const withCreate = document.getElementById('add-teacher-notfound-create');
+    const withoutCreate = document.getElementById('add-teacher-notfound-nocreate');
+    if (withCreate) withCreate.classList.toggle('hidden', !allowed);
+    if (withoutCreate) withoutCreate.classList.toggle('hidden', allowed);
+}
+
 // Remise en ordre de Liste_PE : suppression des lignes fantômes (détachées
 // alors que la personne est affectée ailleurs la même année) et fusion des
 // doublons. Retourne true si des lignes ont été supprimées.
@@ -269,6 +313,10 @@ async function loadAllData(skipMerge) {
         attachRgpdListeners();
         attachAddTeacherListeners();
         attachQuitSchoolListeners();
+
+        state.canCreateFiche = await detectCreateFichePermission();
+        applyCreateFichePermission();
+
         renderDashboard();
         hideStatus();
     } catch (err) {
@@ -2740,6 +2788,13 @@ function buildCreateNiveaux() {
 }
 
 function openCreateTeacherForm() {
+    // Le bouton est masqué dans ce cas : garde-fou si le panneau est atteint
+    // autrement, l'écriture serait de toute façon refusée par Grist.
+    if (!state.canCreateFiche) {
+        showAddTeacherPanel('notfound');
+        return;
+    }
+
     fillSelect(document.getElementById('create-civilite'), ['Madame', 'Monsieur']);
     fillSelect(document.getElementById('create-fonction'), FONCTION_OPTIONS);
     fillSelect(document.getElementById('create-quotite'), QUOTITE_OPTIONS, '100%');

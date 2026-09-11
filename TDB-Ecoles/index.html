@@ -71,7 +71,7 @@
             <p id="quit-school-question"></p>
             <p class="quit-school-hint">
                 Créer une ligne rend l'enseignant visible par les autres circonscriptions
-                sans le retirer de cette école. La ligne disparaît d'elle-même si personne
+                sans le retirer de cette école. Cette ligne disparaît d'elle-même si personne
                 ne l'affecte dans les dix jours.
             </p>
             <div class="modal-actions">
@@ -187,10 +187,19 @@
             <!-- Écran 3 : enseignant introuvable -->
             <section class="add-teacher-panel hidden" data-panel="notfound">
                 <h2>Enseignant introuvable</h2>
-                <p>
+
+                <!-- Un seul de ces deux paragraphes est visible, selon que
+                     l'utilisateur est habilité à créer une fiche. -->
+                <p id="add-teacher-notfound-create">
                     Si vous ne voyez pas l'enseignant(e) recherché(e), il/elle est peut-être en dehors
                     de votre périmètre d'attribution. Vous pouvez contacter sa circonscription d'origine
                     pour qu'il/elle soit retiré(e) de son école de rattachement, ou créer une nouvelle fiche.
+                </p>
+                <p id="add-teacher-notfound-nocreate" class="hidden">
+                    Si vous ne voyez pas l'enseignant(e) recherché(e), il/elle est peut-être en dehors
+                    de votre périmètre d'attribution. Contactez sa circonscription d'origine pour qu'elle
+                    le/la libère : depuis son tableau de bord, le bouton « Retirer de l'école » permet de
+                    créer une ligne sans école, qui vous le/la rendra visible ici.
                 </p>
                 <div class="modal-actions">
                     <button type="button" class="secondary" data-add-teacher-close>Fermer</button>
