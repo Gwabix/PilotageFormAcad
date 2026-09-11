@@ -159,6 +159,54 @@
         }
     }
 
-    global.GristColumns = { fetchColumnDefs };
+    /**
+     * Identifiants des colonnes de DONNÉES d'une table, formules exclues.
+     *
+     * Sert à n'écrire que dans des colonnes inscriptibles. `isFormula`
+     * distingue une colonne calculée d'une colonne de données : une colonne
+     * de données à formule d'initialisation a `isFormula` faux et reste donc
+     * inscriptible, ce qui est bien le comportement voulu.
+     *
+     * Les colonnes internes de Grist sont écartées : `manualSort`, qui porte
+     * l'ordre des lignes, et les colonnes d'affichage `gristHelper_*` des
+     * références.
+     *
+     * @param {string} tableId
+     * @returns {Promise<string[]|null>} null si la liste n'a pu être lue.
+     */
+    async function fetchDataColumnIds(tableId) {
+        try {
+            const tables = await grist.docApi.fetchTable('_grist_Tables');
+            const index = metaColumn(tables, ['tableId', 'TableId']).indexOf(tableId);
+            if (index === -1) {
+                throw new Error('Table « ' + tableId + ' » absente de _grist_Tables.');
+            }
+            const tableRowId = Number(tables.id[index]);
+
+            const cols = await grist.docApi.fetchTable('_grist_Tables_column');
+            const colIds = metaColumn(cols, ['colId', 'ColId']);
+            const parentIds = metaColumn(cols, ['parentId', 'ParentId']);
+            const isFormula = metaColumn(cols, ['isFormula', 'IsFormula']);
+
+            const result = [];
+            for (let i = 0; i < colIds.length; i++) {
+                if (Number(parentIds[i]) !== tableRowId) continue;
+                if (isFormula[i]) continue;
+
+                const colId = colIds[i];
+                if (typeof colId !== 'string' || !colId) continue;
+                if (colId === 'manualSort' || colId.indexOf('gristHelper_') === 0) continue;
+
+                result.push(colId);
+            }
+            return result;
+        } catch (err) {
+            console.info('[Colonnes] Colonnes de données indisponibles : '
+                + ((err && err.message) ? err.message : err));
+            return null;
+        }
+    }
+
+    global.GristColumns = { fetchColumnDefs, fetchDataColumnIds };
 
 })(typeof window !== 'undefined' ? window : this);

@@ -238,52 +238,110 @@ function applyCreateFichePermission() {
    sur des valeurs sales.
    -------------------------------------------------------------------------- */
 
+// Liste_PE : colonnes d'identité, toutes sur une seule ligne. Liste figée,
+// pour ne pas toucher Preciser, où un retour à la ligne peut être voulu.
 const WHITESPACE_SENSITIVE_FIELDS = ['ID_PE', 'Civilite', 'Nom', 'Prenom', 'Mail'];
+
+/*
+ * Signature d'une anomalie : blanc en bord, deux blancs consécutifs, saut de
+ * ligne ou tabulation. Un simple test, sans allocation de chaîne, de façon à
+ * pouvoir balayer une table entière sans peser sur le chargement.
+ */
+const DIRTY_WHITESPACE = /^\s|\s$|\s\s|[\n\r\t]/;
 
 function collapseWhitespace(value) {
     return String(value).replace(/\s+/g, ' ').trim();
 }
 
-// Retourne true si des lignes ont été réécrites.
-async function normalizeListePeWhitespace() {
-    const rowIds = [];
-    const columns = {};
-    for (const field of WHITESPACE_SENSITIVE_FIELDS) columns[field] = [];
+function hasDirtyWhitespace(value) {
+    return typeof value === 'string' && value !== '' && DIRTY_WHITESPACE.test(value);
+}
 
-    for (const row of state.personnels) {
-        const cleaned = {};
-        let dirty = false;
-
-        for (const field of WHITESPACE_SENSITIVE_FIELDS) {
-            const raw = row[field];
-            if (typeof raw !== 'string') { cleaned[field] = raw; continue; }
-            cleaned[field] = collapseWhitespace(raw);
-            if (cleaned[field] !== raw) dirty = true;
+// Une anomalie existe-t-elle quelque part dans ces enregistrements ?
+// Les clés techniques préfixées par « _ » sont des valeurs pré-calculées par
+// le widget, pas des données du document.
+function anyDirtyWhitespace(records) {
+    for (const row of records) {
+        for (const key in row) {
+            if (key === 'id' || key.charAt(0) === '_') continue;
+            if (hasDirtyWhitespace(row[key])) return true;
         }
+    }
+    return false;
+}
 
-        if (!dirty) continue;
-        rowIds.push(row.id);
-        for (const field of WHITESPACE_SENSITIVE_FIELDS) columns[field].push(cleaned[field]);
+/**
+ * Réécrit proprement les cellules texte dont les blancs sont anormaux.
+ *
+ * Une action par ligne, limitée aux champs réellement sales. On ne réécrit
+ * jamais une valeur qui n'en a pas besoin : cela évite de renvoyer au passage
+ * des dates ou des nombres, et laisse les colonnes non textuelles
+ * tranquilles, leur valeur n'étant pas une chaîne.
+ *
+ * @returns {Promise<number>} nombre de lignes réécrites
+ */
+async function normalizeRecordsWhitespace(tableId, records, fields) {
+    const actions = [];
+
+    for (const row of records) {
+        const patch = {};
+        for (const field of fields) {
+            const raw = row[field];
+            if (!hasDirtyWhitespace(raw)) continue;
+            const cleaned = collapseWhitespace(raw);
+            if (cleaned !== raw) patch[field] = cleaned;
+        }
+        if (Object.keys(patch).length) {
+            actions.push(['UpdateRecord', tableId, row.id, patch]);
+        }
     }
 
-    if (!rowIds.length) return false;
+    if (!actions.length) return 0;
 
     try {
-        await grist.docApi.applyUserActions([
-            ['BulkUpdateRecord', 'Liste_PE', rowIds, columns]
-        ]);
-        console.info('[Blancs] ' + rowIds.length + ' ligne(s) nettoyée(s).');
-        showToast(rowIds.length + ' ligne' + (rowIds.length > 1 ? 's' : '')
-            + ' nettoyée' + (rowIds.length > 1 ? 's' : '')
-            + ' (sauts de ligne et espaces en trop).', 'success');
-        return true;
+        await grist.docApi.applyUserActions(actions);
+        console.info('[Blancs] ' + tableId + ' : ' + actions.length + ' ligne(s) nettoyée(s).');
+        return actions.length;
     } catch (err) {
         // Écriture refusée par les règles d'accès : on n'insiste pas, le
         // tableau de bord reste utilisable.
-        console.info('[Blancs] Nettoyage impossible : '
+        console.info('[Blancs] ' + tableId + ' : nettoyage impossible — '
             + ((err && err.message) ? err.message : err));
-        return false;
+        return 0;
     }
+}
+
+/*
+ * Nettoyage des deux tables. Retourne true si des lignes ont été réécrites,
+ * ce qui commande un rechargement.
+ *
+ * Pour Ecoles, toutes les colonnes de données sont concernées, formules
+ * exclues — une écriture y serait refusée. Mais connaître cette liste
+ * demande deux lectures de tables système, donc deux allers-retours réseau.
+ * Ils ne sont engagés que si un balayage local a trouvé une anomalie, ce qui
+ * est rare : le chargement courant ne paie qu'un test par cellule.
+ *
+ * Seuls les établissements actifs sont nettoyés, la règle Ecoles.OK écartant
+ * les autres de tout traitement. Un établissement réactivé plus tard sera
+ * nettoyé au premier chargement qui suit.
+ */
+async function normalizeWhitespace() {
+    let cleaned = await normalizeRecordsWhitespace(
+        'Liste_PE', state.personnels, WHITESPACE_SENSITIVE_FIELDS);
+
+    if (anyDirtyWhitespace(state.ecoles)) {
+        const ecolesFields = await GristColumns.fetchDataColumnIds('Ecoles');
+        if (ecolesFields) {
+            cleaned += await normalizeRecordsWhitespace('Ecoles', state.ecoles, ecolesFields);
+        }
+    }
+
+    if (!cleaned) return false;
+
+    showToast(cleaned + ' ligne' + (cleaned > 1 ? 's' : '')
+        + ' nettoyée' + (cleaned > 1 ? 's' : '')
+        + ' (sauts de ligne et espaces en trop).', 'success');
+    return true;
 }
 
 // Remise en ordre de Liste_PE : suppression des lignes fantômes (détachées
@@ -352,7 +410,7 @@ async function loadAllData(skipNormalize, skipMerge) {
          * des valeurs propres. D'où le rechargement entre les deux, qui laisse
          * la fusion s'exécuter sur les données nettoyées.
          */
-        if (!skipNormalize && await normalizeListePeWhitespace()) {
+        if (!skipNormalize && await normalizeWhitespace()) {
             return loadAllData(true, skipMerge);
         }
 
