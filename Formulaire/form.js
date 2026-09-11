@@ -859,6 +859,7 @@ async function loadData() {
             prenom: sanitizeGristData(enseignantsTable.Prenom[index]),
             ecole_rowid: (enseignantsTable.UAI || [])[index],
             ecole_label: sanitizeGristData((enseignantsTable.Ecole || [])[index]) || '',
+            fonction: sanitizeGristData((enseignantsTable.Fonction || [])[index]) || '',
             niveaux: sanitizeGristData(enseignantsTable.Niveau_x_[index]) || [],
             annee_scolaire: sanitizeGristData(enseignantsTable.Annee_scolaire[index]) || ''
         }));
@@ -1355,10 +1356,13 @@ function updateEnseignantsList(preserveSelection) {
     const ordered = [];
     for (const ecoleSelectionnee of selectedEcoles) {
         const rowId = Number(ecoleSelectionnee.id);
+        // Fonction d'abord, ordre métier partagé avec TDB-Ecoles
+        // (../shared/fonctions-ordre.js), puis nom et prénom.
         const membres = filteredEnseignants
             .filter(ens => Number(ens.ecole_rowid) === rowId)
             .sort((a, b) =>
-                (a.nom || '').localeCompare(b.nom || '', 'fr')
+                FonctionsOrdre.compare(a.fonction, b.fonction)
+                || (a.nom || '').localeCompare(b.nom || '', 'fr')
                 || (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
 
         groupesEcoles.push({
@@ -1396,7 +1400,10 @@ function updateEnseignantsList(preserveSelection) {
                      id="ens_${escapeHtmlAttribute(ens.id)}"
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
                      ${selected ? 'checked' : ''}${lie ? ' disabled title="' + escapeHtmlAttribute(lieTitre) + '"' : ''}>
-              <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
+              <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">
+                <span class="enseignant-identite">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</span>
+                ${ens.fonction ? `<span class="enseignant-fonction">– ${escapeHtml(ens.fonction)}</span>` : ''}
+              </label>
                             ${lie ? `<span class="enseignant-lie-badge" title="${escapeHtmlAttribute(lieTitre)}">déjà compté</span>` : ''}
             </div>
             <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
@@ -1473,6 +1480,30 @@ function updateEnseignantsList(preserveSelection) {
    par année, et le calcul décide quelles lignes sont déplacées, reprises,
    créées ou détachées.
    -------------------------------------------------------------------------- */
+
+/**
+ * Ajoute l'étoile des champs obligatoires, sous forme d'élément réel portant
+ * une infobulle « Saisie obligatoire ».
+ *
+ * L'étoile venait d'un pseudo-élément CSS, qui ne peut porter aucun attribut,
+ * donc ni infobulle ni libellé accessible. Un `abbr` avec un `title` donne
+ * les deux : l'infobulle native au survol, et l'annonce par les lecteurs
+ * d'écran.
+ *
+ * Idempotente : peut être rappelée après chaque rendu qui ajoute des labels.
+ *
+ * @param {ParentNode} [root] portée, le document entier par défaut
+ */
+function markRequiredFields(root) {
+    (root || document).querySelectorAll('label.required').forEach(label => {
+        if (label.querySelector('.required-mark')) return;
+        const mark = document.createElement('abbr');
+        mark.className = 'required-mark';
+        mark.title = 'Saisie obligatoire';
+        mark.textContent = '*';
+        label.appendChild(mark);
+    });
+}
 
 // Libellé long d'une école : nom, complément d'adresse puis commune.
 function formatEcoleLong(ecole) {
@@ -2830,6 +2861,8 @@ document.addEventListener('click', function (event) {
 // (doit précéder l'attachement des écouteurs ci-dessous)
 populateCreateTabChoices();
 
+markRequiredFields();
+
 // Ajouter les écouteurs pour les radios de type de formation
 document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
     radio.addEventListener('change', updateDureeFormation);
@@ -3774,6 +3807,7 @@ function openEcolesModal(ficheRecords) {
             </div>
         `;
         document.body.appendChild(modal);
+        markRequiredFields(modal);
 
         // Initialiser le widget de quantité pour le modal
         setTimeout(() => {
@@ -4943,6 +4977,7 @@ function renderTechniqueModalContent(firstRecord) {
     }
 
     modalBody.innerHTML = html;
+    markRequiredFields(modalBody);
 }
 
 function addLieu() {

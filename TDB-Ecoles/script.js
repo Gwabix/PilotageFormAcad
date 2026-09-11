@@ -1102,7 +1102,12 @@ function buildPersonnelsTable(ecole) {
     const tbody = document.createElement('tbody');
     personnels
         .slice() // ne pas trier l'index en place
-        .sort((a, b) => String(a.Nom || '').localeCompare(String(b.Nom || ''), 'fr'))
+        // Fonction d'abord, ordre métier partagé (../shared/fonctions-ordre.js),
+        // puis nom et prénom.
+        .sort((a, b) =>
+            FonctionsOrdre.compare(a.Fonction, b.Fonction)
+            || String(a.Nom || '').localeCompare(String(b.Nom || ''), 'fr')
+            || String(a.Prenom || '').localeCompare(String(b.Prenom || ''), 'fr'))
         .forEach(p => {
             tbody.appendChild(buildPersonnelRow(p, ecole));
         });

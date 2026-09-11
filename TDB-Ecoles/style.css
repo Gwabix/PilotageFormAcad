@@ -57,6 +57,17 @@
     display: none !important;
 }
 
+/* Étoile des champs obligatoires. Un « abbr » porteur d'un title donne
+   l'infobulle au survol et l'annonce par les lecteurs d'écran, ce qu'un
+   pseudo-élément ne permet pas. */
+.required-mark {
+    margin-left: 3px;
+    color: var(--color-danger);
+    font-weight: 700;
+    text-decoration: none;
+    cursor: help;
+}
+
 body {
     margin: 0;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;

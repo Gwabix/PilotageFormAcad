@@ -63,9 +63,14 @@ label {
     color: #34495e;
 }
 
-.required::after {
-    content: " *";
+/* L'étoile des champs obligatoires est un élément réel, ajouté par
+   markRequiredFields(), et non un pseudo-élément : celui-ci ne peut porter
+   aucun attribut, donc ni infobulle ni libellé accessible. */
+.required-mark {
     color: red;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: help;
 }
 
 ::placeholder {
@@ -529,7 +534,9 @@ select:focus,
     margin-bottom: 0;
 }
 
-.enseignant-item.enseignant-item--off .enseignant-name {
+.enseignant-item.enseignant-item--off .enseignant-name,
+.enseignant-item.enseignant-item--off .enseignant-identite,
+.enseignant-item.enseignant-item--off .enseignant-fonction {
     font-size: 12px;
     font-weight: 500;
     color: #95a1ab;
@@ -553,9 +560,24 @@ select:focus,
 }
 
 .enseignant-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
     font-weight: 600;
     color: #2c3e50;
     flex-grow: 1;
+}
+
+/* Identité en gras, fonction en appui : « NOM PRÉNOM – Fonction ». */
+.enseignant-identite {
+    font-weight: 600;
+}
+
+.enseignant-fonction {
+    font-weight: 400;
+    font-size: 13px;
+    color: #7f8c8d;
 }
 
 /* Ligne liée : même enseignant déjà présent sur une autre école sélectionnée.

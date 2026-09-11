@@ -127,23 +127,23 @@
 
                 <div class="create-grid">
                     <div class="create-field">
-                        <label for="create-civilite">Civilité *</label>
+                        <label for="create-civilite">Civilité<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <select id="create-civilite"></select>
                     </div>
                     <div class="create-field">
-                        <label for="create-nom">Nom *</label>
+                        <label for="create-nom">Nom<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <input type="text" id="create-nom" autocomplete="off"
                             aria-describedby="create-nom-hint">
                         <small id="create-nom-hint">Majuscules sans accent</small>
                     </div>
                     <div class="create-field">
-                        <label for="create-prenom">Prénom *</label>
+                        <label for="create-prenom">Prénom<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <input type="text" id="create-prenom" autocomplete="off"
                             aria-describedby="create-prenom-hint">
                         <small id="create-prenom-hint">Majuscules sans accent</small>
                     </div>
                     <div class="create-field">
-                        <label for="create-mail">Mail *</label>
+                        <label for="create-mail">Mail<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <input type="email" id="create-mail" autocomplete="off"
                             placeholder="prenom.nom@ac-montpellier.fr"
                             aria-describedby="create-mail-hint">
@@ -151,15 +151,15 @@
                             enseignant déjà connu, l'identifiant personnel restant vide.</small>
                     </div>
                     <div class="create-field">
-                        <label for="create-fonction">Fonction *</label>
+                        <label for="create-fonction">Fonction<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <select id="create-fonction"></select>
                     </div>
                     <div class="create-field">
-                        <label for="create-quotite">Quotité de service *</label>
+                        <label for="create-quotite">Quotité de service<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <select id="create-quotite"></select>
                     </div>
                     <div class="create-field create-field--wide">
-                        <label for="create-ecole-search">École *</label>
+                        <label for="create-ecole-search">École<abbr class="required-mark" title="Saisie obligatoire">*</abbr></label>
                         <input type="search" id="create-ecole-search" autocomplete="off"
                             placeholder="Commune, adresse ou nom d'établissement...">
                         <div id="create-ecole-results" class="search-results" role="listbox"></div>
@@ -262,6 +262,7 @@
     <div id="toast-container" aria-live="polite"></div>
 
     <script src="../shared/search-text.js"></script>
+    <script src="../shared/fonctions-ordre.js"></script>
     <script src="../shared/liste-pe-retrait.js"></script>
     <script src="../shared/liste-pe-affectation.js"></script>
     <script src="../shared/ecoles-actives.js"></script>
