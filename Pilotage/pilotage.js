@@ -216,7 +216,11 @@ async function loadData() {
             quotite: sanitizeGristData(enseignantsTable.Quotite_de_service[index]) || '',
             niveaux: cleanChoiceList(enseignantsTable.Niveau_x_[index]),
             annee_scolaire: sanitizeGristData(enseignantsTable.Annee_scolaire[index]) || ''
-        }));
+        })).filter(e => e.ecole_rowid === null || ecolesActives.has(e.ecole_rowid));
+        // Une affectation vers un établissement écarté n'est pas traitée. Un
+        // enseignant dont toutes les affectations le sont disparaît donc de la
+        // recherche ; une ligne sans école reste visible, pour ne pas perdre
+        // les enseignants détachés en attente d'affectation.
 
         buildEnseignantsIndex();
 
