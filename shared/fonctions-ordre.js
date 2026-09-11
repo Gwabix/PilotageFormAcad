@@ -3,10 +3,10 @@
 /*
  * Module partagé — ordre d'affichage des fonctions des enseignants.
  *
- * Ordre métier, et non alphabétique : dans la liste d'une école, on cherche
- * d'abord la direction, puis les adjoints, puis les postes particuliers. Les
- * widgets doivent présenter la même séquence, une liste ordonnée
- * différemment d'un écran à l'autre étant une gêne à la lecture.
+ * Ordre métier, et non alphabétique : la séquence ci-dessous a été arrêtée
+ * avec l'utilisateur et fait seule référence. Les widgets doivent présenter
+ * la même, une liste ordonnée différemment d'un écran à l'autre étant une
+ * gêne à la lecture.
  *
  * Une fonction inconnue passe après toutes les autres, par ordre
  * alphabétique : les valeurs de la colonne peuvent évoluer côté Grist sans
@@ -19,10 +19,10 @@
 (function (global) {
     const ORDRE = [
         'Directeur(trice)',
-        'Adjoint(e)',
-        'PES',
         'Ulis',
+        'Adjoint(e)',
         'Poste partagé',
+        'PES',
         'TR',
         'ASH',
         'UPE2A'
