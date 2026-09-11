@@ -146,11 +146,9 @@ function showUndoableToast(message, onUndo, timeoutMs) {
     setTimeout(dismiss, timeoutMs || 8000);
 }
 
+// Casse et accents ignor\u00e9s. R\u00e8gle partag\u00e9e : ../shared/search-text.js.
 function normalizeStr(str) {
-    return sanitizeText(str)
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
+    return SearchText.normalize(str);
 }
 
 function initGrist() {
@@ -208,7 +206,10 @@ async function loadAllData(skipMerge) {
         const ecolesData = await grist.docApi.fetchTable('Ecoles');
         const personnelsData = await grist.docApi.fetchTable('Liste_PE');
 
-        state.ecoles = tableToRecords(ecolesData);
+        // Établissements écartés de tout traitement (Ecoles.OK à faux) :
+        // règle partagée, voir ../shared/ecoles-actives.js.
+        const ecolesActives = EcolesActives.activeRowIds(ecolesData);
+        state.ecoles = tableToRecords(ecolesData).filter(e => ecolesActives.has(e.id));
         state.personnels = tableToRecords(personnelsData);
         invalidateYearIndex();
 

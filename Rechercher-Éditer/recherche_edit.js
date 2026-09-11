@@ -106,11 +106,7 @@ function findEcoleByUaiOrId(ref) {
  * Normalise une chaîne pour la comparaison (minuscules, sans accents).
  */
 function normalizeStr(str) {
-    return (str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim();
+    return SearchText.normalize(str);
 }
 
 /**
@@ -191,6 +187,9 @@ async function loadData() {
             || ec.Commune_Nom
             || ec.Commune_Complement_Nom
             || [];
+        // Établissements écartés de tout traitement (Ecoles.OK à faux) :
+        // règle partagée, voir ../shared/ecoles-actives.js.
+        const ecolesActives = EcolesActives.activeRowIds(ec);
         ecolesData = ec.id.map((id, i) => ({
             id,
             nom: sanitizeGristValue((ec.Nom_etablissement || ec.Nom || [])[i]),
@@ -199,7 +198,7 @@ async function loadData() {
             circonscription: sanitizeGristValue((ec.nom_irconscription || ec.nom_circonscription || ec.Circonscription || [])[i]),
             departement: (ec.Code_departement ? sanitizeGristValue(ec.Code_departement[i]) : '')
                 + (ec.Libelle_departement ? ' ' + sanitizeGristValue(ec.Libelle_departement[i]) : ''),
-        })).filter(e => e.nom);
+        })).filter(e => e.nom && ecolesActives.has(e.id));
 
         // Charger les options depuis la configuration des colonnes Grist
         await loadColumnChoicesFromMeta();

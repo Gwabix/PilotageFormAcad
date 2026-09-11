@@ -187,6 +187,9 @@ async function loadData() {
         const ecoleUaiColumn = ecolesTable['$Identifiant_de_l_etablissement'] ||
             ecolesTable.Identifiant_de_l_etablissement ||
             ecolesTable.UAI || [];
+        // Établissements écartés de tout traitement (Ecoles.OK à faux) :
+        // règle partagée, voir ../shared/ecoles-actives.js.
+        const ecolesActives = EcolesActives.activeRowIds(ecolesTable);
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
             uai: ecoleUaiColumn[index] || '',
@@ -197,7 +200,7 @@ async function loadData() {
             nom_complement_commune: (ecolesTable.Nom_Complement_Commune || ecolesTable.Commune_Nom || [])[index] || '',
             circonscription: stripCirconscriptionPrefix((ecolesTable.nom_circonscription || [])[index] || ''),
             departement: (ecolesTable.Libelle_departement || ecolesTable.Departement || [])[index] || ''
-        }));
+        })).filter(e => ecolesActives.has(e.id));
 
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
@@ -488,7 +491,7 @@ function navigateToEcole(ecoleId) {
 }
 
 function searchEnseignants(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('searchResultsEnseignant');
 
     if (searchTerm.length < 2) {
@@ -525,9 +528,9 @@ function searchEnseignants(event) {
     }
 
     // Filtrer les résultats et dédoublonner par id_pe (une seule entrée par personne)
+    const match = SearchText.matcher(searchTerm);
     const matched = enseignantsData.filter(e =>
-        e.nom.toLowerCase().includes(searchTerm) ||
-        e.prenom.toLowerCase().includes(searchTerm)
+        match(e.nom) || match(e.prenom)
     );
     const seen = new Map();
     matched.forEach(e => {
@@ -1853,7 +1856,7 @@ function filterGraphsByYear(graphsId) {
 }
 
 function searchEcoles(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('searchResultsEcole');
 
     if (searchTerm.length < 2) {
@@ -1890,11 +1893,10 @@ function searchEcoles(event) {
     }
 
     // Filtrer les résultats
+    const match = SearchText.matcher(searchTerm);
     filteredEcoles = ecolesAvecEnseignantData.filter(e =>
-        e.nom.toLowerCase().includes(searchTerm) ||
-        e.commune.toLowerCase().includes(searchTerm) ||
-        e.commune_complement.toLowerCase().includes(searchTerm) ||
-        e.nom_complement_commune.toLowerCase().includes(searchTerm)
+        match(e.nom) || match(e.commune)
+        || match(e.commune_complement) || match(e.nom_complement_commune)
     ).slice(0, 15);
 
     selectedIndexEcole = 0;
@@ -2078,7 +2080,7 @@ function selectEcole(ecoleId) {
 }
 
 function searchCirconscriptions(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('searchResultsCirconscription');
 
     if (searchTerm.length < 2) {
@@ -2117,7 +2119,7 @@ function searchCirconscriptions(event) {
     // Filtrer les résultats
     const circonscriptions = [...new Set(ecolesData.map(e => e.circonscription).filter(c => c))];
     filteredCirconscriptions = circonscriptions.filter(c =>
-        c.toLowerCase().includes(searchTerm)
+        SearchText.includes(c, searchTerm)
     ).slice(0, 15);
 
     selectedIndexCirconscription = 0;

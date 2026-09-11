@@ -92,6 +92,9 @@ async function loadData() {
         const ecoleUaiColumn = ecolesTable['$Identifiant_de_l_etablissement'] ||
             ecolesTable.Identifiant_de_l_etablissement ||
             ecolesTable.UAI || [];
+        // Établissements écartés de tout traitement (Ecoles.OK à faux) :
+        // règle partagée, voir ../shared/ecoles-actives.js.
+        const ecolesActives = EcolesActives.activeRowIds(ecolesTable);
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
             uai: ecoleUaiColumn[index] || '',
@@ -102,7 +105,7 @@ async function loadData() {
             nom_complement_commune: (ecolesTable.Nom_Complement_Commune || ecolesTable.Commune_Nom || [])[index] || '',
             circonscription: (ecolesTable.nom_irconscription || ecolesTable.Circonscription || [])[index] || '',
             departement: (ecolesTable.Libelle_departement || ecolesTable.Departement || [])[index] || ''
-        }));
+        })).filter(e => ecolesActives.has(e.id));
 
         const tableauTable = await grist.docApi.fetchTable('Formations');
 
@@ -409,7 +412,7 @@ function clearSearch(type) {
 }
 
 function searchDepartements(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('searchResultsDepartement');
 
     if (searchTerm.length < 2) {
@@ -448,7 +451,7 @@ function searchDepartements(event) {
     // Filtrer les résultats
     const departements = [...new Set(ecolesData.map(e => e.departement).filter(d => d))];
     filteredDepartements = departements.filter(d =>
-        d.toLowerCase().includes(searchTerm)
+        SearchText.includes(d, searchTerm)
     ).slice(0, 15);
 
     selectedIndexDepartement = 0;

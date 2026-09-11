@@ -835,6 +835,9 @@ async function loadData() {
         const ecoleUaiColumn = ecolesTable['$Identifiant_de_l_etablissement'] ||
             ecolesTable.Identifiant_de_l_etablissement ||
             ecolesTable.UAI || [];
+        // Établissements écartés de tout traitement (Ecoles.OK à faux) :
+        // règle partagée, voir ../shared/ecoles-actives.js.
+        const ecolesActives = EcolesActives.activeRowIds(ecolesTable);
         ecolesData = ecolesTable.id.map((id, index) => ({
             id: id,
             uai: sanitizeGristData(ecoleUaiColumn[index]),
@@ -846,7 +849,7 @@ async function loadData() {
             departement: sanitizeGristData((ecolesTable.Libelle_departement || [])[index]),
             nom_circonscription: sanitizeGristData((ecolesTable.nom_circonscription || [])[index]),
             circonscription: sanitizeGristData((ecolesTable.Circonscription || [])[index]),
-        })).filter(e => e.commune_nom || e.nom);
+        })).filter(e => (e.commune_nom || e.nom) && ecolesActives.has(e.id));
 
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
         enseignantsData = enseignantsTable.id.map((id, index) => ({
@@ -1101,7 +1104,7 @@ function updateEcolesSelection() {
 }
 
 function searchEcoles(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('searchResults');
 
     // Gestion de la navigation clavier
@@ -1146,12 +1149,10 @@ function searchEcoles(event) {
         return;
     }
 
+    const match = SearchText.matcher(searchTerm);
     filteredResults = ecolesData.filter(e =>
         !selectedEcoles.find(se => se.id === e.id) &&
-        (e.nom?.toLowerCase().includes(searchTerm) ||
-            e.commune?.toLowerCase().includes(searchTerm) ||
-            e.commune_nom?.toLowerCase().includes(searchTerm) ||
-            e.uai?.toLowerCase().includes(searchTerm))
+        (match(e.nom) || match(e.commune) || match(e.commune_nom) || match(e.uai))
     ).slice(0, 10);
 
     if (filteredResults.length === 0) {
@@ -1558,7 +1559,7 @@ function addEditFormateurField(value = '') {
 }
 
 function searchEditFormateurs(event, fieldIndex) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById(`editFormateurResults_${fieldIndex}`);
     const inputField = document.getElementById(`editFormateurInput_${fieldIndex}`);
 
@@ -1600,7 +1601,7 @@ function searchEditFormateurs(event, fieldIndex) {
     filteredEditFormateurResults = formateursData
         .filter(f => f.lister !== false)
         .map(f => f.nom)
-        .filter(nom => nom.toLowerCase().includes(searchTerm))
+        .filter(SearchText.matcher(searchTerm))
         .slice(0, 10);
 
     if (filteredEditFormateurResults.length === 0) {
@@ -1657,7 +1658,7 @@ function selectEditFormateur(nom, fieldIndex) {
 }
 
 function searchFormateurs(event, fieldIndex) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById(`formateurResults_${fieldIndex}`);
     const inputField = document.getElementById(`formateurInput_${fieldIndex}`);
 
@@ -1699,7 +1700,7 @@ function searchFormateurs(event, fieldIndex) {
     filteredFormateurResults = formateursData
         .filter(f => f.lister !== false)
         .map(f => f.nom)
-        .filter(nom => nom.toLowerCase().includes(searchTerm))
+        .filter(SearchText.matcher(searchTerm))
         .slice(0, 10);
 
     if (filteredFormateurResults.length === 0) {
@@ -2514,7 +2515,7 @@ function searchFilterModule(event) {
 }
 
 function searchFilter(event, filterType, inputId, resultsId, availableValues) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById(resultsId);
 
     // Gestion de la navigation clavier
@@ -2551,7 +2552,7 @@ function searchFilter(event, filterType, inputId, resultsId, availableValues) {
         return;
     }
 
-    filteredFilterResults = availableValues.filter(v => v.toLowerCase().includes(searchTerm));
+    filteredFilterResults = availableValues.filter(SearchText.matcher(searchTerm));
 
     if (filteredFilterResults.length === 0) {
         resultsDiv.style.display = 'none';
@@ -3329,7 +3330,7 @@ function updateModalEcolesSelection() {
 }
 
 function searchEcolesModal(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('modalSearchResults');
 
     if (searchTerm.length < 2) {
@@ -3367,12 +3368,10 @@ function searchEcolesModal(event) {
     }
 
     // Filtrer les résultats
+    const match = SearchText.matcher(searchTerm);
     modalFilteredResults = ecolesData.filter(e =>
         !modalSelectedEcoles.find(se => se.id === e.id) &&
-        (e.nom?.toLowerCase().includes(searchTerm) ||
-            e.commune?.toLowerCase().includes(searchTerm) ||
-            e.commune_nom?.toLowerCase().includes(searchTerm) ||
-            e.uai?.toLowerCase().includes(searchTerm))
+        (match(e.nom) || match(e.commune) || match(e.commune_nom) || match(e.uai))
     ).slice(0, 10);
 
     modalActiveResultIndex = 0;
@@ -3810,7 +3809,7 @@ function searchFilterModuleTechnique(event) {
 }
 
 function searchFilterTechnique(event, filterType, inputId, resultsId, availableValues) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById(resultsId);
 
     if (event.key === 'ArrowDown') {
@@ -3846,7 +3845,7 @@ function searchFilterTechnique(event, filterType, inputId, resultsId, availableV
         return;
     }
 
-    techniqueFilteredResults = availableValues.filter(v => v.toLowerCase().includes(searchTerm));
+    techniqueFilteredResults = availableValues.filter(SearchText.matcher(searchTerm));
 
     if (techniqueFilteredResults.length === 0) {
         resultsDiv.style.display = 'none';
@@ -4649,7 +4648,7 @@ function toggleFormateurCreneau(formateurIndex, creneauIndex, checked) {
 }
 
 function searchFormateurTechnique(event) {
-    const searchTerm = event.target.value.toLowerCase().trim();
+    const searchTerm = SearchText.normalize(event.target.value);
     const resultsDiv = document.getElementById('searchFormateurTechniqueResults');
     const inputField = document.getElementById('searchFormateurTechnique');
 
@@ -4695,7 +4694,7 @@ function searchFormateurTechnique(event) {
     techniqueFormateurSearchResults = formateursData
         .filter(f => f.lister !== false)
         .filter(f => !existingFormateurNames.includes(f.nom.toLowerCase()))
-        .filter(f => f.nom.toLowerCase().includes(searchTerm))
+        .filter(f => SearchText.includes(f.nom, searchTerm))
         .map(f => f.nom)
         .slice(0, 10);
 
