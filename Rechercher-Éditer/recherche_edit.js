@@ -219,59 +219,43 @@ async function loadData() {
  * En cas d'erreur (accès refusé, table absente), replie sur buildDynamicChoiceOptions().
  */
 async function loadColumnChoicesFromMeta() {
-    const TARGET_FIELDS = new Set(['D_dir', 'Niveau_x_', 'TP', 'D_synd_', 'Autre', 'Fonction', 'Quotite_de_service']);
+    const TARGET_FIELDS = ['D_dir', 'Niveau_x_', 'TP', 'D_synd_', 'Autre', 'Fonction', 'Quotite_de_service'];
+
+    if (typeof GristColumns === 'undefined') {
+        console.warn('Options de colonnes : module ../shared/grist-columns.js non chargé, repli sur les données.');
+        buildDynamicChoiceOptions();
+        return;
+    }
+
+    // Lecture déléguée au module partagé, qui absorbe les accès refusés.
+    const defs = await GristColumns.fetchColumnDefs('Liste_PE', TARGET_FIELDS);
+    let updatedCount = 0;
+
+    for (const colId of TARGET_FIELDS) {
+        const choices = (defs && defs[colId]) ? defs[colId].choices : [];
+        if (!choices.length) continue;
+        choiceOptions[colId] = choices.slice();
+        updatedCount++;
+    }
+
+    if (updatedCount === 0) {
+        console.info('Aucune option de colonne trouvée dans les métadonnées, repli sur les données.');
+        buildDynamicChoiceOptions();
+        return;
+    }
+
+    // Repli local conservé : un échec ici ne doit pas faire échouer tout le
+    // chargement des données, dont l'appelant capture les exceptions.
     try {
-        // Trouver l'ID interne de la table Liste_PE
-        const tablesData = await grist.docApi.fetchTable('_grist_Tables');
-        const tableIndex = tablesData.tableId.indexOf('Liste_PE');
-        if (tableIndex === -1) throw new Error('Table Liste_PE introuvable dans les métadonnées');
-        const tableRef = tablesData.id[tableIndex];
-
-        // Lire les métadonnées de colonnes
-        const colsData = await grist.docApi.fetchTable('_grist_Tables_column');
-        let updatedCount = 0;
-
-        colsData.id.forEach((_, i) => {
-            if (colsData.parentId[i] !== tableRef) return;
-            const colId = colsData.colId[i];
-            if (!TARGET_FIELDS.has(colId)) return;
-
-            const widgetOptionsStr = colsData.widgetOptions[i];
-            if (!widgetOptionsStr) return;
-
-            try {
-                const opts = JSON.parse(widgetOptionsStr);
-                if (Array.isArray(opts.choices) && opts.choices.length > 0) {
-                    choiceOptions[colId] = opts.choices
-                        .map(c => validateInput(String(c), 200))
-                        .filter(Boolean);
-                    updatedCount++;
-                }
-            } catch (e) {
-                // widgetOptions JSON invalide pour cette colonne, on ignore
-            }
-        });
-
-        if (updatedCount === 0) {
-            console.info('Aucune option de colonne trouvée dans les métadonnées, repli sur les données.');
-            buildDynamicChoiceOptions();
-            return;
-        }
-
         // Mettre à jour les <select> pour les champs Choice simples
         populateChoiceSelect('edit-fonction', choiceOptions.Fonction);
         populateChoiceSelect('edit-quotite', choiceOptions.Quotite_de_service);
 
         // Valeurs distinctes pour le champ texte Preciser (toujours depuis les données)
         buildPreciserOptions();
-
     } catch (err) {
-        const msg = err?.message || String(err);
-        if (msg.includes('ACL_DENY') || msg.includes('access rules') || msg.includes('read access')) {
-            console.info('Options de colonnes : accès aux métadonnées refusé, repli sur les données existantes.');
-        } else {
-            console.warn('Options de colonnes : erreur inattendue, repli sur les données existantes :', msg);
-        }
+        console.warn('Options de colonnes : application aux champs impossible, repli sur les données :',
+            err?.message || err);
         buildDynamicChoiceOptions();
     }
 }

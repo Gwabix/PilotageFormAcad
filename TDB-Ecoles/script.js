@@ -927,51 +927,17 @@ async function fetchColumnChoices(tableId, colIds) {
     const result = {};
     for (const colId of colIds) result[colId] = [];
 
-    try {
-        const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
-        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(tableId)}/columns`
-            + `?auth=${encodeURIComponent(tokenInfo.token)}`;
+    if (typeof GristColumns === 'undefined') {
+        console.warn('[Colonnes] Module ../shared/grist-columns.js non chargé.');
+        return result;
+    }
 
-        const response = await fetch(url, { method: 'GET' });
+    const defs = await GristColumns.fetchColumnDefs(tableId, colIds);
+    if (!defs) return result;
 
-        if (!response.ok) {
-            throw new Error(`Statut HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        const columns = Array.isArray(data && data.columns) ? data.columns : [];
-
-        for (const colId of colIds) {
-            const column = columns.find(c => c && c.id === colId);
-            const fields = column && column.fields ? column.fields : null;
-            if (!fields) continue;
-
-            let opts = null;
-            if (typeof fields.widgetOptions === 'string' && fields.widgetOptions.trim()) {
-                try {
-                    opts = JSON.parse(fields.widgetOptions);
-                } catch (e) {
-                    opts = null;
-                }
-            } else if (fields.widgetOptions && typeof fields.widgetOptions === 'object') {
-                opts = fields.widgetOptions;
-            }
-
-            if (!opts || !Array.isArray(opts.choices)) continue;
-
-            const seen = new Set();
-            const choices = [];
-            for (const raw of opts.choices) {
-                if (typeof raw !== 'string') continue;
-                const label = raw.trim();
-                if (!label || seen.has(label)) continue;
-                seen.add(label);
-                choices.push(label);
-            }
-            result[colId] = choices;
-        }
-    } catch (err) {
-        console.error('fetchColumnChoices :', err);
+    for (const colId of colIds) {
+        const def = defs[colId];
+        if (def && def.choices.length) result[colId] = def.choices;
     }
 
     return result;

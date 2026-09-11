@@ -359,37 +359,22 @@ async function loadFormateursDepartementChoices() {
         return formateursDepartementChoices;
     }
 
-    try {
-        const tablesMeta = await grist.docApi.fetchTable('_grist_Tables');
-        const columnsMeta = await grist.docApi.fetchTable('_grist_Tables_column');
-        const tableNames = getTableColumn(tablesMeta, ['tableId', 'TableId', 'name']);
-        const formateursTableIndex = tableNames.findIndex(name => name === 'Formateurs');
+    // Lecture déléguée à ../shared/grist-columns.js. Le nom de la colonne varie
+    // selon les documents, d'où les deux identifiants demandés.
+    if (typeof GristColumns !== 'undefined') {
+        const defs = await GristColumns.fetchColumnDefs('Formateurs', ['Departement', '$Departement']);
+        const colId = defs && (defs.Departement ? 'Departement' : (defs['$Departement'] ? '$Departement' : ''));
 
-        if (formateursTableIndex >= 0) {
-            const formateursTableRowId = tablesMeta.id[formateursTableIndex];
-            const parentIds = getTableColumn(columnsMeta, ['parentId', 'ParentId']);
-            const colIds = getTableColumn(columnsMeta, ['colId', 'ColId']);
-            const widgetOptionsColumn = getTableColumn(columnsMeta, ['widgetOptions', 'WidgetOptions']);
-            const formateursColumns = colIds
-                .map((colId, index) => ({ colId, index }))
-                .filter(({ index }) => Number(parentIds[index]) === Number(formateursTableRowId));
-            const departementColumn = formateursColumns.find(({ colId }) => colId === 'Departement')
-                || formateursColumns.find(({ colId }) => colId === '$Departement');
-
-            if (departementColumn) {
-                formateursDepartementColId = departementColumn.colId;
-                const widgetOptions = parseJsonSafely(widgetOptionsColumn[departementColumn.index], {});
-                const choices = Array.isArray(widgetOptions?.choices)
-                    ? widgetOptions.choices.map(choice => sanitizeGristData(choice)).filter(Boolean)
-                    : [];
-                if (choices.length > 0) {
-                    formateursDepartementChoices = [...new Set(choices)].sort((a, b) => a.localeCompare(b));
-                    return formateursDepartementChoices;
-                }
+        if (colId) {
+            formateursDepartementColId = colId;
+            const choices = defs[colId].choices;
+            if (choices.length > 0) {
+                formateursDepartementChoices = [...new Set(choices)].sort((a, b) => a.localeCompare(b));
+                return formateursDepartementChoices;
             }
         }
-    } catch (error) {
-        console.info('Impossible de charger les choix de $Departement via les tables internes :', error?.message || error);
+    } else {
+        console.info('Choix de Departement : module ../shared/grist-columns.js non chargé.');
     }
 
     formateursDepartementChoices = getVisibleFormateursDepartements();
@@ -2124,50 +2109,17 @@ function resetForm() {
 // propose une popup de synchronisation.
 
 /**
- * Lit, via l'API REST + jeton d'accès, la définition des colonnes ciblées.
+ * Lit la définition des colonnes ciblées. La lecture est déléguée au module
+ * partagé ../shared/grist-columns.js, qui interroge les tables système et ne
+ * se replie sur l'API REST qu'en dernier recours.
  * @returns {Promise<Object|null>} { [colId]: { choices, type, label, widgetOptions } }
  */
 async function fetchFormationsColumnChoices() {
-    const colIds = Object.keys(WIDGET_CHOICE_SCHEMA);
-    try {
-        const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
-        const url = `${tokenInfo.baseUrl}/tables/${encodeURIComponent(WIDGET_CHOICE_TABLE)}/columns`
-            + `?auth=${encodeURIComponent(tokenInfo.token)}`;
-        const response = await fetch(url, { method: 'GET' });
-        if (!response.ok) throw new Error(`Statut HTTP ${response.status}`);
-
-        const data = await response.json();
-        const columns = Array.isArray(data && data.columns) ? data.columns : [];
-        const result = {};
-
-        for (const colId of colIds) {
-            const column = columns.find(c => c && c.id === colId);
-            const fields = column && column.fields ? column.fields : null;
-            if (!fields) continue;
-
-            let opts = {};
-            if (typeof fields.widgetOptions === 'string' && fields.widgetOptions.trim()) {
-                opts = parseJsonSafely(fields.widgetOptions, {}) || {};
-            } else if (fields.widgetOptions && typeof fields.widgetOptions === 'object') {
-                opts = fields.widgetOptions;
-            }
-
-            const choices = Array.isArray(opts.choices)
-                ? opts.choices.map(c => sanitizeGristData(c)).filter(c => typeof c === 'string' && c)
-                : [];
-
-            result[colId] = {
-                choices: [...new Set(choices)],
-                type: sanitizeGristData(fields.type) || '',
-                label: sanitizeGristData(fields.label) || colId,
-                widgetOptions: (opts && typeof opts === 'object') ? opts : {}
-            };
-        }
-        return result;
-    } catch (err) {
-        console.info('Audit des choix : lecture des colonnes impossible —', err?.message || err);
+    if (typeof GristColumns === 'undefined') {
+        console.info('Audit des choix : module ../shared/grist-columns.js non chargé.');
         return null;
     }
+    return GristColumns.fetchColumnDefs(WIDGET_CHOICE_TABLE, Object.keys(WIDGET_CHOICE_SCHEMA));
 }
 
 /**
