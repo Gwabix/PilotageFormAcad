@@ -17,18 +17,28 @@
  */
 
 (function (global) {
+    const WHITESPACE = /\s+/g;
     const CONTROL_CHARS = new RegExp('[\\u0000-\\u001F\\u007F]', 'g');
     const DIACRITICS = new RegExp('[\\u0300-\\u036f]', 'g');
 
     /**
      * Forme comparable d'un texte : minuscules, sans accent ni caractère de
-     * contrôle, sans espaces de bord.
+     * contrôle, blancs ramenés à une espace simple, bords coupés.
+     *
+     * Les blancs sont traités AVANT les caractères de contrôle, et remplacés
+     * par une espace plutôt que supprimés. Un copier-coller dans Grist
+     * convertit parfois une espace en saut de ligne : supprimer ce saut
+     * souderait « DUPONT\nDURAND » en « dupontdurand ». Le HTML repliant les
+     * blancs, ces valeurs s'affichent à l'identique, et seule la comparaison
+     * révélait l'écart.
+     *
      * @param {*} value
      * @returns {string}
      */
     function normalize(value) {
         if (value === null || value === undefined) return '';
         return String(value)
+            .replace(WHITESPACE, ' ')
             .replace(CONTROL_CHARS, '')
             .toLowerCase()
             .normalize('NFD')

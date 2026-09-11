@@ -55,9 +55,19 @@
     // Champs dont la divergence révèle l'incohérence nº 2.
     const IDENTITY_FIELDS = ['Civilite', 'Nom', 'Prenom'];
 
+    /*
+     * Valeur affichable d'un champ d'identité, blancs ramenés à une espace
+     * simple. Ces champs tiennent tous sur une ligne, un saut de ligne y est
+     * toujours une erreur de saisie — un copier-coller dans Grist convertit
+     * parfois une espace en saut de ligne suivi de deux espaces.
+     *
+     * C'est aussi la valeur PROPOSÉE à l'harmonisation : arbitrer entre
+     * « DUPONT DURAND » et « DUPONT\n  DURAND » est impossible, le HTML
+     * repliant les blancs les affiche à l'identique.
+     */
     function text(value) {
         if (value === null || value === undefined) return '';
-        return String(value).trim();
+        return String(value).replace(/\s+/g, ' ').trim();
     }
 
     // Forme comparable : minuscules, sans accent. Vaut pour les mails comme
@@ -332,8 +342,17 @@
         for (const field of fields) columns[field] = [];
 
         for (const row of rows) {
-            // Une ligne déjà conforme sur tous les champs retenus est ignorée.
-            const needsUpdate = fields.some(field => text(row[field]) !== text(values[field]));
+            /*
+             * Comparaison sur la valeur BRUTE, pas sur sa forme repliée : une
+             * ligne dont le contenu ne diffère que par un saut de ligne ou une
+             * espace en trop doit être réécrite propre. L'harmonisation sert
+             * ainsi aussi de nettoyage.
+             */
+            const needsUpdate = fields.some(field => {
+                const raw = (row[field] === null || row[field] === undefined)
+                    ? '' : String(row[field]);
+                return raw !== text(values[field]);
+            });
             if (!needsUpdate) continue;
 
             rowIds.push(row.id);

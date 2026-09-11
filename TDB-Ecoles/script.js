@@ -220,6 +220,72 @@ function applyCreateFichePermission() {
     if (withoutCreate) withoutCreate.classList.toggle('hidden', allowed);
 }
 
+/* --------------------------------------------------------------------------
+   Nettoyage des blancs parasites.
+
+   Un copier-coller dans Grist convertit parfois, de façon imprévisible, une
+   espace en saut de ligne suivi de deux espaces. Le HTML repliant les blancs,
+   « DUPONT DURAND » et « DUPONT\n  DURAND » s'affichent à l'identique : rien
+   ne signale l'anomalie à l'écran, alors que toute comparaison distingue les
+   deux valeurs. Conséquences observées : un faux doublon incohérent remonte,
+   et la fusion des vrais doublons ne se déclenche pas.
+
+   Ces colonnes tiennent toutes sur une ligne ; un saut de ligne y est donc
+   toujours une erreur. Toute suite de blancs est ramenée à une espace simple
+   et les bords sont coupés. Aucune information n'est perdue.
+
+   Exécuté AVANT tout rapprochement, sans quoi la fusion travaillerait encore
+   sur des valeurs sales.
+   -------------------------------------------------------------------------- */
+
+const WHITESPACE_SENSITIVE_FIELDS = ['ID_PE', 'Civilite', 'Nom', 'Prenom', 'Mail'];
+
+function collapseWhitespace(value) {
+    return String(value).replace(/\s+/g, ' ').trim();
+}
+
+// Retourne true si des lignes ont été réécrites.
+async function normalizeListePeWhitespace() {
+    const rowIds = [];
+    const columns = {};
+    for (const field of WHITESPACE_SENSITIVE_FIELDS) columns[field] = [];
+
+    for (const row of state.personnels) {
+        const cleaned = {};
+        let dirty = false;
+
+        for (const field of WHITESPACE_SENSITIVE_FIELDS) {
+            const raw = row[field];
+            if (typeof raw !== 'string') { cleaned[field] = raw; continue; }
+            cleaned[field] = collapseWhitespace(raw);
+            if (cleaned[field] !== raw) dirty = true;
+        }
+
+        if (!dirty) continue;
+        rowIds.push(row.id);
+        for (const field of WHITESPACE_SENSITIVE_FIELDS) columns[field].push(cleaned[field]);
+    }
+
+    if (!rowIds.length) return false;
+
+    try {
+        await grist.docApi.applyUserActions([
+            ['BulkUpdateRecord', 'Liste_PE', rowIds, columns]
+        ]);
+        console.info('[Blancs] ' + rowIds.length + ' ligne(s) nettoyée(s).');
+        showToast(rowIds.length + ' ligne' + (rowIds.length > 1 ? 's' : '')
+            + ' nettoyée' + (rowIds.length > 1 ? 's' : '')
+            + ' (sauts de ligne et espaces en trop).', 'success');
+        return true;
+    } catch (err) {
+        // Écriture refusée par les règles d'accès : on n'insiste pas, le
+        // tableau de bord reste utilisable.
+        console.info('[Blancs] Nettoyage impossible : '
+            + ((err && err.message) ? err.message : err));
+        return false;
+    }
+}
+
 // Remise en ordre de Liste_PE : suppression des lignes fantômes (détachées
 // alors que la personne est affectée ailleurs la même année) et fusion des
 // doublons. Retourne true si des lignes ont été supprimées.
@@ -248,7 +314,7 @@ async function cleanupListePe() {
     }
 }
 
-async function loadAllData(skipMerge) {
+async function loadAllData(skipNormalize, skipMerge) {
     try {
         showStatus('Chargement des données...', false);
 
@@ -277,10 +343,21 @@ async function loadAllData(skipMerge) {
             console.warn('[Liste_PE] Table Formations indisponible : purge RGPD et fusion des doublons désactivées.');
         }
 
-        // Remise en ordre automatique (fantômes + doublons) avant tout rendu.
-        // Une seule tentative par cycle de chargement.
+        /*
+         * Deux remises en ordre automatiques avant tout rendu, chacune tentée
+         * une seule fois par cycle de chargement.
+         *
+         * Les blancs parasites d'abord : une valeur contenant un saut de ligne
+         * ne s'apparie avec rien, la fusion qui suit doit donc travailler sur
+         * des valeurs propres. D'où le rechargement entre les deux, qui laisse
+         * la fusion s'exécuter sur les données nettoyées.
+         */
+        if (!skipNormalize && await normalizeListePeWhitespace()) {
+            return loadAllData(true, skipMerge);
+        }
+
         if (!skipMerge && await cleanupListePe()) {
-            return loadAllData(true);
+            return loadAllData(true, true);
         }
 
         const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
