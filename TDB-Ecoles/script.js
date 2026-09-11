@@ -50,10 +50,10 @@ const QUOTITE_OPTIONS = ['50%', '75%', '80%', '83%', '100%'];
 // La logique RGPD (détection + suppression) vit dans ../shared/rgpd-purge.js
 // (objet global RgpdPurge), partagé avec le widget « Pilotage académique ».
 
-// Date du jour (minuit UTC) en secondes depuis l'epoch — format des colonnes Date de Grist.
+// Date du jour (minuit UTC) en secondes depuis l'epoch — format des colonnes
+// Date de Grist. Implémentation partagée : ../shared/liste-pe-retrait.js.
 function todayDateEpochSeconds() {
-    const now = new Date();
-    return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 1000;
+    return ListePeRetrait.todayDateEpochSeconds();
 }
 
 // Valeur d'une colonne Date de Grist -> secondes epoch, ou null si vide.
@@ -2155,12 +2155,7 @@ async function handleQuitSchool(personnelRecord) {
 
     try {
         await grist.docApi.applyUserActions([
-            ['UpdateRecord', 'Liste_PE', personnelRecord.id, {
-                UAI: 0,
-                Fonction: '',
-                Niveau_x_: ['L'],
-                Retrait: todayDateEpochSeconds()
-            }]
+            ListePeRetrait.buildQuitSchoolAction(personnelRecord.id)
         ]);
 
         showUndoableToast(
@@ -2225,19 +2220,7 @@ async function createLiberationRow(personnelRecord) {
 
     try {
         await grist.docApi.applyUserActions([
-            ['AddRecord', 'Liste_PE', null, {
-                ID_PE: personnelRecord.ID_PE || '',
-                Civilite: personnelRecord.Civilite || '',
-                Nom: personnelRecord.Nom || '',
-                Prenom: personnelRecord.Prenom || '',
-                Mail: personnelRecord.Mail || '',
-                Annee_scolaire: personnelRecord.Annee_scolaire,
-                Quotite_de_service: personnelRecord.Quotite_de_service || '',
-                UAI: 0,
-                Fonction: '',
-                Niveau_x_: ['L'],
-                Retrait: todayDateEpochSeconds()
-            }]
+            ListePeRetrait.buildLiberationAction(personnelRecord)
         ]);
 
         showToast('Ligne sans école créée pour ' + (identity || 'l\'enseignant')
@@ -3118,12 +3101,7 @@ async function applyAffectations(keepEcoleIds) {
 
     // Affectations retirées sans remplacement : détachées et datées.
     for (const row of toRemove) {
-        actions.push(['UpdateRecord', 'Liste_PE', row.id, {
-            UAI: 0,
-            Fonction: '',
-            Niveau_x_: ['L'],
-            Retrait: todayDateEpochSeconds()
-        }]);
+        actions.push(ListePeRetrait.buildQuitSchoolAction(row.id));
     }
 
     addTeacherState.busy = true;

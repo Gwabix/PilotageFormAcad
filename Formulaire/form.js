@@ -1274,7 +1274,15 @@ function countSelectedEnseignants() {
     return keys.size;
 }
 
-function updateEnseignantsList() {
+/**
+ * (Re)construit la liste des enseignants des écoles sélectionnées.
+ *
+ * @param {boolean} [preserveSelection] conserve les cases cochées et les
+ *   niveaux saisis pour les lignes encore présentes. Nécessaire après un
+ *   retrait d'école, qui recharge les données : sans cela, tout le travail de
+ *   sélection en cours serait réinitialisé.
+ */
+function updateEnseignantsList(preserveSelection) {
     const container = document.getElementById('enseignantsContainer');
 
     if (selectedEcoles.length === 0) {
@@ -1295,11 +1303,15 @@ function updateEnseignantsList() {
         selectedRowIds.has(Number(ens.ecole_rowid)) && ens.annee_scolaire === anneeScolaire
     );
 
+    const previous = preserveSelection ? new Map(enseignantsMap) : null;
     enseignantsMap.clear();
     filteredEnseignants.forEach(ens => {
+        const kept = previous ? previous.get(ens.id) : null;
         enseignantsMap.set(ens.id, {
-            selected: true,
-            niveaux: (ens.niveaux || []).filter(n => n !== 'L')
+            selected: kept ? kept.selected : true,
+            niveaux: kept
+                ? kept.niveaux.slice()
+                : (ens.niveaux || []).filter(n => n !== 'L')
         });
     });
 
@@ -1339,26 +1351,38 @@ function updateEnseignantsList() {
     // IMPORTANT : Lors de l'ajout de nouvelles variables, utiliser escapeHtml() pour le contenu
     // et escapeHtmlAttribute() pour les attributs HTML.
     const renderEnseignant = (ens) => {
-        const currentNiveaux = enseignantsMap.get(ens.id)?.niveaux || [];
+        const data = enseignantsMap.get(ens.id);
+        const currentNiveaux = data?.niveaux || [];
+        // Le rendu suit l'état de sélection au lieu de le réinitialiser : la
+        // liste peut être reconstruite sans perdre les cases décochées.
+        const selected = data ? data.selected !== false : true;
+
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
-            const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
-            return `<label class="enseignant-niveau-item"><input type="checkbox" id="niveau_${escapeHtmlAttribute(ens.id)}_${escapeHtmlAttribute(niveau)}" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-niveau="${escapeHtmlAttribute(niveau)}" ${checked}><span>${escapeHtml(niveau)}</span></label>`;
+            const checked = currentNiveaux.includes(niveau) ? ' checked' : '';
+            return `<label class="enseignant-niveau-item"><input type="checkbox" id="niveau_${escapeHtmlAttribute(ens.id)}_${escapeHtmlAttribute(niveau)}" data-ens-id="${escapeHtmlAttribute(ens.id)}" data-niveau="${escapeHtmlAttribute(niveau)}"${checked}${selected ? '' : ' disabled'}><span>${escapeHtml(niveau)}</span></label>`;
         }).join('');
+
         const lie = !isEnseignantPilote(ens.id);
         const lieTitre = 'Déjà sélectionné sur une autre école : la case suit celle de la première école. Compté une seule fois dans le nombre d\'enseignants.';
+        const quitTitre = "Retirer cet enseignant de l'école, s'il n'y exerce plus";
         return `
-          <div class="enseignant-item${lie ? ' enseignant-lie' : ''}">
+          <div class="enseignant-item${lie ? ' enseignant-lie' : ''}${selected ? '' : ' enseignant-item--off'}">
             <div class="enseignant-header">
               <input type="checkbox"
                      id="ens_${escapeHtmlAttribute(ens.id)}"
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
-                     checked${lie ? ' disabled title="' + escapeHtmlAttribute(lieTitre) + '"' : ''}>
+                     ${selected ? 'checked' : ''}${lie ? ' disabled title="' + escapeHtmlAttribute(lieTitre) + '"' : ''}>
               <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
                             ${lie ? `<span class="enseignant-lie-badge" title="${escapeHtmlAttribute(lieTitre)}">déjà compté</span>` : ''}
             </div>
             <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
-              <span class="enseignant-niveaux-label">Niveaux :</span>
-              <div class="enseignant-niveaux-grid">${niveauxItems}</div>
+              <div class="enseignant-niveaux-main">
+                <span class="enseignant-niveaux-label">Niveaux :</span>
+                <div class="enseignant-niveaux-grid">${niveauxItems}</div>
+              </div>
+              <button type="button" class="enseignant-quit-btn"
+                      data-quit-ens-id="${escapeHtmlAttribute(ens.id)}"
+                      title="${escapeHtmlAttribute(quitTitre)}">Retirer de l'école</button>
             </div>
           </div>
         `;
@@ -1393,6 +1417,118 @@ function updateEnseignantsList() {
         });
     });
 
+    container.querySelectorAll('button[data-quit-ens-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ensId = safeParseInt(btn.getAttribute('data-quit-ens-id'), 0, 0);
+            if (ensId > 0) handleQuitSchool(ensId);
+        });
+    });
+}
+
+/* --------------------------------------------------------------------------
+   « Retirer de l'école », par enseignant.
+
+   Deux gestes très différents se ressemblent de l'extérieur : retirer un
+   enseignant de cette FORMATION, qui se fait en décochant sa case, et le
+   retirer de son ÉCOLE, qui modifie la base pour tout le monde. D'où
+   l'avertissement, et les deux actions nommées explicitement.
+
+   L'écriture est celle de TDB-Ecoles, via ../shared/liste-pe-retrait.js :
+   l'école, la fonction et les niveaux sont vidés, et la date du jour marque
+   le retrait. Cette date conditionne la purge RGPD comme le délai de grâce
+   des lignes détachées, elle ne doit donc jamais être omise.
+   -------------------------------------------------------------------------- */
+
+async function handleQuitSchool(ensId) {
+    const enseignant = enseignantsData.find(e => e.id === ensId);
+    if (!enseignant) return;
+
+    const identite = [enseignant.nom, enseignant.prenom].filter(Boolean).join(' ');
+    const choix = await askQuitSchoolChoice(identite);
+    if (choix === 'cancel') return;
+
+    if (choix === 'formation') {
+        // La case d'une ligne liée n'est pas pilotable : c'est celle de la
+        // première école qui commande, et elle entraîne les autres.
+        const piloteId = getEnseignantGroupRows(ensId)[0];
+        const checkbox = document.getElementById(`ens_${piloteId}`);
+        if (checkbox) {
+            checkbox.checked = false;
+            toggleEnseignant(piloteId);
+        }
+        return;
+    }
+
+    try {
+        await grist.docApi.applyUserActions([
+            ListePeRetrait.buildQuitSchoolAction(ensId)
+        ]);
+        await loadData();
+        // Sélection préservée : l'enseignant retiré disparaît de sa liste,
+        // les choix faits sur les autres restent en place.
+        updateEnseignantsList(true);
+        alert(`✓ ${identite || 'Enseignant'} retiré(e) de l'école.`);
+    } catch (error) {
+        console.error('Erreur lors du retrait de l\'école :', error);
+        alert("Erreur lors du retrait de l'école. Consultez la console pour plus de détails.");
+    }
+}
+
+/**
+ * Avertissement avant retrait. Résout avec 'ecole', 'formation' ou 'cancel'.
+ * @param {string} identite
+ * @returns {Promise<string>}
+ */
+function askQuitSchoolChoice(identite) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'confirm-modal-overlay';
+
+        const content = document.createElement('div');
+        content.className = 'confirm-modal-content';
+
+        // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+        // SÉCURITÉ : seule variable dynamique, échappée via escapeHtml().
+        content.innerHTML = `
+            <h3 class="confirm-modal-header">⚠️ Retirer de l'école</h3>
+            <p class="confirm-modal-intro">
+                Cette fonctionnalité est destinée à retirer un enseignant qui n'exerce plus
+                dans cette école. Si vous souhaitez le retirer de la formation, décochez
+                simplement la case correspondante.
+            </p>
+            ${identite ? `<p class="confirm-modal-subject"><strong>${escapeHtml(identite)}</strong></p>` : ''}
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn--primary" data-choice="ecole">Retirer de l'école</button>
+                <button class="confirm-modal-btn--primary" data-choice="formation">Retirer de la formation</button>
+                <button class="confirm-modal-btn--cancel" data-choice="cancel">Annuler</button>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        const close = (choice) => {
+            modal.remove();
+            document.removeEventListener('keydown', onKeydown);
+            resolve(choice);
+        };
+
+        const onKeydown = (evt) => {
+            if (evt.key === 'Escape') close('cancel');
+        };
+
+        content.addEventListener('click', (evt) => {
+            const btn = evt.target.closest('button[data-choice]');
+            if (btn) close(btn.getAttribute('data-choice'));
+        });
+
+        modal.addEventListener('click', (evt) => {
+            if (evt.target === modal) close('cancel');
+        });
+
+        document.addEventListener('keydown', onKeydown);
+        content.querySelector('[data-choice="cancel"]').focus();
+    });
 }
 
 function toggleEnseignant(ensId) {

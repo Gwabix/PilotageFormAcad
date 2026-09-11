@@ -1536,8 +1536,44 @@ textarea {
     color: #333;
 }
 
+/* Le bouton de retrait se place à droite de la section, pas dans la grille des
+   niveaux : il y aurait été emporté par le retour à la ligne des cases. La
+   partie gauche garde donc son empilement libellé puis grille. */
 .enseignant-niveaux-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
     margin-top: 5px;
+}
+
+.enseignant-niveaux-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.enseignant-quit-btn {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 5px 12px;
+    border: 1px solid #d9b3b3;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #a94442;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.enseignant-quit-btn:hover {
+    background-color: #fdecea;
+    border-color: #a94442;
+}
+
+.enseignant-quit-btn:focus-visible {
+    outline: 2px solid #a94442;
+    outline-offset: 2px;
 }
 
 .enseignant-niveaux-label {
@@ -1576,7 +1612,8 @@ textarea {
 }
 
 /* Modal de confirmation de formateur similaire */
-.formateur-modal-overlay {
+.formateur-modal-overlay,
+.confirm-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1589,7 +1626,8 @@ textarea {
     z-index: 10001;
 }
 
-.formateur-modal-content {
+.formateur-modal-content,
+.confirm-modal-content {
     background: white;
     padding: 30px;
     border-radius: 8px;
@@ -1599,17 +1637,28 @@ textarea {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.formateur-modal-header {
+.formateur-modal-header,
+.confirm-modal-header {
     margin-top: 0;
     color: #e67e22;
     font-size: 20px;
     margin-bottom: 15px;
 }
 
-.formateur-modal-intro {
+.formateur-modal-intro,
+.confirm-modal-intro {
     margin-bottom: 20px;
     color: #2c3e50;
     line-height: 1.5;
+}
+
+/* Sujet de la confirmation : qui est concerné, mis en avant sous le texte. */
+.confirm-modal-subject {
+    margin: -10px 0 20px 0;
+    padding: 10px 12px;
+    background-color: #f0f4f8;
+    border-radius: 4px;
+    color: #2c3e50;
 }
 
 .formateur-modal-similar-list {
@@ -1659,7 +1708,8 @@ textarea {
     background-color: #229954;
 }
 
-.formateur-modal-actions {
+.formateur-modal-actions,
+.confirm-modal-actions {
     margin-top: 20px;
     border-top: 1px solid #ccc;
     padding-top: 20px;
@@ -1668,7 +1718,8 @@ textarea {
     flex-wrap: wrap;
 }
 
-.formateur-modal-btn-create {
+.formateur-modal-btn-create,
+.confirm-modal-btn--primary {
     flex: 1;
     padding: 10px 20px;
     background-color: #3498db;
@@ -1680,11 +1731,13 @@ textarea {
     font-weight: 600;
 }
 
-.formateur-modal-btn-create:hover {
+.formateur-modal-btn-create:hover,
+.confirm-modal-btn--primary:hover {
     background-color: #2980b9;
 }
 
-.formateur-modal-btn-cancel {
+.formateur-modal-btn-cancel,
+.confirm-modal-btn--cancel {
     padding: 10px 20px;
     background-color: #95a5a6;
     color: white;
