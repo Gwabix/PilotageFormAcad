@@ -63,6 +63,45 @@
         return value => normalize(value).indexOf(query) !== -1;
     }
 
-    global.SearchText = { normalize, includes, matcher };
+    /**
+     * Distance de Levenshtein : nombre minimal d'insertions, suppressions ou
+     * substitutions pour passer d'une chaîne à l'autre.
+     *
+     * Sert à repérer les fautes de frappe, par exemple entre deux adresses
+     * mail ou deux noms de formateurs. Les chaînes comparées sont courtes ;
+     * la matrice complète est donc suffisante.
+     *
+     * @returns {number}
+     */
+    function levenshtein(a, b) {
+        const s = String(a === null || a === undefined ? '' : a);
+        const t = String(b === null || b === undefined ? '' : b);
+        if (s === t) return 0;
+        if (!s.length) return t.length;
+        if (!t.length) return s.length;
+
+        // Une seule ligne de la matrice suffit : chaque cellule ne dépend que
+        // de la ligne précédente et de la cellule de gauche.
+        let previous = new Array(s.length + 1);
+        for (let j = 0; j <= s.length; j++) previous[j] = j;
+
+        for (let i = 1; i <= t.length; i++) {
+            const current = new Array(s.length + 1);
+            current[0] = i;
+            for (let j = 1; j <= s.length; j++) {
+                const cost = t.charAt(i - 1) === s.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(
+                    previous[j - 1] + cost,  // substitution
+                    current[j - 1] + 1,      // insertion
+                    previous[j] + 1          // suppression
+                );
+            }
+            previous = current;
+        }
+
+        return previous[s.length];
+    }
+
+    global.SearchText = { normalize, includes, matcher, levenshtein };
 
 })(typeof window !== 'undefined' ? window : this);

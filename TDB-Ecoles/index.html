@@ -44,6 +44,11 @@
         <button type="button" id="conservation-review-btn">Examiner et purger</button>
     </div>
 
+    <div id="coherence-check" class="hidden" role="alert">
+        <span id="coherence-check-text"></span>
+        <button type="button" id="coherence-review-btn">Examiner</button>
+    </div>
+
     <main id="ecoles-container" aria-live="polite">
         <div id="loading-indicator">Chargement des données...</div>
     </main>
@@ -214,6 +219,32 @@
         </div>
     </div>
 
+    <!-- Popup lignes incohérentes -->
+    <div id="coherence-modal-overlay" class="hidden">
+        <div id="coherence-modal" class="modal-box" role="dialog" aria-modal="true"
+            aria-labelledby="coherence-modal-title">
+            <h2 id="coherence-modal-title">Lignes incohérentes</h2>
+            <p id="coherence-modal-progress" class="coherence-progress"></p>
+            <p id="coherence-modal-intro">
+                Plusieurs lignes sont incohérentes, veuillez sélectionner les informations
+                à conserver.
+            </p>
+            <p id="coherence-modal-reasons" class="coherence-reasons"></p>
+
+            <!-- Lignes du groupe, puis arbitrage champ par champ -->
+            <div id="coherence-rows"></div>
+            <div id="coherence-fields"></div>
+
+            <p id="coherence-modal-error" class="coherence-error hidden" role="alert"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="secondary" id="coherence-skip-btn">Annuler et conserver
+                    les doublons</button>
+                <button type="button" class="primary" id="coherence-confirm-btn">Valider la saisie</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Popup purge RGPD -->
     <div id="conservation-modal-overlay" class="hidden">
         <div id="conservation-modal" role="dialog" aria-modal="true" aria-labelledby="conservation-modal-title">
@@ -232,6 +263,7 @@
 
     <script src="../shared/search-text.js"></script>
     <script src="../shared/ecoles-actives.js"></script>
+    <script src="../shared/liste-pe-coherence.js"></script>
     <script src="../shared/grist-columns.js"></script>
     <script src="../shared/rgpd-purge.js"></script>
     <script src="../shared/liste-pe-merge.js"></script>

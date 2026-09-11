@@ -25,7 +25,8 @@ const state = {
         modal: false,
         rgpd: false,
         addTeacher: false,
-        quitSchool: false
+        quitSchool: false,
+        coherence: false
     }
 };
 
@@ -316,6 +317,7 @@ async function loadAllData(skipMerge) {
         attachRgpdListeners();
         attachAddTeacherListeners();
         attachQuitSchoolListeners();
+        attachCoherenceListeners();
 
         state.canCreateFiche = await detectCreateFichePermission();
         applyCreateFichePermission();
@@ -327,11 +329,18 @@ async function loadAllData(skipMerge) {
         showStatus('Erreur lors du chargement des données. Vérifiez la configuration des tables.', true);
     }
 
-    // Bandeau RGPD — isolé du rendu principal du tableau de bord.
+    // Bandeaux — isolés du rendu principal du tableau de bord : l'échec d'un
+    // contrôle ne doit pas priver l'utilisateur du tableau lui-même.
     try {
         refreshRgpdBanner();
     } catch (rgpdBannerErr) {
         console.error('[RGPD] Échec du bandeau :', rgpdBannerErr);
+    }
+
+    try {
+        refreshCoherenceBanner();
+    } catch (coherenceBannerErr) {
+        console.error('[Cohérence] Échec du bandeau :', coherenceBannerErr);
     }
 }
 
@@ -2314,6 +2323,329 @@ function attachRgpdListeners() {
     confirmBtn.addEventListener('click', confirmRgpdPurge);
 
     state.listenersAttached.rgpd = true;
+}
+
+/* ==========================================================================
+   Contrôle des lignes incohérentes.
+
+   Détection partagée : objet global ListePeCoherence
+   (../shared/liste-pe-coherence.js). Rien n'est écrit automatiquement — à la
+   différence de la fusion des doublons, ce contrôle ne fait que signaler, et
+   l'utilisateur arbitre donnée par donnée.
+
+   Réservé aux utilisateurs habilités : renseigner un ID_PE est justement ce
+   que le contrôle demande, et eux seuls en ont le droit.
+   ========================================================================== */
+
+const coherenceState = {
+    groups: [],
+    index: 0,
+    excluded: new Set(),   // rowIds écartés de l'harmonisation du groupe courant
+    busy: false
+};
+
+const COHERENCE_FIELD_LABELS = {
+    ID_PE: 'Identifiant personnel',
+    Civilite: 'Civilité',
+    Nom: 'Nom',
+    Prenom: 'Prénom',
+    Mail: 'Mail'
+};
+
+const COHERENCE_REASON_LABELS = {
+    'mail-identique': 'même mail, identifiants personnels différents',
+    'mail-proche': 'mails très proches, dont une ligne sans identifiant personnel',
+    'identite': 'même identifiant personnel, identité différente'
+};
+
+function computeCoherenceGroups() {
+    if (typeof ListePeCoherence === 'undefined') {
+        console.warn('[Cohérence] Module ../shared/liste-pe-coherence.js non chargé.');
+        return [];
+    }
+    if (!state.canCreateFiche) return [];
+    return ListePeCoherence.findIncoherentGroups(state.personnels);
+}
+
+function refreshCoherenceBanner() {
+    const notice = document.getElementById('coherence-check');
+    const text = document.getElementById('coherence-check-text');
+    if (!notice || !text) {
+        console.warn('[Cohérence] Élément #coherence-check introuvable dans le DOM.');
+        return;
+    }
+
+    coherenceState.groups = computeCoherenceGroups();
+
+    if (!coherenceState.groups.length) {
+        notice.classList.add('hidden');
+        return;
+    }
+
+    const nbGroupes = coherenceState.groups.length;
+    const nbLignes = coherenceState.groups.reduce((sum, g) => sum + g.rows.length, 0);
+    text.textContent = nbGroupes === 1
+        ? '⚠️ Un groupe de ' + nbLignes + ' lignes incohérentes a été détecté.'
+        : '⚠️ ' + nbGroupes + ' groupes de lignes incohérentes ont été détectés, '
+            + nbLignes + ' lignes au total.';
+    notice.classList.remove('hidden');
+}
+
+function showCoherenceError(message) {
+    const el = document.getElementById('coherence-modal-error');
+    el.textContent = message;
+    el.classList.toggle('hidden', !message);
+}
+
+// Lignes du groupe courant retenues pour l'harmonisation.
+function coherenceIncludedRows() {
+    const group = coherenceState.groups[coherenceState.index];
+    if (!group) return [];
+    return group.rows.filter(row => !coherenceState.excluded.has(row.id));
+}
+
+// Valeurs actuellement cochées, pour les reconduire d'un rendu à l'autre.
+function readCoherenceSelections() {
+    const selections = {};
+    document.querySelectorAll('#coherence-fields input[type="radio"]:checked')
+        .forEach(radio => {
+            selections[radio.name.replace(/^coherence-/, '')] = radio.value;
+        });
+    return selections;
+}
+
+function renderCoherenceRows() {
+    const group = coherenceState.groups[coherenceState.index];
+    const container = document.getElementById('coherence-rows');
+    container.textContent = '';
+
+    // L'exclusion n'a de sens qu'au-delà de deux lignes : à deux, en écarter
+    // une revient à ne rien harmoniser, ce que fait déjà « Annuler ».
+    const canExclude = group.rows.length > 2;
+
+    group.rows.forEach((row, position) => {
+        const item = document.createElement('div');
+        item.className = 'coherence-row';
+
+        const title = document.createElement('div');
+        title.className = 'coherence-row-title';
+        title.textContent = 'Ligne ' + (position + 1);
+
+        const values = document.createElement('div');
+        values.className = 'coherence-row-values';
+        values.textContent = ListePeCoherence.HARMONIZED_FIELDS
+            .map(field => sanitizeText(row[field]) || '—')
+            .join('  ;  ');
+
+        // Année et école : de quoi reconnaître un faux positif avant d'écarter
+        // une ligne.
+        const context = document.createElement('div');
+        context.className = 'coherence-row-context';
+        // Le contrôle porte sur toute la table, y compris les lignes
+        // rattachées à un établissement écarté par Ecoles.OK : celles-là ont
+        // bien une école, simplement absente des données chargées.
+        const ecoleRowId = getPersonnelEcoleRowId(row) || 0;
+        const ecole = getEcoleById(ecoleRowId);
+        const ecoleLabel = ecole
+            ? formatEcoleFull(ecole)
+            : (ecoleRowId > 0 ? 'établissement hors périmètre' : 'sans école');
+        context.textContent = [sanitizeText(row.Annee_scolaire), ecoleLabel]
+            .filter(Boolean).join(' · ');
+
+        item.append(title, values, context);
+
+        if (canExclude) {
+            const label = document.createElement('label');
+            label.className = 'coherence-exclude';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.addEventListener('change', () => {
+                if (cb.checked) coherenceState.excluded.add(row.id);
+                else coherenceState.excluded.delete(row.id);
+                // Les valeurs proposées dépendent des lignes retenues.
+                renderCoherenceFields();
+            });
+            label.append(cb, document.createTextNode(" Écarter cette ligne de l'harmonisation"));
+            item.appendChild(label);
+        }
+
+        container.appendChild(item);
+    });
+}
+
+function renderCoherenceFields() {
+    const container = document.getElementById('coherence-fields');
+    const previous = readCoherenceSelections();
+    container.textContent = '';
+
+    const addNotice = (message) => {
+        const p = document.createElement('p');
+        p.className = 'coherence-reasons';
+        p.textContent = message;
+        container.appendChild(p);
+    };
+
+    const rows = coherenceIncludedRows();
+    if (rows.length < 2) {
+        addNotice('Au moins deux lignes doivent rester retenues pour harmoniser.');
+        return;
+    }
+
+    const choices = ListePeCoherence.fieldChoices(rows);
+    if (!choices.length) {
+        addNotice('Les lignes retenues ne divergent sur aucune donnée.');
+        return;
+    }
+
+    choices.forEach(({ field, values }) => {
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'coherence-field';
+
+        const legend = document.createElement('legend');
+        legend.textContent = COHERENCE_FIELD_LABELS[field] || field;
+        fieldset.appendChild(legend);
+
+        // Une seule valeur : rien à arbitrer, la donnée manque simplement sur
+        // certaines lignes. Sans cette mention, un bouton radio unique
+        // passerait pour un défaut d'affichage.
+        if (values.length === 1) {
+            const note = document.createElement('p');
+            note.className = 'coherence-reasons';
+            note.textContent = 'Absent de certaines lignes, sera reporté sur toutes.';
+            fieldset.appendChild(note);
+        }
+
+        // Choix reconduit s'il existe encore, sinon première valeur.
+        const keep = values.includes(previous[field]) ? previous[field] : values[0];
+
+        values.forEach(value => {
+            const label = document.createElement('label');
+            label.className = 'coherence-option';
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'coherence-' + field;
+            radio.value = value;
+            radio.checked = value === keep;
+            label.append(radio, document.createTextNode(' ' + value));
+            fieldset.appendChild(label);
+        });
+
+        container.appendChild(fieldset);
+    });
+}
+
+function renderCoherenceGroup() {
+    const group = coherenceState.groups[coherenceState.index];
+    if (!group) {
+        closeCoherenceModal();
+        return;
+    }
+
+    coherenceState.excluded.clear();
+    showCoherenceError('');
+    // Vidé avant le rendu : sans cela, les choix du groupe précédent seraient
+    // reconduits sur celui-ci.
+    document.getElementById('coherence-fields').textContent = '';
+
+    const progress = document.getElementById('coherence-modal-progress');
+    progress.textContent = coherenceState.groups.length > 1
+        ? 'Groupe ' + (coherenceState.index + 1) + ' sur ' + coherenceState.groups.length
+        : '';
+
+    document.getElementById('coherence-modal-reasons').textContent = group.reasons
+        .map(reason => COHERENCE_REASON_LABELS[reason] || reason)
+        .join(' · ');
+
+    renderCoherenceRows();
+    renderCoherenceFields();
+}
+
+function openCoherenceModal() {
+    // Recalcul : les données ont pu changer depuis l'affichage du bandeau.
+    refreshCoherenceBanner();
+    if (!coherenceState.groups.length) {
+        showToast('Aucune incohérence à traiter.', 'success');
+        return;
+    }
+
+    coherenceState.index = 0;
+    document.getElementById('coherence-modal-overlay').classList.remove('hidden');
+    renderCoherenceGroup();
+}
+
+function closeCoherenceModal() {
+    document.getElementById('coherence-modal-overlay').classList.add('hidden');
+    coherenceState.excluded.clear();
+    showCoherenceError('');
+}
+
+// « Annuler et conserver les doublons » : ce groupe reste tel quel, on passe
+// au suivant s'il y en a un.
+function skipCoherenceGroup() {
+    if (coherenceState.index + 1 < coherenceState.groups.length) {
+        coherenceState.index += 1;
+        renderCoherenceGroup();
+        return;
+    }
+    closeCoherenceModal();
+}
+
+async function confirmCoherenceHarmonize() {
+    if (coherenceState.busy) return;
+
+    const rows = coherenceIncludedRows();
+    if (rows.length < 2) {
+        showCoherenceError('Au moins deux lignes doivent rester retenues.');
+        return;
+    }
+
+    const actions = ListePeCoherence.buildHarmonizeActions(rows, readCoherenceSelections());
+    if (!actions.length) {
+        showCoherenceError('Aucune modification à enregistrer pour ce groupe.');
+        return;
+    }
+
+    coherenceState.busy = true;
+    showCoherenceError('');
+    try {
+        await grist.docApi.applyUserActions(actions);
+        showToast('Lignes harmonisées.', 'success');
+        closeCoherenceModal();
+        // Rechargement complet : l'harmonisation d'un ID_PE peut rendre des
+        // lignes strictement identiques, que la fusion automatique traitera.
+        await loadAllData();
+    } catch (err) {
+        console.error('[Cohérence] Échec de l\'harmonisation :', err);
+        showCoherenceError("Erreur lors de l'enregistrement.");
+    } finally {
+        coherenceState.busy = false;
+    }
+}
+
+function attachCoherenceListeners() {
+    if (state.listenersAttached.coherence) return;
+
+    const overlay = document.getElementById('coherence-modal-overlay');
+    const reviewBtn = document.getElementById('coherence-review-btn');
+    if (!overlay || !reviewBtn) return;
+
+    reviewBtn.addEventListener('click', openCoherenceModal);
+    document.getElementById('coherence-skip-btn')
+        .addEventListener('click', skipCoherenceGroup);
+    document.getElementById('coherence-confirm-btn')
+        .addEventListener('click', confirmCoherenceHarmonize);
+
+    overlay.addEventListener('click', evt => {
+        if (evt.target === overlay) closeCoherenceModal();
+    });
+
+    document.addEventListener('keydown', evt => {
+        if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeCoherenceModal();
+        }
+    });
+
+    state.listenersAttached.coherence = true;
 }
 
 /* ==========================================================================
