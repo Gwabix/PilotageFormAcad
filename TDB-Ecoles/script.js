@@ -2716,11 +2716,13 @@ async function submitCreateTeacher() {
     document.getElementById('create-nom').value = nom;
     document.getElementById('create-prenom').value = prenom;
 
-    if (!civilite || !nom || !prenom || !fonction || !quotite || !Number.isFinite(ecoleId)) {
-        showCreateError('Civilité, nom, prénom, école, fonction et quotité sont obligatoires.');
+    // Mail obligatoire : ID_PE n'étant plus saisi, c'est la seule donnée qui
+    // permettra de rattacher cette fiche à un enseignant déjà identifié.
+    if (!civilite || !nom || !prenom || !mail || !fonction || !quotite || !Number.isFinite(ecoleId)) {
+        showCreateError('Civilité, nom, prénom, mail, école, fonction et quotité sont obligatoires.');
         return;
     }
-    if (mail && !CREATE_MAIL_PATTERN.test(mail)) {
+    if (!CREATE_MAIL_PATTERN.test(mail)) {
         showCreateError('Adresse mail invalide (attendu : …@ac-montpellier.fr).');
         return;
     }
