@@ -372,12 +372,72 @@ select:focus,
     font-style: italic;
 }
 
+/* Regroupement des enseignants par école : le nom de l'établissement titre le
+   groupe au lieu d'être répété sur chaque ligne. */
+.enseignants-ecole-group {
+    margin-bottom: 22px;
+}
+
+.enseignants-ecole-group:last-child {
+    margin-bottom: 0;
+}
+
+.enseignants-ecole-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 15px;
+}
+
+.enseignants-ecole-name {
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.enseignants-ecole-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: #7f8c8d;
+    white-space: nowrap;
+}
+
 .enseignant-item {
     background-color: #fafafa;
     padding: 15px;
     margin-bottom: 15px;
     border-radius: 6px;
     border: 1px solid #e0e0e0;
+    transition: padding 0.15s ease, margin-bottom 0.15s ease,
+        background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Enseignant décoché : hors de la formation, sa ligne n'a plus à occuper de
+   place. Les niveaux sont masqués — ils n'ont pas de sens pour un enseignant
+   écarté, et c'est ce qui libère le plus de hauteur. */
+.enseignant-item.enseignant-item--off {
+    padding: 6px 12px;
+    margin-bottom: 6px;
+    background-color: #f4f5f6;
+    border-color: #e8eaec;
+}
+
+.enseignant-item.enseignant-item--off .enseignant-header {
+    margin-bottom: 0;
+}
+
+.enseignant-item.enseignant-item--off .enseignant-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: #95a1ab;
+}
+
+.enseignant-item.enseignant-item--off .enseignant-niveaux-section {
+    display: none;
 }
 
 .enseignant-header {
@@ -397,12 +457,6 @@ select:focus,
     font-weight: 600;
     color: #2c3e50;
     flex-grow: 1;
-}
-
-.enseignant-school {
-    font-size: 12px;
-    color: #7f8c8d;
-    margin-left: 10px;
 }
 
 /* Ligne liée : même enseignant déjà présent sur une autre école sélectionnée.

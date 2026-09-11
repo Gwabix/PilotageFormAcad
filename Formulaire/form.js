@@ -1295,12 +1295,6 @@ function updateEnseignantsList() {
         selectedRowIds.has(Number(ens.ecole_rowid)) && ens.annee_scolaire === anneeScolaire
     );
 
-    if (filteredEnseignants.length === 0) {
-        container.innerHTML = '<div class="no-enseignants">Aucun enseignant trouvé pour ces écoles</div>';
-        enseignantsMap.clear();
-        return;
-    }
-
     enseignantsMap.clear();
     filteredEnseignants.forEach(ens => {
         enseignantsMap.set(ens.id, {
@@ -1309,14 +1303,42 @@ function updateEnseignantsList() {
         });
     });
 
-    buildEnseignantGroups(filteredEnseignants);
+    /*
+     * Regroupement par école, dans l'ordre de sélection des écoles, puis par
+     * nom et prénom dans chaque groupe.
+     *
+     * Une école sans enseignant garde son groupe, avec une mention : c'est
+     * l'information utile, et c'est là que l'on voudra ajouter un enseignant
+     * manquant.
+     *
+     * buildEnseignantGroups() désigne la ligne « pilote » d'un enseignant
+     * présent sur plusieurs écoles d'après l'ordre qu'il reçoit. Il doit donc
+     * voir exactement la séquence affichée, d'où la liste `ordered`.
+     */
+    const groupesEcoles = [];
+    const ordered = [];
+    for (const ecoleSelectionnee of selectedEcoles) {
+        const rowId = Number(ecoleSelectionnee.id);
+        const membres = filteredEnseignants
+            .filter(ens => Number(ens.ecole_rowid) === rowId)
+            .sort((a, b) =>
+                (a.nom || '').localeCompare(b.nom || '', 'fr')
+                || (a.prenom || '').localeCompare(b.prenom || '', 'fr'));
+
+        groupesEcoles.push({
+            ecole: findEcoleByRowId(rowId) || ecoleSelectionnee,
+            membres
+        });
+        ordered.push(...membres);
+    }
+
+    buildEnseignantGroups(ordered);
 
     // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
     // SÉCURITÉ : Template complexe avec 8 variables dynamiques, toutes échappées.
     // IMPORTANT : Lors de l'ajout de nouvelles variables, utiliser escapeHtml() pour le contenu
     // et escapeHtmlAttribute() pour les attributs HTML.
-    container.innerHTML = filteredEnseignants.map(ens => {
-        const ecole = findEcoleByRowId(ens.ecole_rowid);
+    const renderEnseignant = (ens) => {
         const currentNiveaux = enseignantsMap.get(ens.id)?.niveaux || [];
         const niveauxItems = NIVEAUX_POSSIBLES.map(niveau => {
             const checked = currentNiveaux.includes(niveau) ? 'checked' : '';
@@ -1332,7 +1354,6 @@ function updateEnseignantsList() {
                      data-ens-id="${escapeHtmlAttribute(ens.id)}"
                      checked${lie ? ' disabled title="' + escapeHtmlAttribute(lieTitre) + '"' : ''}>
               <label for="ens_${escapeHtmlAttribute(ens.id)}" class="enseignant-name">${escapeHtml(ens.nom)} ${escapeHtml(ens.prenom)}</label>
-                            <span class="enseignant-school">${ecole ? escapeHtml(getEcoleDisplayName(ecole)) : ''}</span>
                             ${lie ? `<span class="enseignant-lie-badge" title="${escapeHtmlAttribute(lieTitre)}">déjà compté</span>` : ''}
             </div>
             <div class="enseignant-niveaux-section" id="niveaux_${escapeHtmlAttribute(ens.id)}">
@@ -1341,7 +1362,21 @@ function updateEnseignantsList() {
             </div>
           </div>
         `;
-    }).join('');
+    };
+
+    // Le nom de l'école n'est plus répété sur chaque enseignant : il titre
+    // son groupe.
+    container.innerHTML = groupesEcoles.map(({ ecole, membres }) => `
+        <section class="enseignants-ecole-group">
+          <h3 class="enseignants-ecole-title">
+            <span class="enseignants-ecole-name">${escapeHtml(getEcoleDisplayName(ecole))}</span>
+            <span class="enseignants-ecole-count">${membres.length} enseignant${membres.length > 1 ? 's' : ''}</span>
+          </h3>
+          ${membres.length
+            ? membres.map(renderEnseignant).join('')
+            : '<div class="no-enseignants">Aucun enseignant trouvé pour cette école</div>'}
+        </section>
+    `).join('');
 
     // Ajouter les event listeners après insertion du HTML
     container.querySelectorAll('input[id^="ens_"]').forEach(checkbox => {
@@ -1376,9 +1411,15 @@ function toggleEnseignant(ensId) {
 
         // Les niveaux restent propres à chaque école : on ne fait que les
         // (dés)activer selon l'état de sélection.
+        // Décoché : la ligne se réduit et grise, les niveaux sont masqués.
+        const item = rowCheckbox ? rowCheckbox.closest('.enseignant-item') : null;
+        if (item) item.classList.toggle('enseignant-item--off', !checked);
+
         const niveauxDiv = document.getElementById(`niveaux_${rowId}`);
         if (niveauxDiv) {
-            niveauxDiv.style.opacity = checked ? '1' : '0.5';
+            // Les cases restent dans le DOM : les niveaux saisis sont donc
+            // conservés si l'enseignant est recoché. Elles sont désactivées
+            // pour sortir du parcours au clavier une fois masquées.
             niveauxDiv.querySelectorAll('input[type="checkbox"]')
                 .forEach(cb => { cb.disabled = !checked; });
         }
