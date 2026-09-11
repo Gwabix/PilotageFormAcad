@@ -556,6 +556,24 @@ function getRecordEcoleRef(record) {
 }
 
 /**
+ * Row ID de l'école (table Ecoles) rattachée à une ligne Liste_PE.
+ *
+ * Formations.UAI est une colonne de référence vers Ecoles, alimentée côté Grist
+ * par la formule d'initialisation `$ID_PE.UAI`. Le widget écrit la valeur
+ * explicitement pour ne pas dépendre de la configuration du déclencheur : une
+ * case « Appliquer sur les nouvelles lignes » décochée laisse la colonne vide,
+ * sans erreur visible. La valeur écrite est celle que la formule calculerait.
+ *
+ * Retourne 0 (référence vide) si l'école n'est pas résolvable.
+ */
+function getEnseignantEcoleRowId(ensId) {
+    const enseignant = enseignantsData.find(e => e.id === ensId);
+    if (!enseignant) return 0;
+    const rowId = Number(enseignant.ecole_rowid);
+    return Number.isInteger(rowId) && rowId > 0 ? rowId : 0;
+}
+
+/**
  * Valide et parse un entier de manière sécurisée
  * @param {any} value - Valeur à parser
  * @param {number} defaultValue - Valeur par défaut si invalide
@@ -1965,6 +1983,8 @@ async function validerFormulaire() {
 
         const record = {
             ID_PE: ensId,
+            // Écrit explicitement : voir getEnseignantEcoleRowId().
+            UAI: getEnseignantEcoleRowId(ensId),
             ID_fiche: ficheId,
             Nb_ecoles: nbEcoles,
             Nb_PE: nbPE,
@@ -3732,7 +3752,16 @@ async function updateFiche() {
         // Mettre à jour les lignes existantes conservées (préserve les données fiche technique)
         keptEnseignants.forEach(ensData => {
             const oldRec = originalRecordData.find(r => r.idPE === ensData.ensId);
-            actions.push(['UpdateRecord', 'Formations', oldRec.id, { ...sharedFields, ID_PE: ensData.ensId }]);
+            const fields = { ...sharedFields, ID_PE: ensData.ensId };
+            // UAI figé à la création : on ne comble qu'une valeur absente. Le
+            // réaligner sur l'école actuelle de l'enseignant réécrirait
+            // l'historique d'une formation suivie depuis une autre école.
+            const oldEcoleRowId = Number(oldRec.uai);
+            if (!(Number.isInteger(oldEcoleRowId) && oldEcoleRowId > 0)) {
+                const ecoleRowId = getEnseignantEcoleRowId(ensData.ensId);
+                if (ecoleRowId > 0) fields.UAI = ecoleRowId;
+            }
+            actions.push(['UpdateRecord', 'Formations', oldRec.id, fields]);
         });
 
         // Supprimer les lignes des enseignants retirés
@@ -3742,9 +3771,13 @@ async function updateFiche() {
 
         // Ajouter les nouvelles lignes (enseignants ajoutés)
         if (addedEnseignants.length > 0) {
+            // UAI toujours présent : BulkAddRecord construit des colonnes
+            // parallèles, une clé absente d'un seul enregistrement décalerait
+            // toutes les valeurs suivantes.
             const newRecords = addedEnseignants.map(ensData => ({
                 ...sharedFields,
-                ID_PE: ensData.ensId
+                ID_PE: ensData.ensId,
+                UAI: getEnseignantEcoleRowId(ensData.ensId)
             }));
             actions.push(['BulkAddRecord', 'Formations', newRecords.map(() => null),
                 newRecords.reduce((acc, record) => {
