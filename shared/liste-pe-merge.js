@@ -11,6 +11,14 @@
  *     l'enseignant. La ligne détachée est supprimée, ses fiches Formations
  *     repointées vers la ligne conservée.
  *
+ *     Un DÉLAI DE GRÂCE de 10 jours, compté depuis la date de retrait, protège
+ *     les lignes détachées récentes : une circonscription peut créer
+ *     volontairement une ligne sans école — la « libération » d'un enseignant
+ *     dont elle garde l'affectation — pour qu'une autre la récupère. Sans ce
+ *     délai, cette ligne serait supprimée au rechargement suivant. Une ligne
+ *     détachée sans date de retrait n'est jamais supprimée : son âge est
+ *     inconnu.
+ *
  *  2. DOUBLONS — même enseignant, même année scolaire ET même école
  *     (équivalent de `IDunique`), fusionnés selon les règles ci-dessous.
  *
@@ -40,6 +48,15 @@
     const CHOICE_LIST_FIELDS = ['Niveau_x_', 'D_dir', 'TP', 'D_synd_', 'Autre'];
     const TEXT_FIELDS = ['Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction'];
     const NUMBER_IN_TEXT = /(\d+(?:[.,]\d+)?)/;
+    const SECONDS_PER_DAY = 86400;
+
+    // Délai de grâce avant qu'une ligne détachée soit considérée comme
+    // fantôme. Il existe pour la « libération » d'un enseignant : une
+    // circonscription crée volontairement une ligne sans école afin qu'une
+    // autre puisse la récupérer, la première affectation étant conservée.
+    // Sans ce délai, la règle des fantômes supprimerait cette ligne au
+    // rechargement suivant, c'est-à-dire immédiatement.
+    const ORPHAN_GRACE_DAYS = 10;
 
     function refRowId(value) {
         if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -63,6 +80,30 @@
         if (rawValue === null || rawValue === undefined || rawValue === '') return null;
         const num = typeof rawValue === 'number' ? rawValue : Number(rawValue);
         return Number.isFinite(num) ? num : null;
+    }
+
+    function epochSecondsToDayIndex(seconds) {
+        return Math.floor(seconds / SECONDS_PER_DAY);
+    }
+
+    function todayDayIndex() {
+        const now = new Date();
+        return epochSecondsToDayIndex(
+            Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 1000);
+    }
+
+    /**
+     * Une ligne détachée a-t-elle dépassé le délai de grâce ?
+     *
+     * L'âge est compté depuis la date de retrait, seule trace datée d'un
+     * détachement. Sans cette date, l'âge est inconnu : la ligne n'est jamais
+     * supprimée automatiquement, faute de pouvoir prouver que le délai a
+     * couru.
+     */
+    function graceElapsed(row, today) {
+        const retrait = parseDateEpochSeconds(row.Retrait);
+        if (retrait === null) return false;
+        return (today - epochSecondsToDayIndex(retrait)) >= ORPHAN_GRACE_DAYS;
     }
 
     function choiceListValues(raw) {
@@ -232,10 +273,14 @@
             bucket.push(row);
         }
 
+        const today = todayDayIndex();
         const orphans = [];
         for (const rows of byPersonYear.values()) {
             const affected = rows.filter(r => refRowId(r.UAI) > 0);
-            const detached = rows.filter(r => refRowId(r.UAI) <= 0);
+            // Seules les lignes détachées hors délai de grâce sont fantômes :
+            // les récentes peuvent être des libérations en attente de reprise.
+            const detached = rows.filter(r =>
+                refRowId(r.UAI) <= 0 && graceElapsed(r, today));
             if (!affected.length || !detached.length) continue;
 
             const target = affected.slice().sort((a, b) => {

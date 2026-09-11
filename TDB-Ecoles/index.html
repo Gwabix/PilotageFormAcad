@@ -63,6 +63,25 @@
         </div>
     </div>
 
+    <!-- Popup retrait de l'école / libération -->
+    <div id="quit-school-overlay" class="hidden">
+        <div id="quit-school-modal" class="modal-box" role="dialog" aria-modal="true"
+            aria-labelledby="quit-school-title">
+            <h2 id="quit-school-title">Retirer de l'école</h2>
+            <p id="quit-school-question"></p>
+            <p class="quit-school-hint">
+                Créer une ligne rend l'enseignant visible par les autres circonscriptions
+                sans le retirer de cette école. La ligne disparaît d'elle-même si personne
+                ne l'affecte dans les dix jours.
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="secondary" id="quit-school-cancel-btn">Annuler</button>
+                <button type="button" class="primary" id="quit-school-confirm-btn">Retirer de l'école</button>
+                <button type="button" class="primary" id="quit-school-create-btn">Créer une ligne</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Popup ajout d'un enseignant -->
     <div id="add-teacher-overlay" class="hidden">
         <div id="add-teacher-modal" role="dialog" aria-modal="true" aria-labelledby="add-teacher-title">

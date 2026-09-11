@@ -21,7 +21,8 @@ const state = {
         collapse: false,
         modal: false,
         rgpd: false,
-        addTeacher: false
+        addTeacher: false,
+        quitSchool: false
     }
 };
 
@@ -267,6 +268,7 @@ async function loadAllData(skipMerge) {
         attachGlobalCollapseHandler();
         attachRgpdListeners();
         attachAddTeacherListeners();
+        attachQuitSchoolListeners();
         renderDashboard();
         hideStatus();
     } catch (err) {
@@ -1392,10 +1394,9 @@ function buildPersonnelRow(p, ecole) {
     quitBtn.className = 'quit-school-btn';
     quitBtn.textContent = "Retirer de l'école";
     bindQuitSchoolTooltip(quitBtn, p, ecole);
-    quitBtn.addEventListener('click', () => {
-        quitBtn.disabled = true;
-        handleQuitSchool(p).finally(() => { quitBtn.disabled = false; });
-    });
+    // Le retrait n'est plus immédiat : la modale propose aussi de créer une
+    // ligne de libération, pour une affectation multiple.
+    quitBtn.addEventListener('click', () => openQuitSchoolModal(p));
 
     actionButtons.append(changeBtn, quitBtn);
     actionsTd.appendChild(actionButtons);
@@ -1977,6 +1978,118 @@ async function handleQuitSchool(personnelRecord) {
         console.error(err);
         showToast("Erreur lors du retrait de l'enseignant.", 'error');
     }
+}
+
+/* --------------------------------------------------------------------------
+   Choix entre retrait et libération.
+   -------------------------------------------------------------------------- */
+
+const quitSchoolState = { personnel: null, busy: false };
+
+function openQuitSchoolModal(personnelRecord) {
+    quitSchoolState.personnel = personnelRecord;
+
+    const identity = getPersonnelIdentity(personnelRecord) || 'cet enseignant';
+    const question = document.getElementById('quit-school-question');
+    const strong = document.createElement('strong');
+    strong.textContent = identity;
+
+    question.textContent = '';
+    question.append(
+        document.createTextNode('Retirer '),
+        strong,
+        document.createTextNode(" de l'école ou créer une nouvelle ligne "
+            + 'pour une affectation multiple ?')
+    );
+
+    document.getElementById('quit-school-overlay').classList.remove('hidden');
+    document.getElementById('quit-school-confirm-btn').focus();
+}
+
+function closeQuitSchoolModal() {
+    document.getElementById('quit-school-overlay').classList.add('hidden');
+    quitSchoolState.personnel = null;
+}
+
+/**
+ * « Créer une ligne » : libération d'un enseignant.
+ *
+ * L'affectation actuelle est CONSERVÉE. Une seconde ligne Liste_PE est créée
+ * sans école, ce qui la rend visible de toutes les circonscriptions — les
+ * règles d'accès laissent voir les enseignants sans affectation. Une autre
+ * circonscription la récupère ensuite par « Ajouter un enseignant », qui
+ * réécrit son UAI et efface sa date de retrait.
+ *
+ * La date de retrait du jour a deux rôles : elle maintient la prise de la
+ * purge RGPD sur cette ligne, qui sans date ne serait jamais purgeable, et
+ * elle date le délai de grâce au-delà duquel la ligne est effacée si personne
+ * ne l'a reprise (voir ../shared/liste-pe-merge.js).
+ */
+async function createLiberationRow(personnelRecord) {
+    const identity = getPersonnelIdentity(personnelRecord);
+
+    try {
+        await grist.docApi.applyUserActions([
+            ['AddRecord', 'Liste_PE', null, {
+                ID_PE: personnelRecord.ID_PE || '',
+                Civilite: personnelRecord.Civilite || '',
+                Nom: personnelRecord.Nom || '',
+                Prenom: personnelRecord.Prenom || '',
+                Mail: personnelRecord.Mail || '',
+                Annee_scolaire: personnelRecord.Annee_scolaire,
+                Quotite_de_service: personnelRecord.Quotite_de_service || '',
+                UAI: 0,
+                Fonction: '',
+                Niveau_x_: ['L'],
+                Retrait: todayDateEpochSeconds()
+            }]
+        ]);
+
+        showToast('Ligne sans école créée pour ' + (identity || 'l\'enseignant')
+            + '. Une autre circonscription peut désormais l\'affecter.', 'success');
+        await loadAllData();
+    } catch (err) {
+        console.error('[Libération] Échec :', err);
+        showToast('Erreur lors de la création de la ligne.', 'error');
+    }
+}
+
+function attachQuitSchoolListeners() {
+    if (state.listenersAttached.quitSchool) return;
+
+    const overlay = document.getElementById('quit-school-overlay');
+    if (!overlay) return;
+
+    // L'enseignant est capté avant la fermeture, qui remet l'état à zéro.
+    const run = (action) => {
+        if (quitSchoolState.busy) return;
+        const personnel = quitSchoolState.personnel;
+        if (!personnel) return;
+
+        quitSchoolState.busy = true;
+        closeQuitSchoolModal();
+        Promise.resolve(action(personnel))
+            .finally(() => { quitSchoolState.busy = false; });
+    };
+
+    document.getElementById('quit-school-confirm-btn')
+        .addEventListener('click', () => run(handleQuitSchool));
+    document.getElementById('quit-school-create-btn')
+        .addEventListener('click', () => run(createLiberationRow));
+    document.getElementById('quit-school-cancel-btn')
+        .addEventListener('click', closeQuitSchoolModal);
+
+    overlay.addEventListener('click', evt => {
+        if (evt.target === overlay) closeQuitSchoolModal();
+    });
+
+    document.addEventListener('keydown', evt => {
+        if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeQuitSchoolModal();
+        }
+    });
+
+    state.listenersAttached.quitSchool = true;
 }
 
 async function restoreTeacherAssignment(personnelId, previous, identity) {
