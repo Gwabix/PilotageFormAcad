@@ -2514,9 +2514,17 @@ async function applyAffectations(keepEcoleIds) {
    -------------------------------------------------------------------------- */
 
 const CREATE_MAIL_PATTERN = /^[^\W][a-zA-Z0-9\-._]+[^\W]@ac-montpellier\.fr$/;
-// Identifiant personnel (clé) : 4 à 6 chiffres.
-// Stocké en TEXTE dans Liste_PE.ID_PE, pour ne pas perdre un zéro initial.
-const CREATE_ID_PE_PATTERN = /^\d{4,6}$/;
+
+/*
+ * ID_PE n'est PAS saisi ici : trop peu d'utilisateurs y ont accès, et une
+ * saisie approximative était la principale source de fiches erronées. La
+ * colonne reste vide jusqu'à ce qu'un utilisateur habilité la renseigne,
+ * via le contrôle des doublons incohérents.
+ *
+ * Conséquence à connaître : une ligne sans ID_PE est ignorée par la fusion
+ * automatique des doublons comme par la surveillance RGPD, qui identifient
+ * tous deux une personne par cette clé.
+ */
 
 const DECHARGE_FIELDS = [
     { field: 'D_dir', label: 'Décharge de direction' },
@@ -2623,7 +2631,7 @@ function openCreateTeacherForm() {
     fillSelect(document.getElementById('create-fonction'), FONCTION_OPTIONS);
     fillSelect(document.getElementById('create-quotite'), QUOTITE_OPTIONS, '100%');
 
-    ['create-nom', 'create-prenom', 'create-id-pe', 'create-mail'].forEach(id => {
+    ['create-nom', 'create-prenom', 'create-mail'].forEach(id => {
         document.getElementById(id).value = '';
     });
 
@@ -2700,7 +2708,6 @@ async function submitCreateTeacher() {
     const civilite = document.getElementById('create-civilite').value;
     const nom = toUpperNoAccent(document.getElementById('create-nom').value);
     const prenom = toUpperNoAccent(document.getElementById('create-prenom').value);
-    const idPe = sanitizeText(document.getElementById('create-id-pe').value);
     const mail = sanitizeText(document.getElementById('create-mail').value);
     const fonction = document.getElementById('create-fonction').value;
     const quotite = document.getElementById('create-quotite').value;
@@ -2709,12 +2716,8 @@ async function submitCreateTeacher() {
     document.getElementById('create-nom').value = nom;
     document.getElementById('create-prenom').value = prenom;
 
-    if (!civilite || !nom || !prenom || !idPe || !fonction || !quotite || !Number.isFinite(ecoleId)) {
-        showCreateError('Civilité, nom, prénom, identifiant personnel, école, fonction et quotité sont obligatoires.');
-        return;
-    }
-    if (!CREATE_ID_PE_PATTERN.test(idPe)) {
-        showCreateError('L\'identifiant personnel doit comporter 4 à 6 chiffres.');
+    if (!civilite || !nom || !prenom || !fonction || !quotite || !Number.isFinite(ecoleId)) {
+        showCreateError('Civilité, nom, prénom, école, fonction et quotité sont obligatoires.');
         return;
     }
     if (mail && !CREATE_MAIL_PATTERN.test(mail)) {
@@ -2736,7 +2739,8 @@ async function submitCreateTeacher() {
         : '';
 
     const fields = {
-        ID_PE: idPe,
+        // Laissé vide volontairement : voir le commentaire sur ID_PE plus haut.
+        ID_PE: '',
         Civilite: civilite,
         Nom: nom,
         Prenom: prenom,

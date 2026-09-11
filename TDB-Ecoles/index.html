@@ -117,16 +117,12 @@
                         <small id="create-prenom-hint">Majuscules sans accent</small>
                     </div>
                     <div class="create-field">
-                        <label for="create-id-pe">Identifiant personnel *</label>
-                        <input type="text" id="create-id-pe" autocomplete="off"
-                            inputmode="numeric" maxlength="6"
-                            aria-describedby="create-id-pe-hint">
-                        <small id="create-id-pe-hint">4 à 6 chiffres</small>
-                    </div>
-                    <div class="create-field">
                         <label for="create-mail">Mail</label>
                         <input type="email" id="create-mail" autocomplete="off"
-                            placeholder="prenom.nom@ac-montpellier.fr">
+                            placeholder="prenom.nom@ac-montpellier.fr"
+                            aria-describedby="create-mail-hint">
+                        <small id="create-mail-hint">Recommandé : sans mail, cette fiche ne pourra pas
+                            être rapprochée automatiquement d'un enseignant déjà connu.</small>
                     </div>
                     <div class="create-field">
                         <label for="create-fonction">Fonction *</label>
