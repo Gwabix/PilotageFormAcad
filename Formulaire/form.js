@@ -846,6 +846,9 @@ async function loadData() {
             Mail: (enseignantsTable.Mail || [])[index],
             Annee_scolaire: enseignantsTable.Annee_scolaire[index],
             UAI: (enseignantsTable.UAI || [])[index],
+            // Colonne formule : libellé de l'école lisible même quand la ligne
+            // d'Ecoles est hors du périmètre de l'utilisateur.
+            Ecole: (enseignantsTable.Ecole || [])[index],
             Quotite_de_service: (enseignantsTable.Quotite_de_service || [])[index]
         }));
 
@@ -1480,6 +1483,27 @@ function formatEcoleLong(ecole) {
         .join(' ') || 'école inconnue';
 }
 
+/**
+ * Libellé d'une affectation existante.
+ *
+ * D'abord celui porté par la ligne Liste_PE, qui reste lisible même quand
+ * l'école est hors du périmètre de l'utilisateur — le cas des titulaires
+ * remplaçants, visibles dans tout le département alors que les écoles ne le
+ * sont qu'à l'échelle de la circonscription. La table Ecoles n'est qu'un
+ * recours, et la mention « hors périmètre » dit la vérité quand ni l'une ni
+ * l'autre n'aboutit.
+ *
+ * @param {{ ecoleRowId: number, ecoleLabel: string }} affectation
+ * @returns {string}
+ */
+function affectationLabel(affectation) {
+    if (!affectation) return 'établissement inconnu';
+    if (affectation.ecoleLabel) return affectation.ecoleLabel;
+
+    const ecole = findEcoleByRowId(affectation.ecoleRowId);
+    return ecole ? formatEcoleLong(ecole) : 'établissement hors périmètre';
+}
+
 // Année scolaire sélectionnée, sous forme d'année de début.
 function selectedYearStart() {
     const value = document.getElementById('anneeScolaire')?.value || '';
@@ -1627,7 +1651,7 @@ function openAddTeacherModal(ecole) {
 
         const cibleLabel = formatEcoleLong(ecole);
         const identity = person.identity || 'cet enseignant';
-        const labelOf = (ecoleRowId) => formatEcoleLong(findEcoleByRowId(ecoleRowId));
+        const labelOf = affectationLabel;
 
         if (person.affectations.length === 0) {
             texte.textContent = `Rattacher ${identity} à ${cibleLabel} ?`;
@@ -1637,7 +1661,7 @@ function openAddTeacherModal(ecole) {
         } else if (person.affectations.length === 1) {
             const actuelle = person.affectations[0];
             texte.textContent = `${identity} est actuellement rattaché(e) à `
-                + `${labelOf(actuelle.ecoleRowId)}. Souhaitez-vous conserver cette `
+                + `${labelOf(actuelle)}. Souhaitez-vous conserver cette `
                 + `affectation ou la remplacer par ${cibleLabel} ?`;
             addAction('Annuler', close, true);
             addAction('Remplacer l\'affectation', () => appliquer(person, [ecole.id]));
@@ -1650,7 +1674,7 @@ function openAddTeacherModal(ecole) {
                 + 'Veuillez sélectionner les affectations à conserver.';
 
             const entries = person.affectations.map(a => ({
-                ecoleId: a.ecoleRowId, label: labelOf(a.ecoleRowId), checked: true
+                ecoleId: a.ecoleRowId, label: labelOf(a), checked: true
             }));
             entries.push({ ecoleId: ecole.id, label: cibleLabel, checked: false });
 
@@ -1723,7 +1747,7 @@ function openAddTeacherModal(ecole) {
 
                 const meta = document.createElement('small');
                 const labels = person.affectations
-                    .map(a => formatEcoleLong(findEcoleByRowId(a.ecoleRowId)))
+                    .map(a => affectationLabel(a))
                     .filter(Boolean);
                 meta.textContent = (person.idPe ? person.idPe + ' · ' : '')
                     + (labels.length ? labels.join(' ; ') : 'aucune affectation');

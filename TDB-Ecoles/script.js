@@ -2559,14 +2559,18 @@ function renderCoherenceRows() {
         // une ligne.
         const context = document.createElement('div');
         context.className = 'coherence-row-context';
-        // Le contrôle porte sur toute la table, y compris les lignes
-        // rattachées à un établissement écarté par Ecoles.OK : celles-là ont
-        // bien une école, simplement absente des données chargées.
+        /*
+         * Le libellé vient d'abord de la ligne elle-même, via la colonne
+         * formule Liste_PE.Ecole : une école peut être absente des données
+         * chargées soit parce que Ecoles.OK l'écarte, soit parce qu'elle est
+         * hors du périmètre de lecture de l'utilisateur. Dans les deux cas la
+         * ligne a bien une école, et l'afficher aide à reconnaître un faux
+         * positif avant d'écarter une ligne.
+         */
         const ecoleRowId = getPersonnelEcoleRowId(row) || 0;
-        const ecole = getEcoleById(ecoleRowId);
-        const ecoleLabel = ecole
-            ? formatEcoleFull(ecole)
-            : (ecoleRowId > 0 ? 'établissement hors périmètre' : 'sans école');
+        const ecoleLabel = ecoleRowId > 0
+            ? affectationLabel({ ecoleRowId, ecoleLabel: sanitizeText(row.Ecole) })
+            : 'sans école';
         context.textContent = [sanitizeText(row.Annee_scolaire), ecoleLabel]
             .filter(Boolean).join(' · ');
 
@@ -2792,9 +2796,25 @@ function getEcoleById(rowId) {
 
 // Personnes visibles, regroupées par ID_PE, avec leurs lignes de l'année
 // courante. Une personne sans ID_PE est identifiée par sa ligne.
+/**
+ * Libellé d'une affectation existante.
+ *
+ * D'abord celui porté par la ligne Liste_PE, via sa colonne formule Ecole,
+ * qui reste lisible même quand l'école est hors du périmètre de
+ * l'utilisateur : un titulaire remplaçant est visible dans tout le
+ * département, alors que les écoles ne le sont qu'à l'échelle de la
+ * circonscription. La table Ecoles n'est qu'un recours, et la mention
+ * « hors périmètre » dit la vérité quand ni l'une ni l'autre n'aboutit.
+ */
+function affectationLabel(affectation) {
+    if (!affectation) return 'établissement inconnu';
+    if (affectation.ecoleLabel) return affectation.ecoleLabel;
+
+    const ecole = getEcoleById(affectation.ecoleRowId);
+    return ecole ? formatEcoleFull(ecole) : 'établissement hors périmètre';
+}
+
 // Index et recherche : logique partagée, voir ../shared/liste-pe-affectation.js.
-// Les affectations y portent un `ecoleRowId` ; l'établissement est résolu ici,
-// à l'affichage.
 function buildPersonIndex() {
     return ListePeAffectation.buildPersonIndex(state.personnels, state.currentYear);
 }
@@ -2855,7 +2875,7 @@ function renderAddTeacherResults() {
         const meta = document.createElement('span');
         meta.className = 'add-teacher-result-meta';
         const affectations = person.affectations
-            .map(a => formatEcoleFull(getEcoleById(a.ecoleRowId)))
+            .map(a => affectationLabel(a))
             .filter(Boolean);
         meta.textContent = (person.idPe ? ' · ' + person.idPe : '')
             + ' · ' + (affectations.length
@@ -2933,7 +2953,7 @@ function openAddTeacherConfirm(person) {
         renderConfirmText(textEl, [
             identity + ' est actuellement rattaché' + suffixeGenre(person.civilite) + ' à',
             'br',
-            { ecole: formatEcoleFull(getEcoleById(actuelle.ecoleRowId)) },
+            { ecole: affectationLabel(actuelle) },
             'br',
             'souhaitez-vous conserver cette affectation ou la remplacer par',
             'br',
@@ -2956,7 +2976,7 @@ function openAddTeacherConfirm(person) {
 
         const entries = person.affectations.map(a => ({
             ecoleId: a.ecoleRowId,
-            label: formatEcoleFull(getEcoleById(a.ecoleRowId)),
+            label: affectationLabel(a),
             checked: true
         }));
         entries.push({ ecoleId: cible.id, label: formatEcoleFull(cible), checked: false });

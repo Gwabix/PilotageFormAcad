@@ -133,9 +133,24 @@
                 currentYearStart === null || currentYearStart === undefined
                 || schoolYearStartOf(row) === currentYearStart);
 
+            /*
+             * `ecoleLabel` vient de la colonne formule Liste_PE.Ecole, et non
+             * d'une résolution dans la table Ecoles.
+             *
+             * Cela compte : un titulaire remplaçant est visible dans tout le
+             * département, alors que les écoles ne le sont qu'à l'échelle de
+             * la circonscription. Résoudre le libellé depuis Ecoles renvoyait
+             * donc « école inconnue » pour ses affectations hors périmètre.
+             * La colonne formule, elle, est calculée côté serveur et relève
+             * des règles d'accès de Liste_PE : elle est complète.
+             */
             person.affectations = person.yearRows
                 .filter(row => ecoleRowIdOf(row) > 0)
-                .map(row => ({ row, ecoleRowId: ecoleRowIdOf(row) }));
+                .map(row => ({
+                    row,
+                    ecoleRowId: ecoleRowIdOf(row),
+                    ecoleLabel: text(row.Ecole)
+                }));
         }
 
         return byKey;
