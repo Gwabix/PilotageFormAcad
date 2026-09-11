@@ -1970,10 +1970,12 @@ async function validerFormulaire() {
         records.push(record);
     }
 
-    // Les niveaux sont mis à jour dans Liste_PE AVANT la création des lignes
-    // Formations : Formations.Niveau_x_ est figé par une formule par défaut,
-    // évaluée au moment de la création. Créer d'abord figerait les anciens
-    // niveaux. Tout part dans la même transaction.
+    // Les niveaux sont écrits dans Liste_PE, d'où Formations.Niveau_x_ les
+    // lit par formule simple : la fiche de formation reflète donc toujours
+    // les niveaux courants de l'enseignant, y compris pour les fiches déjà
+    // créées. L'ordre des actions n'a plus d'importance depuis que cette
+    // colonne n'est plus figée à la création, mais tout part dans la même
+    // transaction pour ne rien laisser à moitié écrit.
     const niveauxActions = [];
     for (const [ensId, data] of enseignantsMap.entries()) {
         if (data.selected) {
@@ -3717,9 +3719,9 @@ async function updateFiche() {
             ]);
         }
 
-        // Les niveaux sont mis à jour dans Liste_PE AVANT les lignes Formations :
-        // Formations.Niveau_x_ est figé par une formule par défaut, évaluée à la
-        // création. Tout part dans la même transaction.
+        // Les niveaux sont écrits dans Liste_PE, d'où Formations.Niveau_x_ les
+        // lit par formule simple. Tout part dans la même transaction, pour ne
+        // rien laisser à moitié écrit.
         const niveauxActions = [];
         document.querySelectorAll('.edit-ens-checkbox:checked').forEach(checkbox => {
             const ensId = safeParseInt(checkbox.getAttribute('data-ens-id'), 0, 1);
