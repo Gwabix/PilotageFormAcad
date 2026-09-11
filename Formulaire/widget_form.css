@@ -406,6 +406,105 @@ select:focus,
     white-space: nowrap;
 }
 
+/* Ajout d'un enseignant, en pied de chaque groupe d'école. Discret : c'est un
+   rattrapage, pas l'action principale du formulaire. La largeur est remise à
+   « auto », la règle globale « button » imposant sinon 100 %. */
+.enseignant-add-btn {
+    width: auto;
+    margin-top: 4px;
+    padding: 6px 14px;
+    border: 1px dashed #aab7c4;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #2980b9;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.enseignant-add-btn:hover {
+    background-color: #eaf4fc;
+    border-color: #2980b9;
+    border-style: solid;
+}
+
+.enseignant-add-btn:focus-visible {
+    outline: 2px solid #2980b9;
+    outline-offset: 2px;
+}
+
+/* Modale d'ajout : plus large que les confirmations, elle contient une
+   recherche et sa liste de résultats. */
+.add-teacher-box {
+    max-width: 560px;
+    width: 100%;
+}
+
+.add-teacher-target {
+    margin: 0 0 16px 0;
+    font-size: 13px;
+    color: #7f8c8d;
+}
+
+.add-teacher-results {
+    margin-top: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.add-teacher-results:empty {
+    display: none;
+}
+
+.add-teacher-results .search-result-item {
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.add-teacher-results small {
+    color: #7f8c8d;
+    font-size: 12px;
+}
+
+.add-teacher-affectations {
+    margin: 0 0 16px 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.add-teacher-affectations li {
+    margin-bottom: 6px;
+}
+
+.add-teacher-affectations label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+/* Lien d'apparence textuelle : la règle globale « button » en ferait sinon un
+   bouton bleu pleine largeur. */
+.link-button {
+    width: auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #2980b9;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.link-button:hover {
+    background: none;
+    color: #21618c;
+}
+
 .enseignant-item {
     background-color: #fafafa;
     padding: 15px;

@@ -2792,62 +2792,15 @@ function getEcoleById(rowId) {
 
 // Personnes visibles, regroupées par ID_PE, avec leurs lignes de l'année
 // courante. Une personne sans ID_PE est identifiée par sa ligne.
+// Index et recherche : logique partagée, voir ../shared/liste-pe-affectation.js.
+// Les affectations y portent un `ecoleRowId` ; l'établissement est résolu ici,
+// à l'affichage.
 function buildPersonIndex() {
-    const byKey = new Map();
-    for (const record of state.personnels) {
-        const idPe = sanitizeText(record.ID_PE || '');
-        const key = idPe || ('row:' + record.id);
-        let person = byKey.get(key);
-        if (!person) {
-            person = { key, idPe, rows: [], identity: '', mail: '', civilite: '' };
-            byKey.set(key, person);
-        }
-        person.rows.push(record);
-    }
-
-    for (const person of byKey.values()) {
-        // Identité prise sur la première ligne renseignée.
-        for (const row of person.rows) {
-            if (!person.identity) person.identity = getPersonnelIdentity(row);
-            if (!person.mail) person.mail = sanitizeText(row.Mail || '');
-            if (!person.civilite) person.civilite = sanitizeText(row.Civilite || '');
-        }
-        person.yearRows = person.rows.filter(r =>
-            state.currentYear === null || getPersonnelSchoolYearStart(r) === state.currentYear);
-        person.affectations = person.yearRows
-            .filter(r => (getPersonnelEcoleRowId(r) || 0) > 0)
-            .map(r => ({ row: r, ecole: getEcoleById(getPersonnelEcoleRowId(r)) }));
-    }
-
-    return byKey;
+    return ListePeAffectation.buildPersonIndex(state.personnels, state.currentYear);
 }
 
 function searchPersons(query, excludeEcoleId) {
-    const persons = buildPersonIndex();
-    const scored = [];
-
-    for (const person of persons.values()) {
-        const nom = normalizeStr(person.rows[0].Nom || '');
-        const prenom = normalizeStr(person.rows[0].Prenom || '');
-        const idPe = normalizeStr(person.idPe);
-
-        const rank = Math.min(
-            ecoleMatchRank(nom, query) === -1 ? 99 : ecoleMatchRank(nom, query),
-            ecoleMatchRank(prenom, query) === -1 ? 99 : ecoleMatchRank(prenom, query),
-            ecoleMatchRank(idPe, query) === -1 ? 99 : ecoleMatchRank(idPe, query)
-        );
-        if (rank === 99) continue;
-
-        // Déjà rattaché à l'école cible : rien à ajouter.
-        if (person.affectations.some(a => a.row && getPersonnelEcoleRowId(a.row) === excludeEcoleId)) {
-            continue;
-        }
-
-        scored.push({ person, rank, sortKey: nom + ' ' + prenom });
-    }
-
-    scored.sort((a, b) => (a.rank - b.rank) || a.sortKey.localeCompare(b.sortKey, 'fr'));
-    return scored.slice(0, 30).map(x => x.person);
+    return ListePeAffectation.searchPersons(buildPersonIndex(), query, excludeEcoleId);
 }
 
 function showAddTeacherPanel(name) {
@@ -2902,7 +2855,7 @@ function renderAddTeacherResults() {
         const meta = document.createElement('span');
         meta.className = 'add-teacher-result-meta';
         const affectations = person.affectations
-            .map(a => formatEcoleFull(a.ecole))
+            .map(a => formatEcoleFull(getEcoleById(a.ecoleRowId)))
             .filter(Boolean);
         meta.textContent = (person.idPe ? ' · ' + person.idPe : '')
             + ' · ' + (affectations.length
@@ -2980,7 +2933,7 @@ function openAddTeacherConfirm(person) {
         renderConfirmText(textEl, [
             identity + ' est actuellement rattaché' + suffixeGenre(person.civilite) + ' à',
             'br',
-            { ecole: formatEcoleFull(actuelle.ecole) },
+            { ecole: formatEcoleFull(getEcoleById(actuelle.ecoleRowId)) },
             'br',
             'souhaitez-vous conserver cette affectation ou la remplacer par',
             'br',
@@ -3002,8 +2955,8 @@ function openAddTeacherConfirm(person) {
         listEl.classList.remove('hidden');
 
         const entries = person.affectations.map(a => ({
-            ecoleId: getPersonnelEcoleRowId(a.row),
-            label: formatEcoleFull(a.ecole),
+            ecoleId: a.ecoleRowId,
+            label: formatEcoleFull(getEcoleById(a.ecoleRowId)),
             checked: true
         }));
         entries.push({ ecoleId: cible.id, label: formatEcoleFull(cible), checked: false });
@@ -3047,61 +3000,10 @@ async function applyAffectations(keepEcoleIds) {
     const cible = addTeacherState.ecole;
     if (!person || !cible) return;
 
-    const keep = new Set(keepEcoleIds.filter(id => Number.isFinite(id) && id > 0));
-    const current = new Map();
-    person.affectations.forEach(a => current.set(getPersonnelEcoleRowId(a.row), a.row));
-
-    const toRemove = [];
-    for (const [ecoleId, row] of current) {
-        if (!keep.has(ecoleId)) toRemove.push(row);
-    }
-    const toAdd = [];
-    for (const ecoleId of keep) {
-        if (!current.has(ecoleId)) toAdd.push(ecoleId);
-    }
-
-    if (!toRemove.length && !toAdd.length) {
+    const actions = ListePeAffectation.buildAffectationActions(person, keepEcoleIds);
+    if (!actions.length) {
         closeAddTeacherModal();
         return;
-    }
-
-    const actions = [];
-    const anneeScolaire = person.yearRows.length
-        ? person.yearRows[0].Annee_scolaire
-        : (person.rows[0] && person.rows[0].Annee_scolaire);
-
-    // Lignes détachées de l'année, réutilisables avant d'en créer une nouvelle.
-    const reusable = person.yearRows.filter(r => (getPersonnelEcoleRowId(r) || 0) <= 0);
-
-    for (const ecoleId of toAdd) {
-        const moved = toRemove.shift();
-        if (moved) {
-            actions.push(['UpdateRecord', 'Liste_PE', moved.id, { UAI: ecoleId, Retrait: null }]);
-            continue;
-        }
-        const recycled = reusable.shift();
-        if (recycled) {
-            actions.push(['UpdateRecord', 'Liste_PE', recycled.id, { UAI: ecoleId, Retrait: null }]);
-            continue;
-        }
-        const source = person.yearRows[0] || person.rows[0];
-        actions.push(['AddRecord', 'Liste_PE', null, {
-            ID_PE: person.idPe,
-            Civilite: source.Civilite || '',
-            Nom: source.Nom || '',
-            Prenom: source.Prenom || '',
-            Mail: source.Mail || '',
-            Annee_scolaire: anneeScolaire,
-            UAI: ecoleId,
-            Fonction: '',
-            Quotite_de_service: source.Quotite_de_service || '',
-            Retrait: null
-        }]);
-    }
-
-    // Affectations retirées sans remplacement : détachées et datées.
-    for (const row of toRemove) {
-        actions.push(ListePeRetrait.buildQuitSchoolAction(row.id));
     }
 
     addTeacherState.busy = true;

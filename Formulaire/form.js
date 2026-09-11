@@ -2,6 +2,8 @@ grist.ready({ requiredAccess: 'full' });
 
 let ecolesData = [];
 let enseignantsData = [];
+// Liste_PE avec ses colonnes Grist d'origine, pour les modules partagés.
+let listePeRaw = [];
 let formateursData = [];
 let tableauDeBordData = [];
 let selectedEcoles = [];
@@ -828,6 +830,25 @@ async function loadData() {
         })).filter(e => (e.commune_nom || e.nom) && ecolesActives.has(e.id));
 
         const enseignantsTable = await grist.docApi.fetchTable('Liste_PE');
+
+        /*
+         * Copie brute de Liste_PE, colonnes Grist d'origine. Le module partagé
+         * ../shared/liste-pe-affectation.js travaille sur cette forme, alors
+         * que enseignantsData ci-dessous est une projection renommée et
+         * incomplète, taillée pour l'affichage du formulaire.
+         */
+        listePeRaw = enseignantsTable.id.map((id, index) => ({
+            id: id,
+            ID_PE: enseignantsTable.ID_PE[index],
+            Civilite: (enseignantsTable.Civilite || [])[index],
+            Nom: enseignantsTable.Nom[index],
+            Prenom: enseignantsTable.Prenom[index],
+            Mail: (enseignantsTable.Mail || [])[index],
+            Annee_scolaire: enseignantsTable.Annee_scolaire[index],
+            UAI: (enseignantsTable.UAI || [])[index],
+            Quotite_de_service: (enseignantsTable.Quotite_de_service || [])[index]
+        }));
+
         enseignantsData = enseignantsTable.id.map((id, index) => ({
             id: id,
             idPE: sanitizeGristData(enseignantsTable.ID_PE[index]),
@@ -1399,6 +1420,10 @@ function updateEnseignantsList(preserveSelection) {
           ${membres.length
             ? membres.map(renderEnseignant).join('')
             : '<div class="no-enseignants">Aucun enseignant trouvé pour cette école</div>'}
+          <button type="button" class="enseignant-add-btn"
+                  data-add-ecole-id="${escapeHtmlAttribute(ecole.id)}">
+            + Ajouter un enseignant à ${escapeHtml(formatEcoleLong(ecole))}
+          </button>
         </section>
     `).join('');
 
@@ -1423,6 +1448,297 @@ function updateEnseignantsList(preserveSelection) {
             if (ensId > 0) handleQuitSchool(ensId);
         });
     });
+
+    container.querySelectorAll('button[data-add-ecole-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ecoleId = safeParseInt(btn.getAttribute('data-add-ecole-id'), 0, 0);
+            if (ecoleId > 0) handleAddTeacher(ecoleId);
+        });
+    });
+}
+
+/* --------------------------------------------------------------------------
+   « Ajouter un enseignant à [école] », par école.
+
+   Sert à rattraper un enseignant manquant dans une école déjà sélectionnée,
+   pas à élargir le périmètre de la formation : pour un enseignant d'une autre
+   école, c'est l'école qu'il faut ajouter en haut du formulaire. D'où
+   l'avertissement, que rien dans l'interface ne rendrait évident.
+
+   La logique de rattachement vit dans ../shared/liste-pe-affectation.js,
+   partagée avec TDB-Ecoles : un enseignant a une ligne Liste_PE par école et
+   par année, et le calcul décide quelles lignes sont déplacées, reprises,
+   créées ou détachées.
+   -------------------------------------------------------------------------- */
+
+// Libellé long d'une école : nom, complément d'adresse puis commune.
+function formatEcoleLong(ecole) {
+    if (!ecole) return 'école inconnue';
+    return [ecole.nom, ecole.complement, ecole.commune]
+        .map(part => (part === null || part === undefined) ? '' : String(part).trim())
+        .filter(Boolean)
+        .join(' ') || 'école inconnue';
+}
+
+// Année scolaire sélectionnée, sous forme d'année de début.
+function selectedYearStart() {
+    const value = document.getElementById('anneeScolaire')?.value || '';
+    const match = value.match(/(\d{4})/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+async function handleAddTeacher(ecoleId) {
+    const ecole = findEcoleByRowId(ecoleId);
+    if (!ecole) return;
+
+    const suite = await askAddTeacherWarning();
+    if (suite !== 'continuer') return;
+
+    openAddTeacherModal(ecole);
+}
+
+/** Avertissement avant ouverture. Résout avec 'continuer' ou 'cancel'. */
+function askAddTeacherWarning() {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'confirm-modal-overlay';
+
+        const content = document.createElement('div');
+        content.className = 'confirm-modal-content';
+        content.innerHTML = `
+            <h3 class="confirm-modal-header">⚠️ Ajouter un enseignant</h3>
+            <p class="confirm-modal-intro">
+                Cette fonctionnalité permet d'ajouter un enseignant manquant dans une école.
+                Si vous voulez ajouter à la formation un enseignant d'une autre école,
+                veuillez sélectionner celle-ci en haut du formulaire.
+            </p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn--primary" data-choice="continuer">Continuer</button>
+                <button class="confirm-modal-btn--cancel" data-choice="cancel">Annuler</button>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        const close = (choice) => {
+            modal.remove();
+            document.removeEventListener('keydown', onKeydown);
+            resolve(choice);
+        };
+        const onKeydown = (evt) => { if (evt.key === 'Escape') close('cancel'); };
+
+        content.addEventListener('click', (evt) => {
+            const btn = evt.target.closest('button[data-choice]');
+            if (btn) close(btn.getAttribute('data-choice'));
+        });
+        modal.addEventListener('click', (evt) => {
+            if (evt.target === modal) close('cancel');
+        });
+        document.addEventListener('keydown', onKeydown);
+        content.querySelector('[data-choice="continuer"]').focus();
+    });
+}
+
+function openAddTeacherModal(ecole) {
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal-overlay';
+
+    const content = document.createElement('div');
+    content.className = 'confirm-modal-content add-teacher-box';
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    let busy = false;
+    const close = () => {
+        modal.remove();
+        document.removeEventListener('keydown', onKeydown);
+    };
+    const onKeydown = (evt) => { if (evt.key === 'Escape' && !busy) close(); };
+    document.addEventListener('keydown', onKeydown);
+    modal.addEventListener('click', (evt) => {
+        if (evt.target === modal && !busy) close();
+    });
+
+    /* ----- Écriture ----- */
+    const appliquer = async (person, keepEcoleIds) => {
+        if (busy) return;
+        const actions = ListePeAffectation.buildAffectationActions(person, keepEcoleIds);
+        if (!actions.length) { close(); return; }
+
+        busy = true;
+        try {
+            await grist.docApi.applyUserActions(actions);
+            close();
+            await loadData();
+            // Sélection préservée : l'enseignant ajouté arrive coché, les
+            // choix déjà faits sur les autres restent en place.
+            updateEnseignantsList(true);
+            alert(`✓ Affectations mises à jour pour ${person.identity || 'l\'enseignant'}.`);
+        } catch (error) {
+            console.error('Erreur lors du rattachement :', error);
+            alert('Erreur lors du rattachement. Consultez la console pour plus de détails.');
+            busy = false;
+        }
+    };
+
+    /* ----- Écran 3 : enseignant introuvable ----- */
+    const showNotFound = () => {
+        content.innerHTML = `
+            <h3 class="confirm-modal-header">Enseignant introuvable</h3>
+            <p class="confirm-modal-intro">
+                Si vous ne voyez pas l'enseignant(e) recherché(e), il/elle est peut-être en
+                dehors de votre périmètre d'attribution. Vous pouvez contacter sa
+                circonscription d'origine pour qu'il/elle soit libéré(e), ou créer sa fiche
+                depuis le tableau de bord des écoles.
+            </p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn--cancel" data-close>Fermer</button>
+            </div>
+        `;
+        content.querySelector('[data-close]').addEventListener('click', close);
+    };
+
+    /* ----- Écran 2 : confirmation du rattachement ----- */
+    const showConfirm = (person) => {
+        content.textContent = '';
+
+        const title = document.createElement('h3');
+        title.className = 'confirm-modal-header';
+        title.textContent = 'Rattacher un enseignant';
+
+        const texte = document.createElement('p');
+        texte.className = 'confirm-modal-intro';
+
+        const liste = document.createElement('ul');
+        liste.className = 'add-teacher-affectations';
+
+        const actions = document.createElement('div');
+        actions.className = 'confirm-modal-actions';
+
+        const addAction = (label, onClick, secondary) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = secondary ? 'confirm-modal-btn--cancel' : 'confirm-modal-btn--primary';
+            btn.textContent = label;
+            btn.addEventListener('click', onClick);
+            actions.appendChild(btn);
+        };
+
+        const cibleLabel = formatEcoleLong(ecole);
+        const identity = person.identity || 'cet enseignant';
+        const labelOf = (ecoleRowId) => formatEcoleLong(findEcoleByRowId(ecoleRowId));
+
+        if (person.affectations.length === 0) {
+            texte.textContent = `Rattacher ${identity} à ${cibleLabel} ?`;
+            addAction('Annuler', close, true);
+            addAction('Confirmer', () => appliquer(person, [ecole.id]));
+
+        } else if (person.affectations.length === 1) {
+            const actuelle = person.affectations[0];
+            texte.textContent = `${identity} est actuellement rattaché(e) à `
+                + `${labelOf(actuelle.ecoleRowId)}. Souhaitez-vous conserver cette `
+                + `affectation ou la remplacer par ${cibleLabel} ?`;
+            addAction('Annuler', close, true);
+            addAction('Remplacer l\'affectation', () => appliquer(person, [ecole.id]));
+            addAction('Conserver les deux',
+                () => appliquer(person, [actuelle.ecoleRowId, ecole.id]));
+
+        } else {
+            // Plusieurs affectations : l'utilisateur choisit ce qu'il garde.
+            texte.textContent = `${identity} a actuellement plusieurs affectations. `
+                + 'Veuillez sélectionner les affectations à conserver.';
+
+            const entries = person.affectations.map(a => ({
+                ecoleId: a.ecoleRowId, label: labelOf(a.ecoleRowId), checked: true
+            }));
+            entries.push({ ecoleId: ecole.id, label: cibleLabel, checked: false });
+
+            entries.forEach(entry => {
+                const li = document.createElement('li');
+                const label = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = entry.checked;
+                cb.dataset.ecoleId = String(entry.ecoleId);
+                const name = document.createElement('strong');
+                name.textContent = entry.label;
+                label.append(cb, name);
+                li.appendChild(label);
+                liste.appendChild(li);
+            });
+
+            addAction('Annuler', close, true);
+            addAction('Enregistrer', () => {
+                const keep = Array.from(liste.querySelectorAll('input:checked'))
+                    .map(cb => safeParseInt(cb.dataset.ecoleId, 0, 1))
+                    .filter(id => id > 0);
+                appliquer(person, keep);
+            });
+        }
+
+        content.append(title, texte);
+        if (liste.childElementCount) content.appendChild(liste);
+        content.appendChild(actions);
+    };
+
+    /* ----- Écran 1 : recherche ----- */
+    const showSearch = () => {
+        content.innerHTML = `
+            <h3 class="confirm-modal-header">Ajouter un enseignant</h3>
+            <p class="add-teacher-target"></p>
+            <label for="addTeacherSearch">Nom, prénom ou identifiant personnel</label>
+            <input type="text" class="search-input" id="addTeacherSearch" autocomplete="off"
+                   placeholder="Rechercher un enseignant...">
+            <div class="add-teacher-results"></div>
+            <p class="add-teacher-empty no-enseignants" hidden>Aucun enseignant ne correspond.</p>
+            <p><button type="button" class="link-button" data-notfound>
+                Je ne trouve pas l'enseignant(e) recherché(e).
+            </button></p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn--cancel" data-close>Fermer</button>
+            </div>
+        `;
+        content.querySelector('.add-teacher-target').textContent = 'École : ' + formatEcoleLong(ecole);
+        content.querySelector('[data-close]').addEventListener('click', close);
+        content.querySelector('[data-notfound]').addEventListener('click', showNotFound);
+
+        const input = content.querySelector('#addTeacherSearch');
+        const results = content.querySelector('.add-teacher-results');
+        const empty = content.querySelector('.add-teacher-empty');
+
+        const render = () => {
+            const index = ListePeAffectation.buildPersonIndex(listePeRaw, selectedYearStart());
+            const persons = ListePeAffectation.searchPersons(index, input.value, ecole.id);
+
+            results.textContent = '';
+            empty.hidden = persons.length > 0 || !input.value.trim();
+
+            persons.forEach(person => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+
+                const name = document.createElement('strong');
+                name.textContent = person.identity || '(identité inconnue)';
+
+                const meta = document.createElement('small');
+                const labels = person.affectations
+                    .map(a => formatEcoleLong(findEcoleByRowId(a.ecoleRowId)))
+                    .filter(Boolean);
+                meta.textContent = (person.idPe ? person.idPe + ' · ' : '')
+                    + (labels.length ? labels.join(' ; ') : 'aucune affectation');
+
+                item.append(name, document.createElement('br'), meta);
+                item.addEventListener('click', () => showConfirm(person));
+                results.appendChild(item);
+            });
+        };
+
+        input.addEventListener('input', render);
+        input.focus();
+    };
+
+    showSearch();
 }
 
 /* --------------------------------------------------------------------------
