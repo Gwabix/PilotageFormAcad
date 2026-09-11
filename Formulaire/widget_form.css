@@ -1553,6 +1553,10 @@ textarea {
 
 .enseignant-quit-btn {
     flex: 0 0 auto;
+    /* La règle globale « button » de ce fichier impose width: 100%. Sans cette
+       remise à zéro, le bouton réclame toute la largeur de la section et
+       écrase la colonne des niveaux, qui a le droit de rétrécir. */
+    width: auto;
     align-self: center;
     padding: 5px 12px;
     border: 1px solid #d9b3b3;
@@ -1745,6 +1749,15 @@ textarea {
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+}
+
+/* Même remise à zéro que pour le bouton de retrait : sans largeur declarée,
+   la règle globale « button » impose width: 100%, et ce bouton, dont la base
+   flexible est « auto », accaparerait la rangée d'actions. Les boutons
+   primaires y échappent, leur raccourci « flex: 1 » posant une base nulle. */
+.confirm-modal-btn--cancel {
+    flex: 0 0 auto;
+    width: auto;
 }
 
 .formateur-modal-btn-cancel:hover {
