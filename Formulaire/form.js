@@ -3442,7 +3442,9 @@ function displayEditForm(ficheRecords) {
             <div class="form-group">
                 <label>Durée de la formation *</label>
                 <select id="editDuree">
+                    <option value="3" ${firstRecord.tempsFormation === 6 ? 'selected' : ''}>3h</option>
                     <option value="6" ${firstRecord.tempsFormation === 6 ? 'selected' : ''}>6h</option>
+                    <option value="9" ${firstRecord.tempsFormation === 6 ? 'selected' : ''}>9h</option>
                     <option value="12" ${firstRecord.tempsFormation === 12 ? 'selected' : ''}>12h</option>
                     <option value="18" ${firstRecord.tempsFormation === 18 ? 'selected' : ''}>18h</option>
                     <option value="24" ${firstRecord.tempsFormation === 24 ? 'selected' : ''}>24h</option>
