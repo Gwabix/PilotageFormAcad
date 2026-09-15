@@ -147,10 +147,40 @@ input[type="number"]::-webkit-inner-spin-button {
 
 input[type="number"]:focus,
 select:focus,
-.search-input:focus {
+.search-input:focus,
+.duree-input:focus {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+}
+
+/* Champ durée (heures, pas de 0,5) */
+.duree-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.duree-stepper input.duree-input {
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.duree-stepper input.duree-input[aria-invalid="true"] {
+    border-color: #e74c3c;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.15);
+}
+
+.duree-unit {
+    color: #555;
+    font-size: 14px;
+}
+
+.duree-hint {
+    display: block;
+    margin-top: 4px;
+    color: #777;
+    font-size: 12px;
 }
 
 .search-container {
@@ -721,7 +751,8 @@ button:disabled {
     font-weight: normal;
 }
 
-[data-quantity] {
+[data-quantity],
+.duree-stepper {
     position: relative;
     width: 100%;
     max-width: 11rem;
@@ -734,7 +765,8 @@ button:disabled {
     display: none;
 }
 
-[data-quantity] input {
+[data-quantity] input,
+.duree-stepper input {
     font-size: 14px;
     height: 40px;
     padding: 0 50px;
@@ -748,7 +780,8 @@ button:disabled {
     font-weight: normal;
 }
 
-[data-quantity] input:focus {
+[data-quantity] input:focus,
+.duree-stepper input:focus {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
@@ -765,7 +798,8 @@ button:disabled {
     -moz-appearance: textfield;
 }
 
-[data-quantity] button {
+[data-quantity] button,
+.duree-stepper button {
     position: absolute;
     width: 40px;
     height: 40px;
@@ -785,24 +819,34 @@ button:disabled {
     opacity: 0.5;
 }
 
-[data-quantity] button:active {
+[data-quantity] button:active,
+.duree-stepper button:active {
     background-position-y: 1px;
     box-shadow: inset 0 2px 12px -4px #c5d1d9;
 }
 
-[data-quantity] button:focus {
+[data-quantity] button:focus,
+.duree-stepper button:focus {
     outline: none;
 }
 
-[data-quantity] button:hover {
+.duree-stepper button:focus-visible {
+    opacity: 1;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.4);
+}
+
+[data-quantity] button:hover,
+.duree-stepper button:hover {
     opacity: 1;
 }
 
-[data-quantity] button.sub {
+[data-quantity] button.sub,
+.duree-stepper button.sub {
     left: 0;
 }
 
-[data-quantity] button.add {
+[data-quantity] button.add,
+.duree-stepper button.add {
     right: 0;
     background-position-x: -40px;
 }

@@ -645,7 +645,7 @@ function selectEnseignant(ensId) {
         years.forEach(year => {
             const yearFormations = formationsByYear[year];
             const totalHeures = yearFormations.reduce((sum, f) => sum + (f.temps_formation || 0), 0);
-            const heuresLabel = totalHeures > 0 ? `(${totalHeures}h)` : '';
+            const heuresLabel = totalHeures > 0 ? `(${totalHeures.toLocaleString('fr-FR')}h)` : '';
 
             // Toutes les affectations Liste_PE de cette personne pour l'année
             // (un enseignant peut exercer sur plusieurs écoles).
@@ -1991,7 +1991,7 @@ function selectEcole(ecoleId) {
             const uniqueFichesYear = new Map();
             yearFormations.forEach(f => { if (f.id_fiche && !uniqueFichesYear.has(f.id_fiche)) uniqueFichesYear.set(f.id_fiche, f); });
             const totalHeures = Array.from(uniqueFichesYear.values()).reduce((sum, f) => sum + (f.temps_formation || 0), 0);
-            const heuresLabel = totalHeures > 0 ? `(${totalHeures}h)` : '';
+            const heuresLabel = totalHeures > 0 ? `(${totalHeures.toLocaleString('fr-FR')}h)` : '';
             html += `<div class="year-card">`;
             html += `<div class="year-header year-header-collapsible" data-action="toggle-collapse">`;
             html += `<div class="year-header-content">`;
@@ -2297,7 +2297,7 @@ function generateFormationInfoItems(formation, niveauxEnseignant = []) {
     }
 
     if (formation.type_formation) {
-        const heuresStr = formation.temps_formation > 0 ? ` (${formation.temps_formation}h)` : '';
+        const heuresStr = formation.temps_formation > 0 ? ` (${formation.temps_formation.toLocaleString('fr-FR')}h)` : '';
         html += `
             <div class="info-item">
                 <div class="info-label">Type de formation</div>

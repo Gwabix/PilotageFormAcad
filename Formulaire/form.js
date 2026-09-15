@@ -575,6 +575,110 @@ function safeParseInt(value, defaultValue = 0, min = null) {
 }
 
 /**
+ * Parse une durée saisie en heures, par pas de 0,5 (virgule ou point acceptés)
+ * @param {any} value - Valeur saisie (ex. "6", "1,5", "2.5")
+ * @param {number} [max=Infinity] - Durée maximale acceptée
+ * @returns {number} Durée strictement positive multiple de 0,5, ou NaN si invalide
+ */
+function parseDuree(value, max = Infinity) {
+    const text = String(value ?? '').trim().replace(',', '.');
+    if (!/^\d{1,4}(\.\d{1,2})?$/.test(text)) return NaN;
+    const duree = Number(text);
+    return duree > 0 && duree <= max && Number.isInteger(duree * 2) ? duree : NaN;
+}
+
+/**
+ * Lit la durée maximale d'un champ durée (attribut data-max ; max n'existe pas sur type="text")
+ * @param {HTMLInputElement} input
+ * @returns {number} Maximum, ou Infinity si non défini
+ */
+function getDureeMax(input) {
+    const max = Number(input?.dataset.max);
+    return max > 0 ? max : Infinity;
+}
+
+/**
+ * Formate une durée pour l'affichage, avec virgule décimale (1.5 → "1,5")
+ * @param {any} value - Durée issue de Grist ou du formulaire
+ * @returns {string} Durée formatée, chaîne vide si absente
+ */
+function formatDuree(value) {
+    const duree = Number(value);
+    return Number.isFinite(duree) && duree > 0 ? String(duree).replace('.', ',') : '';
+}
+
+/**
+ * Ajoute ou retire 0,5 h à un champ durée (entre 0,5 et data-max)
+ * @param {HTMLInputElement} input
+ * @param {number} direction - +1 ou -1
+ */
+function stepDuree(input, direction) {
+    const max = getDureeMax(input);
+    const current = parseDuree(input.value);
+    const base = Number.isNaN(current) ? 0 : Math.round(current * 2) / 2;
+    input.value = formatDuree(Math.min(max, Math.max(0.5, base + direction * 0.5)));
+    input.removeAttribute('aria-invalid');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Branche le comportement de saisie d'un champ durée :
+ * point → virgule (pavé numérique), caractères non numériques filtrés,
+ * boutons −/+ et flèches haut/bas par pas de 0,5, normalisation à la sortie du champ.
+ * Les boutons sont insérés si le champ est dans un conteneur .duree-stepper.
+ * @param {HTMLInputElement} input
+ */
+function bindDureeInput(input) {
+    if (!input) return;
+
+    const stepper = input.closest('.duree-stepper');
+    if (stepper && !stepper.querySelector('button')) {
+        const makeButton = (label, className, direction) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = className;
+            button.textContent = label;
+            button.title = label;
+            button.setAttribute('aria-controls', input.id);
+            button.addEventListener('click', () => stepDuree(input, direction));
+            return button;
+        };
+        stepper.prepend(makeButton('Diminuer de 0,5 h', 'sub', -1));
+        stepper.append(makeButton('Augmenter de 0,5 h', 'add', 1));
+    }
+
+    input.addEventListener('input', () => {
+        const caret = input.selectionStart ?? input.value.length;
+        const before = input.value.slice(0, caret);
+        const clean = (text) => text.replace(/\./g, ',').replace(/[^\d,]/g, '');
+        const cleanBefore = clean(before);
+        let value = cleanBefore + clean(input.value.slice(caret));
+        // Une seule virgule : on garde la première
+        const firstComma = value.indexOf(',');
+        if (firstComma !== -1) {
+            value = value.slice(0, firstComma + 1) + value.slice(firstComma + 1).replace(/,/g, '');
+        }
+        if (value !== input.value) {
+            const newCaret = Math.min(cleanBefore.length, value.length);
+            input.value = value;
+            input.setSelectionRange(newCaret, newCaret);
+        }
+    });
+
+    input.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        stepDuree(input, event.key === 'ArrowUp' ? 1 : -1);
+    });
+
+    input.addEventListener('blur', () => {
+        const duree = parseDuree(input.value, getDureeMax(input));
+        if (!Number.isNaN(duree)) input.value = formatDuree(duree);
+        input.setAttribute('aria-invalid', String(input.value !== '' && Number.isNaN(duree)));
+    });
+}
+
+/**
  * Normalise un nom pour la comparaison (supprime accents, ponctuation, espaces multiples, met en minuscules)
  * @param {string} name - Nom à normaliser
  * @returns {string} Nom normalisé
@@ -895,7 +999,7 @@ async function loadData() {
             decharge: tableauTable.Decharge ? sanitizeGristData(tableauTable.Decharge[index]) : '',
             modaliteConstitution: sanitizeGristData(tableauTable.Modalite_de_constitution_du_groupe[index]) || [],
             typeFormation: sanitizeGristData(tableauTable.Type_de_formation[index]),
-            tempsFormation: safeParseInt(tableauTable.Temps_de_formation[index], 0, 0),
+            tempsFormation: parseDuree(tableauTable.Temps_de_formation[index]) || 0,
             modalitesFormation: sanitizeGristData(tableauTable.Modalites_de_formation[index]) || [],
             objetsTransversaux: sanitizeGristData(tableauTable.Objets_transversaux_traites_en_parallele[index]) || [],
             themes: sanitizeGristData(tableauTable['Theme_s_traite_s_en_formation'][index]) || [],
@@ -1971,9 +2075,9 @@ function updateDureeFormation() {
     }
 
     if (typeFormation === 'Constellation' || typeFormation === 'Résidence pédagogique') {
-        dureeSelect.value = '30h';
+        dureeSelect.value = '30';
     } else if (typeFormation === 'Animations pédagogiques' || typeFormation === 'Accompagnement de proximité') {
-        dureeSelect.value = '6h';
+        dureeSelect.value = '6';
     }
 }
 
@@ -2359,8 +2463,10 @@ function validateForm() {
 
     const dureeFormationValEl = document.getElementById('dureeFormation');
     const dureeFormation = dureeFormationValEl?.value || '';
-    if (!dureeFormation) {
-        errors.push('Durée de la formation est obligatoire');
+    if (Number.isNaN(parseDuree(dureeFormation, getDureeMax(dureeFormationValEl)))) {
+        errors.push(dureeFormation
+            ? 'Durée de la formation invalide (heures, par pas de 0,5, maximum 30)'
+            : 'Durée de la formation est obligatoire');
         const dureeErrorEl = document.getElementById('dureeError');
         if (dureeErrorEl) dureeErrorEl.style.display = 'block';
     } else {
@@ -2500,7 +2606,7 @@ async function validerFormulaire() {
             Nb_PE: nbPE,
             Modalite_de_constitution_du_groupe: ['L', ...modaliteConstitution],
             Type_de_formation: typeFormation,
-            Temps_de_formation: Number.parseInt(dureeFormation),
+            Temps_de_formation: parseDuree(dureeFormation, getDureeMax(dureeFormationEl)),
             Modalites_de_formation: ['L', ...modalitesFormation],
             Objets_transversaux_traites_en_parallele: ['L', ...objetsTransversaux],
             Theme_s_traite_s_en_formation: ['L', ...themesFormation],
@@ -2602,7 +2708,10 @@ function resetForm() {
 
     // Reset durée de formation
     const dureeFormationEl = document.getElementById('dureeFormation');
-    if (dureeFormationEl) dureeFormationEl.value = '';
+    if (dureeFormationEl) {
+        dureeFormationEl.value = '';
+        dureeFormationEl.removeAttribute('aria-invalid');
+    }
     const dureeErrorEl = document.getElementById('dureeError');
     if (dureeErrorEl) dureeErrorEl.style.display = 'none';
 
@@ -2867,6 +2976,7 @@ markRequiredFields();
 document.querySelectorAll('input[name="typeFormation"]').forEach(radio => {
     radio.addEventListener('change', updateDureeFormation);
 });
+bindDureeInput(document.getElementById('dureeFormation'));
 
 // Ajouter les écouteurs pour les filtres de thèmes
 document.getElementById('filterFrancais').addEventListener('change', filterThemes);
@@ -3265,7 +3375,7 @@ function updateFilteredRecords() {
                     <div class="record-title">${ecolesText}</div>
                     <div class="record-details">
                         ${escapeHtml(firstRecord.annee)} | ${modalites}<br>
-                        ${escapeHtml(firstRecord.typeFormation)} | ${escapeHtml(firstRecord.tempsFormation)}h | ${modalitesForm}
+                        ${escapeHtml(firstRecord.typeFormation)} | ${escapeHtml(formatDuree(firstRecord.tempsFormation))}h | ${modalitesForm}
                     </div>
                 </div>
             </div>
@@ -3440,14 +3550,17 @@ function displayEditForm(ficheRecords) {
             </div>
             
             <div class="form-group">
-                <label>Durée de la formation *</label>
-                <select id="editDuree">
-                    <option value="6" ${firstRecord.tempsFormation === 6 ? 'selected' : ''}>6h</option>
-                    <option value="12" ${firstRecord.tempsFormation === 12 ? 'selected' : ''}>12h</option>
-                    <option value="18" ${firstRecord.tempsFormation === 18 ? 'selected' : ''}>18h</option>
-                    <option value="24" ${firstRecord.tempsFormation === 24 ? 'selected' : ''}>24h</option>
-                    <option value="30" ${firstRecord.tempsFormation === 30 ? 'selected' : ''}>30h</option>
-                </select>
+                <label for="editDuree">Durée de la formation *</label>
+                <div class="duree-field">
+                    <div class="duree-stepper">
+                        <input type="text" id="editDuree" class="duree-input" inputmode="decimal"
+                            autocomplete="off" maxlength="4" data-max="30" placeholder="ex. 1,5"
+                            aria-describedby="editDureeHint"
+                            value="${escapeHtmlAttribute(formatDuree(firstRecord.tempsFormation))}">
+                    </div>
+                    <span class="duree-unit" aria-hidden="true">heures</span>
+                </div>
+                <small class="duree-hint" id="editDureeHint">Par pas de 0,5 h : boutons − / +, flèches ↑ et ↓ du clavier ou saisie directe.</small>
             </div>
             
             <div class="form-group">
@@ -3501,6 +3614,7 @@ function displayEditForm(ficheRecords) {
     `;
 
     // Ajouter les event listeners après l'insertion du HTML
+    bindDureeInput(document.getElementById('editDuree'));
 
     // Event listener pour les checkboxes des enseignants
     container.querySelectorAll('.edit-ens-checkbox').forEach(checkbox => {
@@ -4048,7 +4162,13 @@ async function updateFiche() {
     const numeroGroupe = safeParseInt(document.getElementById('editNumeroGroupe').value, 0, 0);
     const modaliteConstitution = Array.from(document.querySelectorAll('.edit-modalite:checked')).map(cb => cb.value);
     const typeFormation = document.querySelector('input[name="editTypeFormation"]:checked')?.value || '';
-    const tempsFormation = safeParseInt(document.getElementById('editDuree').value, 0, 0);
+    const editDureeEl = document.getElementById('editDuree');
+    const tempsFormation = parseDuree(editDureeEl.value, getDureeMax(editDureeEl));
+    if (Number.isNaN(tempsFormation)) {
+        alert('Durée de la formation invalide : saisissez un nombre d\'heures par pas de 0,5, jusqu\'à 30 (ex. 6 ou 1,5).');
+        document.getElementById('editDuree').focus();
+        return;
+    }
     const modalitesFormation = Array.from(document.querySelectorAll('.edit-Modalites:checked')).map(cb => cb.value);
     const objetsTransversaux = Array.from(document.querySelectorAll('.edit-objets:checked')).map(cb => cb.value);
     const themes = Array.from(document.querySelectorAll('.edit-themes:checked')).map(cb => cb.value);
@@ -4172,7 +4292,7 @@ async function updateFiche() {
     if (String(numeroGroupe || '') !== String(firstOld.numeroGroupe || '')) changes.push(`Numéro groupe: ${firstOld.numeroGroupe || 'aucun'} → ${numeroGroupe || 'aucun'}`);
     if (!arraysEqual(modaliteConstitution, firstOld.modaliteConstitution)) changes.push('Modalité(s) de constitution modifiée(s)');
     if (typeFormation !== firstOld.typeFormation) changes.push(`Type: ${firstOld.typeFormation || 'aucun'} → ${typeFormation || 'aucun'}`);
-    if (tempsFormation !== firstOld.tempsFormation) changes.push(`Durée: ${firstOld.tempsFormation || 0} → ${tempsFormation || 0}`);
+    if (tempsFormation !== firstOld.tempsFormation) changes.push(`Durée: ${formatDuree(firstOld.tempsFormation) || 0}h → ${formatDuree(tempsFormation)}h`);
     if (!arraysEqual(modalitesFormation, firstOld.modalitesFormation)) changes.push('Modalités de formation modifiées');
     if (!arraysEqual(objetsTransversaux, firstOld.objetsTransversaux)) changes.push('Objet(s) transversaux modifié(s)');
     if (!arraysEqual(themes, firstOld.themes)) changes.push('Thème(s) modifié(s)');
@@ -4567,7 +4687,7 @@ function updateFilteredRecordsTechnique() {
                     <div class="record-title">${ecolesText}</div>
                     <div class="record-details">
                         ${escapeHtml(firstRecord.annee)} | ${modalites}<br>
-                        ${escapeHtml(firstRecord.typeFormation)} | ${escapeHtml(firstRecord.tempsFormation)}h | ${modalitesForm}
+                        ${escapeHtml(firstRecord.typeFormation)} | ${escapeHtml(formatDuree(firstRecord.tempsFormation))}h | ${modalitesForm}
                     </div>
                 </div>
             </div>
