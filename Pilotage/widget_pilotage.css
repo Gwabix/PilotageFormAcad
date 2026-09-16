@@ -1382,3 +1382,210 @@ body {
         text-align: center;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Décompte des heures par domaine
+   --------------------------------------------------------------------------- */
+
+.domain-hours-container {
+    margin-top: 40px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.domain-hours-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.domain-hours-selector {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px 18px;
+    margin-bottom: 18px;
+}
+
+.domain-hours-selector-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 12px;
+}
+
+.domain-hours-year-group+.domain-hours-year-group {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #eef1f4;
+}
+
+.domain-hours-year-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #5d6d7e;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.domain-hours-warning {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #8a5a00;
+    background-color: #fff6e0;
+    border-left: 3px solid #f0ad4e;
+    border-radius: 0 4px 4px 0;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+}
+
+.domain-hours-choice {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.domain-hours-choice:hover {
+    background-color: #eef4fa;
+}
+
+.domain-hours-choice input {
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: #34495e;
+}
+
+.domain-hours-choice-name {
+    font-size: 13px;
+    color: #2c3e50;
+    flex: 1;
+}
+
+.domain-hours-choice-meta {
+    font-size: 12px;
+    color: #7f8c8d;
+    white-space: nowrap;
+}
+
+.domain-hours-choice input:not(:checked)~.domain-hours-choice-name,
+.domain-hours-choice input:not(:checked)~.domain-hours-choice-meta {
+    color: #aab3ba;
+    text-decoration: line-through;
+}
+
+.domain-hours-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 13px;
+}
+
+.domain-hours-table th,
+.domain-hours-table td {
+    border: 1px solid #ddd;
+    padding: 10px 12px;
+    text-align: right;
+}
+
+.domain-hours-table thead th {
+    background-color: #34495e;
+    color: white;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-align: right;
+}
+
+.domain-hours-table thead th:first-child,
+.domain-hours-table tbody th,
+.domain-hours-table tfoot th {
+    text-align: left;
+}
+
+.domain-hours-table tbody th {
+    background-color: #ecf0f1;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.domain-hours-table tbody tr:hover td {
+    background-color: #f4f8fb;
+}
+
+.domain-hours-table td {
+    font-variant-numeric: tabular-nums;
+    color: #2c3e50;
+}
+
+.domain-hours-table td.domain-hours-empty {
+    color: #b9c2c8;
+}
+
+.domain-hours-table tfoot th,
+.domain-hours-table tfoot td {
+    background-color: #dfe6ec;
+    font-weight: 700;
+    border-top: 2px solid #34495e;
+}
+
+.domain-hours-table th:last-child,
+.domain-hours-table td:last-child {
+    background-color: #f2f6f9;
+    font-weight: 600;
+}
+
+.domain-hours-table thead th:last-child {
+    background-color: #2c3e50;
+}
+
+.domain-hours-table tfoot td:last-child {
+    background-color: #d3dde5;
+}
+
+@media (max-width: 600px) {
+    .domain-hours-container {
+        padding: 14px;
+    }
+
+    .domain-hours-table th,
+    .domain-hours-table td {
+        padding: 8px 6px;
+        font-size: 12px;
+    }
+
+    .domain-hours-choice {
+        flex-wrap: wrap;
+    }
+}
+
+@media print {
+
+    .domain-hours-container {
+        page-break-inside: avoid;
+    }
+
+    .domain-hours-table {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-size: 11px;
+    }
+
+    .domain-hours-choice input {
+        display: none;
+    }
+
+    /* À l'impression, seules les formations retenues ont un sens. */
+    .domain-hours-choice:has(input:not(:checked)) {
+        display: none;
+    }
+}

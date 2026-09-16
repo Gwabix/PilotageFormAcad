@@ -235,6 +235,7 @@ async function loadData() {
             id: id,
             id_pe: tableauTable.ID_PE[index],
             id_fiche: tableauTable.ID_fiche[index] || '',
+            intitule: sanitizeGristData(tableauTable.Intitule ? tableauTable.Intitule[index] : '') || '',
             departement: tableauTable.Departement[index] || '',
             circonscription: cleanChoiceList(tableauTable.Circonscription[index]),
             numero_groupe: tableauTable.Numero_de_groupe[index] || '',
@@ -683,7 +684,11 @@ function selectEnseignant(ensId) {
     // Ajouter la matrice thématique à la fin
     html += createThematicMatrix(formations);
 
+    // Puis le décompte des heures par domaine, tout en bas de la page
+    html += createHoursByDomainTable(formations, 'domain-hours-enseignant');
+
     document.getElementById('resultsEnseignant').innerHTML = html;
+    refreshHoursByDomainTable('domain-hours-enseignant');
 }
 
 function createAggregatedThematicMatrix(formations) {
@@ -2080,7 +2085,16 @@ function selectEcole(ecoleId) {
     // Ajouter la matrice thématique agrégée à la fin
     html += createAggregatedThematicMatrix(formations);
 
+    // Puis le décompte des heures par domaine, tout en bas de la page. Une
+    // formation est enregistrée une fois par enseignant : on dédoublonne par
+    // fiche, et on laisse l'utilisateur écarter les formations parallèles.
+    html += createHoursByDomainTable(formations, 'domain-hours-ecole', {
+        dedupeByFiche: true,
+        withSelector: true
+    });
+
     document.getElementById('resultsEcole').innerHTML = html;
+    refreshHoursByDomainTable('domain-hours-ecole');
 }
 
 function searchCirconscriptions(event) {
@@ -2258,6 +2272,295 @@ function selectCirconscription(circonscription) {
     html += createAggregatedThematicMatrix(allFormations);
 
     document.getElementById('resultsCirconscription').innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Décompte des heures par domaine (bas des onglets Enseignant et École)
+// ---------------------------------------------------------------------------
+
+// État des sélecteurs, indexé par identifiant de tableau. Chaque onglet
+// n'affiche qu'une sélection à la fois : un identifiant stable par onglet
+// suffit et évite d'accumuler des états morts au fil des recherches.
+const decompteStates = new Map();
+
+// Ventile les heures d'une formation entre les domaines, au prorata du nombre
+// de thèmes cochés dans chacun : une formation de 6 h portant deux thèmes FRA
+// et un thème MA compte 4 h en français et 2 h en mathématiques. La somme des
+// colonnes reste donc égale au temps réellement passé en formation.
+function ventilerHeuresParDomaine(formation) {
+    const parts = { francais: 0, maths: 0, autres: 0 };
+    const heures = Number(formation.temps_formation) || 0;
+    if (heures <= 0) return parts;
+
+    let nbFrancais = 0;
+    let nbMaths = 0;
+    let nbAutres = 0;
+
+    const themes = Array.isArray(formation.themes) ? formation.themes : [];
+    themes.forEach(theme => {
+        if (!theme || !theme.trim()) return;
+        const themeClean = theme.trim();
+        if (themeClean.startsWith('FRA')) nbFrancais++;
+        else if (themeClean.startsWith('MA')) nbMaths++;
+        else nbAutres++;
+    });
+
+    const total = nbFrancais + nbMaths + nbAutres;
+    // Formation sans thème identifié (ou hors référentiel) : tout en « Autres ».
+    if (total === 0) {
+        parts.autres = heures;
+        return parts;
+    }
+
+    parts.francais = heures * nbFrancais / total;
+    parts.maths = heures * nbMaths / total;
+    parts.autres = heures * nbAutres / total;
+    return parts;
+}
+
+// Construit les unités de décompte. Une même formation (fiche) est enregistrée
+// une fois par enseignant : côté école il faut la compter une seule fois,
+// côté enseignant chaque ligne ne concerne déjà que lui.
+function buildDecompteEntries(formations, dedupeByFiche) {
+    const entries = new Map();
+
+    (formations || []).forEach(formation => {
+        if (!formation.annee) return;
+
+        // Une fiche sans identifiant ne peut pas être dédoublonnée : elle reste
+        // comptée pour elle-même plutôt que d'être écartée du décompte.
+        const key = dedupeByFiche && formation.id_fiche
+            ? `fiche:${formation.id_fiche}`
+            : `ligne:${formation.id}`;
+
+        let entry = entries.get(key);
+        if (!entry) {
+            entry = {
+                key: key,
+                annee: formation.annee,
+                intitule: formation.intitule || formation.type_formation || 'Formation sans intitulé',
+                heures: Number(formation.temps_formation) || 0,
+                parts: ventilerHeuresParDomaine(formation),
+                enseignants: new Set()
+            };
+            entries.set(key, entry);
+        }
+        if (formation.id_pe) entry.enseignants.add(formation.id_pe);
+    });
+
+    return Array.from(entries.values());
+}
+
+// Deux formations visent « les mêmes enseignants » dès que leur recouvrement
+// dépasse la tolérance admise : 10 % du plus petit des deux groupes, et au
+// moins un enseignant. En deçà, les groupes sont considérés comme disjoints.
+function memeGroupeEnseignants(a, b) {
+    const tailleMin = Math.min(a.enseignants.size, b.enseignants.size);
+    if (tailleMin === 0) return false;
+
+    const tolerance = Math.max(1, Math.floor(tailleMin * 0.1));
+
+    let communs = 0;
+    a.enseignants.forEach(id => {
+        if (b.enseignants.has(id)) communs++;
+    });
+
+    return communs > tolerance;
+}
+
+// Regroupe les formations d'une année en cohortes : deux formations reliées
+// par un recouvrement suffisant appartiennent à la même cohorte (leur cumul
+// est légitime, un même enseignant a suivi les deux). Plusieurs cohortes
+// signalent des formations parallèles, dont le cumul surestime ce qu'un
+// enseignant donné a réellement reçu.
+function grouperParCohorte(entries) {
+    const cohortes = entries.map(() => -1);
+    let nombre = 0;
+
+    entries.forEach((_entry, index) => {
+        if (cohortes[index] !== -1) return;
+
+        cohortes[index] = nombre;
+        const aVisiter = [index];
+        while (aVisiter.length > 0) {
+            const courant = aVisiter.pop();
+            entries.forEach((autre, j) => {
+                if (cohortes[j] !== -1) return;
+                if (memeGroupeEnseignants(entries[courant], autre)) {
+                    cohortes[j] = nombre;
+                    aVisiter.push(j);
+                }
+            });
+        }
+        nombre++;
+    });
+
+    return { cohortes: cohortes, nombre: nombre };
+}
+
+function formatHeures(valeur) {
+    const arrondi = Math.round(valeur * 10) / 10;
+    if (arrondi === 0) return '—';
+    return `${arrondi.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} h`;
+}
+
+const LETTRES_COHORTE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function nomCohorte(index) {
+    return index < LETTRES_COHORTE.length
+        ? LETTRES_COHORTE[index]
+        : String(index + 1);
+}
+
+// Tableau de décompte des heures par domaine, affiché tout en bas de l'onglet.
+// `dedupeByFiche` et `withSelector` sont activés côté école, où une formation
+// est dupliquée par enseignant et où plusieurs formations peuvent viser des
+// groupes disjoints.
+function createHoursByDomainTable(formations, tableId, options) {
+    const settings = options || {};
+    const dedupeByFiche = settings.dedupeByFiche === true;
+    const withSelector = settings.withSelector === true;
+
+    const entries = buildDecompteEntries(formations, dedupeByFiche);
+    decompteStates.delete(tableId);
+    if (entries.length === 0) return '';
+
+    const years = Array.from(new Set(entries.map(e => e.annee))).sort();
+
+    // Cohortes calculées année par année : deux formations d'années
+    // différentes ne sont jamais concurrentes.
+    const entriesByYear = {};
+    years.forEach(year => {
+        entriesByYear[year] = entries.filter(e => e.annee === year);
+    });
+
+    const cohortesParAnnee = {};
+    if (withSelector) {
+        years.forEach(year => {
+            cohortesParAnnee[year] = grouperParCohorte(entriesByYear[year]);
+        });
+    }
+
+    decompteStates.set(tableId, { entries: entries, years: years });
+
+    const totalLabel = withSelector ? 'CUMUL' : 'TOTAL';
+
+    let html = '<div class="domain-hours-container">';
+    html += '<h3 class="domain-hours-title">⏱ Décompte des heures par domaine</h3>';
+
+    if (withSelector) {
+        html += '<div class="domain-hours-selector">';
+        html += '<div class="domain-hours-selector-label">Formations prises en compte :</div>';
+
+        years.forEach(year => {
+            const yearEntries = entriesByYear[year];
+            const { cohortes, nombre } = cohortesParAnnee[year];
+
+            html += '<div class="domain-hours-year-group">';
+            html += `<div class="domain-hours-year-label">${escapeHtml(year)}</div>`;
+
+            if (nombre > 1) {
+                html += '<div class="domain-hours-warning">';
+                html += `⚠ ${nombre} groupes d'enseignants distincts sur cette année : `;
+                html += 'le cumul additionne des formations qui n\'ont pas été suivies par les mêmes enseignants.';
+                html += '</div>';
+            }
+
+            yearEntries.forEach((entry, index) => {
+                const nbPe = entry.enseignants.size;
+                const meta = [];
+                if (nombre > 1) meta.push(`Groupe ${nomCohorte(cohortes[index])}`);
+                if (nbPe > 0) meta.push(`${nbPe} PE`);
+                meta.push(formatHeures(entry.heures));
+
+                // Seuls des index numériques transitent par les attributs :
+                // aucune valeur Grist n'y est réinjectée (escapeHtml, calqué
+                // sur textContent, ne neutralise pas les guillemets).
+                html += '<label class="domain-hours-choice">';
+                html += `<input type="checkbox" checked data-action="toggle-domain-hours" data-table-id="${tableId}" data-entry="${entries.indexOf(entry)}">`;
+                html += `<span class="domain-hours-choice-name">${escapeHtml(entry.intitule)}</span>`;
+                html += `<span class="domain-hours-choice-meta">${escapeHtml(meta.join(' · '))}</span>`;
+                html += '</label>';
+            });
+
+            html += '</div>';
+        });
+
+        html += '</div>';
+    }
+
+    html += `<table class="domain-hours-table" id="${tableId}">`;
+    html += '<thead><tr>';
+    html += '<th scope="col">ANNÉE</th>';
+    html += '<th scope="col">FRANÇAIS</th>';
+    html += '<th scope="col">MATHÉMATIQUES</th>';
+    html += '<th scope="col">AUTRES</th>';
+    html += `<th scope="col">${totalLabel}</th>`;
+    html += '</tr></thead><tbody>';
+
+    years.forEach((year, index) => {
+        html += `<tr data-year-index="${index}">`;
+        html += `<th scope="row">${escapeHtml(year)}</th>`;
+        html += '<td data-domain="francais"></td>';
+        html += '<td data-domain="maths"></td>';
+        html += '<td data-domain="autres"></td>';
+        html += '<td data-domain="total"></td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr data-year-index="total">';
+    html += '<th scope="row">Total</th>';
+    html += '<td data-domain="francais"></td>';
+    html += '<td data-domain="maths"></td>';
+    html += '<td data-domain="autres"></td>';
+    html += '<td data-domain="total"></td>';
+    html += '</tr></tfoot></table>';
+
+    html += '</div>';
+
+    return html;
+}
+
+// Remplit (ou recalcule) les cellules du tableau à partir des formations
+// actuellement cochées. Les valeurs passent par textContent : aucune donnée
+// Grist n'est réinjectée dans du HTML.
+function refreshHoursByDomainTable(tableId) {
+    const state = decompteStates.get(tableId);
+    const table = document.getElementById(tableId);
+    if (!state || !table) return;
+
+    const exclus = new Set();
+    document.querySelectorAll(`input[data-action="toggle-domain-hours"][data-table-id="${tableId}"]`)
+        .forEach(input => {
+            if (!input.checked) exclus.add(Number(input.dataset.entry));
+        });
+
+    const totaux = state.years.map(() => ({ francais: 0, maths: 0, autres: 0 }));
+    const cumul = { francais: 0, maths: 0, autres: 0 };
+
+    state.entries.forEach((entry, index) => {
+        if (exclus.has(index)) return;
+        const ligne = totaux[state.years.indexOf(entry.annee)];
+        if (!ligne) return;
+        ['francais', 'maths', 'autres'].forEach(domaine => {
+            ligne[domaine] += entry.parts[domaine];
+            cumul[domaine] += entry.parts[domaine];
+        });
+    });
+
+    table.querySelectorAll('tr[data-year-index]').forEach(row => {
+        const index = row.dataset.yearIndex;
+        const valeurs = index === 'total' ? cumul : totaux[Number(index)];
+        if (!valeurs) return;
+
+        const total = valeurs.francais + valeurs.maths + valeurs.autres;
+        row.querySelectorAll('td[data-domain]').forEach(cell => {
+            const domaine = cell.dataset.domain;
+            const valeur = domaine === 'total' ? total : valeurs[domaine];
+            cell.textContent = formatHeures(valeur);
+            cell.classList.toggle('domain-hours-empty', Math.round(valeur * 10) === 0);
+        });
+    });
 }
 
 function groupFormationsByType(formations) {
@@ -2552,6 +2855,8 @@ document.addEventListener('change', function (event) {
 
     if (action === 'toggle-empty') {
         toggleEmptyItems(target.dataset.matrixId);
+    } else if (action === 'toggle-domain-hours') {
+        refreshHoursByDomainTable(target.dataset.tableId);
     }
 });
 
