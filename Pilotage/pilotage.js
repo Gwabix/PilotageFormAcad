@@ -301,8 +301,9 @@ function scrollToMatrix() {
         if (activeTab) {
             const matrixContainer = activeTab.querySelector('.matrix-container');
             if (matrixContainer) {
-                // Calculer la hauteur de la profile-card sticky + une petite marge
-                const profileCard = document.querySelector('.profile-card');
+                // Calculer la hauteur de la profile-card sticky + une petite marge.
+                // Celle de l'onglet actif : une carte d'onglet masqué mesure 0.
+                const profileCard = activeTab.querySelector('.profile-card');
                 const offset = profileCard ? profileCard.offsetHeight + 20 : 100;
 
                 // Calculer la position finale
@@ -2831,7 +2832,13 @@ document.addEventListener('click', function (event) {
     else if (action === 'toggle-collapse') {
         toggleCollapse(target);
     } else if (action === 'scroll-to-matrix') {
-        scrollToMatrix();
+        // Une fois la matrice dépassée, le bouton devient « → Haut de page »
+        // (voir le gestionnaire de défilement) : son action suit son libellé.
+        if (target.dataset.mode === 'top') {
+            scrollToTop();
+        } else {
+            scrollToMatrix();
+        }
     } else if (action === 'export-csv') {
         exportToCSV(target.dataset.type);
     } else if (action === 'print') {
