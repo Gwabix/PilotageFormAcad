@@ -28,9 +28,15 @@ const graphsDataStore = {};
 
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
+    // Échappe aussi les guillemets : cette valeur peut aller en position
+    // d'attribut (title="...", data-name="..."). textContent→innerHTML ne les
+    // échappait pas, ce qui permettait de sortir d'un attribut.
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 /**
@@ -849,13 +855,13 @@ function createAggregatedThematicMatrix(formations) {
                     // Une seule formation
                     const cell = cells[0];
                     const typeClass = getTypeClass(cell.type);
-                    const tooltip = `${cell.type || 'Non spécifié'} - ${cell.annee || 'Année non spécifiée'}`;
-                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${tooltip}" data-cells="${cellsJson}">${cell.annee}</td>`;
+                    const tooltip = escapeHtml(`${cell.type || 'Non spécifié'} - ${cell.annee || 'Année non spécifiée'}`);
+                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${tooltip}" data-cells="${cellsJson}">${escapeHtml(cell.annee)}</td>`;
                 } else {
                     // Plusieurs formations - créer un dégradé de couleurs
                     const colors = cells.map(c => getTypeColor(c.type));
                     const gradient = createGradient(colors);
-                    const tooltip = cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n');
+                    const tooltip = escapeHtml(cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n'));
                     html += `<td class="filled-cell multi-formation${emptyColClass}" style="background: ${gradient};" title="${tooltip}" data-cells="${cellsJson}">×${cells.length}</td>`;
                 }
             });
@@ -886,13 +892,13 @@ function createAggregatedThematicMatrix(formations) {
                     // Une seule formation
                     const cell = cells[0];
                     const typeClass = getTypeClass(cell.type);
-                    const tooltip = `${cell.type || 'Non spécifié'} - ${cell.annee || 'Année non spécifiée'}`;
-                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${tooltip}" data-cells="${cellsJson}">${cell.annee}</td>`;
+                    const tooltip = escapeHtml(`${cell.type || 'Non spécifié'} - ${cell.annee || 'Année non spécifiée'}`);
+                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${tooltip}" data-cells="${cellsJson}">${escapeHtml(cell.annee)}</td>`;
                 } else {
                     // Plusieurs formations - créer un dégradé de couleurs
                     const colors = cells.map(c => getTypeColor(c.type));
                     const gradient = createGradient(colors);
-                    const tooltip = cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n');
+                    const tooltip = escapeHtml(cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n'));
                     html += `<td class="filled-cell multi-formation${emptyColClass}" style="background: ${gradient};" title="${tooltip}" data-cells="${cellsJson}">×${cells.length}</td>`;
                 }
             });
@@ -1092,12 +1098,12 @@ function createThematicMatrix(formations) {
                 } else if (cells.length === 1) {
                     const cell = cells[0];
                     const typeClass = getTypeClass(cell.type);
-                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${cell.type || 'Non spécifié'} - ${cell.annee || 'Année non spécifiée'}" data-cells="${cellsJson}">${cell.annee}</td>`;
+                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${escapeHtml((cell.type || 'Non spécifié') + ' - ' + (cell.annee || 'Année non spécifiée'))}" data-cells="${cellsJson}">${escapeHtml(cell.annee)}</td>`;
                 } else {
                     // Plusieurs formations - créer un dégradé
                     const colors = cells.map(c => getTypeColor(c.type));
                     const gradient = createGradient(colors);
-                    const tooltip = cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n');
+                    const tooltip = escapeHtml(cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n'));
                     html += `<td class="filled-cell multi-formation${emptyColClass}" style="background: ${gradient};" title="${tooltip}" data-cells="${cellsJson}">×${cells.length}</td>`;
                 }
             });
@@ -1127,12 +1133,12 @@ function createThematicMatrix(formations) {
                 } else if (cells.length === 1) {
                     const cell = cells[0];
                     const typeClass = getTypeClass(cell.type);
-                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${cell.type || 'Non spécifié'} - ${cell.annee || 'Année non spécifiée'}" data-cells="${cellsJson}">${cell.annee}</td>`;
+                    html += `<td class="filled-cell ${typeClass}${emptyColClass}" title="${escapeHtml((cell.type || 'Non spécifié') + ' - ' + (cell.annee || 'Année non spécifiée'))}" data-cells="${cellsJson}">${escapeHtml(cell.annee)}</td>`;
                 } else {
                     // Plusieurs formations - créer un dégradé
                     const colors = cells.map(c => getTypeColor(c.type));
                     const gradient = createGradient(colors);
-                    const tooltip = cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n');
+                    const tooltip = escapeHtml(cells.map(c => `${c.annee || '?'} : ${c.type || 'Non spécifié'}`).join('\n'));
                     html += `<td class="filled-cell multi-formation${emptyColClass}" style="background: ${gradient};" title="${tooltip}" data-cells="${cellsJson}">×${cells.length}</td>`;
                 }
             });
