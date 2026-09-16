@@ -397,6 +397,171 @@
             background: var(--primary-light)
         }
 
+        [hidden] {
+            display: none !important
+        }
+
+        #export-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: rgba(17, 24, 39, .4)
+        }
+
+        #export-dialog {
+            width: min(520px, 100%);
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+            padding: 16px 18px
+        }
+
+        #export-title {
+            margin: 0 0 12px;
+            font-size: 16px;
+            color: #111827
+        }
+
+        #export-status {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-style: italic
+        }
+
+        #export-status.error {
+            color: #b91c1c;
+            font-style: normal
+        }
+
+        .export-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 4px
+        }
+
+        #export-year {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font: inherit;
+            background: #fff
+        }
+
+        #export-year:focus,
+        .export-check input:focus-visible,
+        .btn:focus-visible,
+        .btn-link:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px
+        }
+
+        .export-group {
+            margin: 12px 0 0;
+            padding: 6px 10px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px
+        }
+
+        .export-group legend {
+            padding: 0 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: #4b5563
+        }
+
+        .export-cols {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0 12px
+        }
+
+        .export-check {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px
+        }
+
+        .export-check:hover {
+            background: var(--primary-light)
+        }
+
+        .export-check input {
+            margin: 0;
+            accent-color: var(--primary)
+        }
+
+        .export-quick {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 14px;
+            margin-top: 8px
+        }
+
+        .btn-link {
+            border: none;
+            background: none;
+            padding: 2px 0;
+            font: inherit;
+            font-size: 12px;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px
+        }
+
+        .btn-link:hover {
+            color: #1e3f73
+        }
+
+        .export-hint {
+            margin: 10px 0 0;
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .export-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 14px
+        }
+
+        .export-actions .btn {
+            padding: 6px 14px;
+            font-size: 13px
+        }
+
+        .btn.btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+            font-weight: 600
+        }
+
+        .btn.btn-primary:hover {
+            background: #244b85
+        }
+
+        .btn:disabled {
+            opacity: .6;
+            cursor: not-allowed
+        }
+
         .print-probe-host {
             position: absolute;
             left: -10000px;
@@ -438,7 +603,8 @@
                 print-color-adjust: exact
             }
 
-            #app {
+            #app,
+            #export-overlay {
                 display: none !important
             }
 
@@ -482,6 +648,21 @@
                 font-weight: 600;
                 color: #065f46;
                 margin-top: 3px
+            }
+
+            .print-missing {
+                color: var(--warn-txt)
+            }
+
+            .print-field {
+                font-size: 10.5px;
+                margin-top: 2px;
+                white-space: pre-line
+            }
+
+            .print-field-label {
+                font-weight: 600;
+                color: #374151
             }
 
             .print-school table {

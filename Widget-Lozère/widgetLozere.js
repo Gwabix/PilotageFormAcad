@@ -116,7 +116,7 @@
                     var lai = toBool(rec.Laicite_OK);
                     var cps = toBool(rec.CPS_OK);
                     var au = computeAutres(txt(rec.Autres), lai, cps);
-                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: txt(rec.Francais), maths: txt(rec.Maths), autres: au.text, warn: au.warn, formateurs: txt(rec.Formateurs) });
+                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: txt(rec.Francais), maths: txt(rec.Maths), autres: au.text, warn: au.warn, laicite: lai, cps: cps, formateurs: txt(rec.Formateurs) });
                 }
                 var list = [];
                 for (var j = 0; j < order.length; j++) { list.push(map[order[j]]); }
@@ -255,44 +255,77 @@
                 return h.join("");
             }
 
-            var PRINT_W = [24, 20, 20, 22, 14];
-            var PRINT_HEAD = ["Enseignant", T_FR, "Maths", "Autres", T_FORM];
+            // ---------- Export PDF ----------
+
+            var TH_TABLE = "Thematiques";
+            var TH_YEAR = "Annee_scolaire";
+            var TH_UAI = "UAI";
+            // Colonnes absentes des options d'en-tete : l'annee scolaire se choisit a part ;
+            // UAI et circonscription figurent deja sous le nom de l'ecole ; Ecole le repete.
+            var TH_SKIP = { Annee_scolaire: true, manualSort: true, UAI: true, Circo: true, Ecole: true };
+            var TH_HEADER_DEFAULT = { Competence_fil_rouge: true, Modalite: true };
+            var PE_COL = "__pe";
+            var T_NOYEAR = "Sans année scolaire";
+
+            // Colonnes du tableau des enseignants, cochees par defaut. Hormis
+            // Enseignant (Liste_PE), elles sont lues dans la ligne Thematiques
+            // de l'annee choisie. Toute autre colonne de Thematiques va dans
+            // l'en-tete de l'ecole.
+            var TABLE_COLS = [
+                { id: PE_COL, label: "Enseignant", weight: 24 },
+                { id: "Francais", label: T_FR, weight: 20, kind: "tag" },
+                { id: "Mathematiques", label: "Maths", weight: 20, kind: "tag" },
+                { id: "Autre", label: "Autres", weight: 22, kind: "autres" },
+                { id: "Formateur_s_", label: T_FORM, weight: 14, kind: "plain" }
+            ];
+
             var PRINT_ROOT_MM = 276;
             var PRINT_CELL_PAD = 14;
-            var printMin = null;
+            var printMinByLabel = {};
+            var exportSource = null;
+            var exportBusy = false;
 
             // Largeur minimale d'une colonne : le mot le plus long de son en-tete,
             // mesure avec la typographie d'impression. L'en-tete peut donc se
             // replier entre deux mots mais n'est jamais coupe ni tronque.
-            function measurePrintMin() {
-                var host = document.createElement("div");
-                host.className = "print-probe-host";
-                host.style.width = PRINT_ROOT_MM + "mm";
-                var probe = document.createElement("span");
-                probe.className = "print-probe";
-                host.appendChild(probe);
-                document.body.appendChild(host);
-                var ref = host.getBoundingClientRect().width;
-                var out = [];
-                for (var i = 0; i < PRINT_HEAD.length; i++) {
-                    var words = PRINT_HEAD[i].split(/\s+/);
-                    var max = 0;
-                    for (var w = 0; w < words.length; w++) {
-                        probe.textContent = words[w];
-                        var wd = probe.getBoundingClientRect().width;
-                        if (wd > max) { max = wd; }
+            function printMins(labels) {
+                var missing = labels.filter(function (l) { return !(l in printMinByLabel); });
+                if (missing.length) {
+                    var host = document.createElement("div");
+                    host.className = "print-probe-host";
+                    host.style.width = PRINT_ROOT_MM + "mm";
+                    var probe = document.createElement("span");
+                    probe.className = "print-probe";
+                    host.appendChild(probe);
+                    document.body.appendChild(host);
+                    var ref = host.getBoundingClientRect().width;
+                    for (var i = 0; i < missing.length; i++) {
+                        var words = missing[i].split(/\s+/);
+                        var max = 0;
+                        for (var w = 0; w < words.length; w++) {
+                            probe.textContent = words[w];
+                            var wd = probe.getBoundingClientRect().width;
+                            if (wd > max) { max = wd; }
+                        }
+                        printMinByLabel[missing[i]] = ref > 0 ? (max + PRINT_CELL_PAD) / ref * 100 : 10;
                     }
-                    out.push(ref > 0 ? (max + PRINT_CELL_PAD) / ref * 100 : 10);
+                    document.body.removeChild(host);
                 }
-                document.body.removeChild(host);
-                return out;
+                return labels.map(function (l) { return printMinByLabel[l]; });
             }
 
-            // Repartit 100% entre les colonnes selon leurs poids, en remontant
-            // toute colonne qui passerait sous son minimum.
-            function spreadWidths(weights, mins) {
+            // Bornes de largeur (en % du tableau) : Enseignant ne depasse pas PRINT_PE_MAX ;
+            // une colonne remplie reste entre PRINT_USED_MIN et PRINT_USED_MAX.
+            var PRINT_PE_MAX = 32;
+            var PRINT_USED_MIN = 12;
+            var PRINT_USED_MAX = 30;
+
+            // Repartit 100% entre les colonnes selon leurs poids, en ramenant
+            // toute colonne entre son minimum et son maximum.
+            function spreadWidths(weights, mins, maxs) {
                 var n = weights.length;
                 var fixed = [];
+                var out = weights.slice();
                 var i;
                 for (i = 0; i < n; i++) { fixed.push(null); }
                 for (var pass = 0; pass <= n; pass++) {
@@ -302,112 +335,391 @@
                         if (fixed[i] === null) { sumW += weights[i]; } else { taken += fixed[i]; }
                     }
                     var avail = 100 - taken;
-                    var raised = false;
-                    var out = [];
+                    var changed = false;
+                    out = [];
                     for (i = 0; i < n; i++) {
-                        if (fixed[i] !== null) { out.push(fixed[i]); continue; }
-                        var w = (sumW > 0 && avail > 0) ? avail * weights[i] / sumW : 0;
-                        if (w < mins[i] - 0.01) { fixed[i] = mins[i]; raised = true; }
-                        out.push(w);
+                        if (fixed[i] === null) {
+                            var w = (sumW > 0 && avail > 0) ? avail * weights[i] / sumW : 0;
+                            if (w < mins[i] - 0.01) { fixed[i] = mins[i]; changed = true; }
+                            else if (w > maxs[i] + 0.01) { fixed[i] = maxs[i]; changed = true; }
+                            else { out.push(w); continue; }
+                        }
+                        out.push(fixed[i]);
                     }
-                    if (!raised) { return out; }
+                    if (!changed) { break; }
                 }
-                return weights.slice();
-            }
-
-            function printColWidths(sc) {
-                if (!printMin) { printMin = measurePrintMin(); }
-                var used = [true, false, false, false, false];
-                for (var i = 0; i < sc.pe.length; i++) {
-                    var p = sc.pe[i];
-                    if (p.francais) { used[1] = true; }
-                    if (p.maths) { used[2] = true; }
-                    if (p.autres) { used[3] = true; }
-                    if (p.formateurs) { used[4] = true; }
-                }
-                var weights = [];
-                for (var j = 0; j < 5; j++) { weights.push(used[j] ? PRINT_W[j] : 0); }
-                var raw = spreadWidths(weights, printMin);
-                var out = [];
-                var total = 0;
-                var widest = 0;
-                for (var k = 0; k < 5; k++) {
-                    var v = Math.round(raw[k] * 100) / 100;
-                    out.push(v);
-                    total += v;
-                    if (used[k] && v > out[widest]) { widest = k; }
-                }
-                out[widest] = Math.round((out[widest] + 100 - total) * 100) / 100;
                 return out;
             }
 
-            function renderPrintPe(pe) {
-                var nameParts = [];
-                if (pe.civilite) { nameParts.push(pe.civilite); }
-                if (pe.nom) { nameParts.push(pe.nom); }
-                if (pe.prenom) { nameParts.push(pe.prenom); }
-                var full = nameParts.join(" ");
-                var isPartTime = !!pe.quotite && pe.quotite !== "100%";
-                var subParts = [];
-                if (pe.fonction) { subParts.push(esc(pe.fonction)); }
-                if (pe.quotite) {
-                    subParts.push(isPartTime ? "<strong>" + esc(pe.quotite) + "</strong>" : esc(pe.quotite));
-                }
-                if (pe.niveaux) { subParts.push(esc(pe.niveaux)); }
-                var h = [];
-                h.push(isPartTime ? '<tr class="quotite-partial"><td>' : "<tr><td>");
-                h.push('<div class="pe-name">' + (full ? esc(full) : DASH) + "</div>");
-                if (pe.mail) { h.push('<div class="pe-sub">' + esc(pe.mail) + "</div>"); }
-                if (subParts.length) { h.push('<div class="pe-sub">' + subParts.join(DOT) + "</div>"); }
-                h.push("</td><td>" + tag(pe.francais, false) + "</td>");
-                h.push("<td>" + tag(pe.maths, false) + "</td>");
-                h.push("<td>" + tag(pe.autres, pe.warn) + "</td>");
-                h.push("<td>" + plainList(pe.formateurs) + "</td></tr>");
-                return h.join("");
+            function cellValue(col, row) {
+                return row === null ? "" : txt(exportSource.data[col.id] && exportSource.data[col.id][row]);
             }
 
-            function renderPrintSchool(sc) {
+            // Une colonne est remplie si au moins un enseignant de l'ecole y affiche
+            // quelque chose : pour Autres, apres le calcul CPS / Laicite.
+            function columnUsed(col, sc, row) {
+                if (col.id === PE_COL) { return true; }
+                var value = cellValue(col, row);
+                if (col.kind === "autres") {
+                    return sc.pe.some(function (pe) { return !!computeAutres(value, pe.laicite, pe.cps).text; });
+                }
+                return !!value;
+            }
+
+            function printColWidths(cols, sc, row) {
+                var heads = printMins(cols.map(function (c) { return c.label; }));
+                var used = cols.map(function (c) { return columnUsed(c, sc, row); });
+                var weights = cols.map(function (c, i) { return used[i] ? c.weight : 0; });
+                var mins = cols.map(function (c, i) {
+                    return (used[i] && c.id !== PE_COL) ? Math.max(heads[i], PRINT_USED_MIN) : heads[i];
+                });
+                var maxs = cols.map(function (c, i) {
+                    if (c.id === PE_COL) { return Math.max(heads[i], PRINT_PE_MAX); }
+                    return used[i] ? Math.max(heads[i], PRINT_USED_MIN, PRINT_USED_MAX) : 100;
+                });
+                var raw = spreadWidths(weights, mins, maxs);
+
+                // Place laissee par les maximums : aux colonnes vides, a defaut aux
+                // colonnes remplies, a defaut a Enseignant seul.
+                var total = raw.reduce(function (a, b) { return a + b; }, 0);
+                if (total < 99.99) {
+                    var targets = [];
+                    var k;
+                    for (k = 0; k < cols.length; k++) { if (!used[k]) { targets.push(k); } }
+                    if (!targets.length) { for (k = 0; k < cols.length; k++) { if (used[k] && cols[k].id !== PE_COL) { targets.push(k); } } }
+                    if (!targets.length) { for (k = 0; k < cols.length; k++) { targets.push(k); } }
+                    var sumT = targets.reduce(function (a, t) { return a + cols[t].weight; }, 0);
+                    targets.forEach(function (t) { raw[t] += (100 - total) * cols[t].weight / sumT; });
+                }
+
+                var out = [];
+                var sum = 0;
+                var widest = -1;
+                for (var j = 0; j < cols.length; j++) {
+                    var v = Math.round(raw[j] * 100) / 100;
+                    out.push(v);
+                    sum += v;
+                    if (cols[j].id !== PE_COL && (widest === -1 || v > out[widest])) { widest = j; }
+                }
+                // Ecart d'arrondi reporte sur la plus large des colonnes autres qu'Enseignant,
+                // pour ne pas depasser le plafond de celle-ci.
+                if (widest === -1) { widest = 0; }
+                out[widest] = Math.round((out[widest] + 100 - sum) * 100) / 100;
+                return out;
+            }
+
+            // « 2026-2027 » de septembre 2026 a aout 2027.
+            function currentSchoolYear() {
+                var now = new Date();
+                var start = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+                return start + "-" + (start + 1);
+            }
+
+            function yearNumber(label) {
+                var m = String(label).match(/(\d+)/);
+                return m ? parseInt(m[1], 10) : Infinity;
+            }
+
+            function cleanLabel(label, colId) {
+                var l = txt(label);
+                return (!l || l.charAt(0) === "$") ? colId : l;
+            }
+
+            function formatValue(v, type) {
+                if (v === null || v === undefined || v === "") { return ""; }
+                if (type === "Bool") { return v === true ? "Oui" : (v === false ? "Non" : txt(v)); }
+                if ((type === "Date" || type.indexOf("DateTime") === 0) && typeof v === "number") {
+                    return new Date(v * 1000).toLocaleDateString("fr-FR", { timeZone: "UTC" });
+                }
+                return txt(v);
+            }
+
+            async function loadExportSource() {
+                var res = await Promise.all([
+                    grist.docApi.fetchTable(TH_TABLE),
+                    grist.docApi.fetchTable("_grist_Tables"),
+                    grist.docApi.fetchTable("_grist_Tables_column")
+                ]);
+                var data = res[0];
+                var tables = res[1];
+                var cols = res[2];
+                if (!data[TH_UAI] || !data[TH_YEAR]) {
+                    throw new Error("colonnes " + TH_UAI + " ou " + TH_YEAR + " introuvables dans " + TH_TABLE);
+                }
+
+                var tableRef = null;
+                for (var t = 0; t < tables.id.length; t++) {
+                    if (tables.tableId[t] === TH_TABLE) { tableRef = tables.id[t]; break; }
+                }
                 var meta = [];
-                if (sc.uai) { meta.push("UAI " + sc.uai); }
+                var colIdByRef = {};
+                for (var j = 0; j < cols.id.length; j++) {
+                    colIdByRef[cols.id[j]] = cols.colId[j];
+                    if (cols.parentId[j] === tableRef) {
+                        meta.push({ colId: cols.colId[j], label: cols.label[j], type: String(cols.type[j] || ""), displayCol: cols.displayCol[j], pos: cols.parentPos[j] });
+                    }
+                }
+                meta.sort(function (a, b) { return a.pos - b.pos; });
+
+                var tableIds = {};
+                TABLE_COLS.forEach(function (c) { tableIds[c.id] = true; });
+                var headerCols = [];
+                meta.forEach(function (m) {
+                    if (tableIds[m.colId] || TH_SKIP[m.colId] || m.colId.indexOf("gristHelper_") === 0) { return; }
+                    // Reference : valeur affichee par la colonne d'aide de Grist, pas l'identifiant.
+                    var source = (m.displayCol && colIdByRef[m.displayCol]) ? colIdByRef[m.displayCol] : m.colId;
+                    if (!data[source]) { return; }
+                    headerCols.push({ id: m.colId, label: cleanLabel(m.label, m.colId), source: source, type: m.type, checked: !!TH_HEADER_DEFAULT[m.colId] });
+                });
+
+                // Ligne par ecole (code UAI) et par annee ; la plus ancienne en cas de doublon.
+                var rows = {};
+                var years = {};
+                for (var r = 0; r < data.id.length; r++) {
+                    var year = txt(data[TH_YEAR][r]);
+                    var key = txt(data[TH_UAI][r]) + "" + year;
+                    years[year] = true;
+                    if (!(key in rows) || data.id[r] < data.id[rows[key]]) { rows[key] = r; }
+                }
+                var yearList = Object.keys(years).sort(function (a, b) {
+                    if (!a) { return 1; }
+                    if (!b) { return -1; }
+                    return yearNumber(a) - yearNumber(b) || a.localeCompare(b);
+                });
+
+                return { data: data, headerCols: headerCols, rows: rows, years: yearList };
+            }
+
+            function rowFor(sc, year) {
+                if (!sc.uai) { return null; }
+                var key = sc.uai + "" + year;
+                return (key in exportSource.rows) ? exportSource.rows[key] : null;
+            }
+
+            function renderPrintCell(col, pe, row) {
+                if (col.id === PE_COL) {
+                    var nameParts = [];
+                    if (pe.civilite) { nameParts.push(pe.civilite); }
+                    if (pe.nom) { nameParts.push(pe.nom); }
+                    if (pe.prenom) { nameParts.push(pe.prenom); }
+                    var full = nameParts.join(" ");
+                    var isPartTime = !!pe.quotite && pe.quotite !== "100%";
+                    var subParts = [];
+                    if (pe.fonction) { subParts.push(esc(pe.fonction)); }
+                    if (pe.quotite) {
+                        subParts.push(isPartTime ? "<strong>" + esc(pe.quotite) + "</strong>" : esc(pe.quotite));
+                    }
+                    if (pe.niveaux) { subParts.push(esc(pe.niveaux)); }
+                    var h = '<div class="pe-name">' + (full ? esc(full) : DASH) + "</div>";
+                    if (pe.mail) { h += '<div class="pe-sub">' + esc(pe.mail) + "</div>"; }
+                    if (subParts.length) { h += '<div class="pe-sub">' + subParts.join(DOT) + "</div>"; }
+                    return h;
+                }
+                var value = cellValue(col, row);
+                if (col.kind === "autres") {
+                    var au = computeAutres(value, pe.laicite, pe.cps);
+                    return tag(au.text, au.warn);
+                }
+                if (col.kind === "plain") { return plainList(value); }
+                return tag(value, false);
+            }
+
+            function renderPrintSchool(sc, opts) {
+                var row = rowFor(sc, opts.year);
+                var yearLabel = opts.year || T_NOYEAR;
+                var meta = [];
+                if (sc.uai) { meta.push(sc.uai); }
                 if (sc.circo) { meta.push(sc.circo); }
-                if (sc.dept) { meta.push(sc.dept); }
                 var h = [];
                 h.push('<section class="print-school">');
                 h.push('<header class="print-head"><h2>');
                 h.push(sc.ecole ? esc(sc.ecole) : ("UAI " + esc(sc.uai || "?")));
                 h.push("</h2>");
                 if (meta.length) { h.push('<div class="print-meta">' + esc(meta.join(DOT)) + "</div>"); }
-                h.push('<div class="print-mod">' + esc(sc.modalite || T_NOMOD) + DOT + sc.pe.length + " PE</div>");
+                if (row === null) {
+                    h.push('<div class="print-mod print-missing">' + esc("Aucune donnée " + TH_TABLE + " pour " + yearLabel) + DOT + sc.pe.length + " PE</div>");
+                } else {
+                    h.push('<div class="print-mod">' + esc(yearLabel) + DOT + sc.pe.length + " PE</div>");
+                    for (var f = 0; f < opts.headerCols.length; f++) {
+                        var hc = opts.headerCols[f];
+                        var value = formatValue(exportSource.data[hc.source][row], hc.type);
+                        h.push('<div class="print-field"><span class="print-field-label">' + esc(hc.label) + " :</span> ");
+                        h.push(value ? '<span class="print-field-value">' + esc(value) + "</span>" : DASH);
+                        h.push("</div>");
+                    }
+                }
                 h.push("</header>");
                 if (sc.pe.length === 0) {
                     h.push('<div class="no-pe">' + esc(T_NOPE) + "</div>");
-                } else {
-                    var w = printColWidths(sc);
+                } else if (opts.tableCols.length) {
+                    var w = printColWidths(opts.tableCols, sc, row);
                     h.push("<table><colgroup>");
                     for (var c = 0; c < w.length; c++) { h.push('<col style="width:' + w[c] + '%">'); }
                     h.push("</colgroup><thead><tr>");
-                    h.push("<th>Enseignant</th>");
-                    h.push("<th>" + esc(T_FR) + "</th>");
-                    h.push("<th>Maths</th>");
-                    h.push("<th>Autres</th>");
-                    h.push("<th>" + esc(T_FORM) + "</th>");
+                    for (var t = 0; t < opts.tableCols.length; t++) { h.push("<th>" + esc(opts.tableCols[t].label) + "</th>"); }
                     h.push("</tr></thead><tbody>");
-                    for (var i = 0; i < sc.pe.length; i++) { h.push(renderPrintPe(sc.pe[i])); }
+                    for (var i = 0; i < sc.pe.length; i++) {
+                        var pe = sc.pe[i];
+                        var isPartTime = !!pe.quotite && pe.quotite !== "100%";
+                        h.push(isPartTime ? '<tr class="quotite-partial">' : "<tr>");
+                        for (var k = 0; k < opts.tableCols.length; k++) {
+                            h.push("<td>" + renderPrintCell(opts.tableCols[k], pe, row) + "</td>");
+                        }
+                        h.push("</tr>");
+                    }
                     h.push("</tbody></table>");
                 }
                 h.push("</section>");
                 return h.join("");
             }
 
-            function exportPdf() {
-                var root = document.getElementById("print-root");
+            // ---------- Modale d'export ----------
+
+            function exportEl(id) { return document.getElementById(id); }
+
+            function setExportStatus(message, isError) {
+                var st = exportEl("export-status");
+                st.textContent = message || "";
+                st.hidden = !message;
+                st.classList.toggle("error", !!isError);
+            }
+
+            function makeCheckbox(container, id, label, checked, isDefault) {
+                var row = document.createElement("label");
+                row.className = "export-check";
+                var box = document.createElement("input");
+                box.type = "checkbox";
+                box.value = id;
+                box.checked = checked;
+                box.setAttribute("data-default", isDefault ? "1" : "0");
+                var span = document.createElement("span");
+                span.textContent = label;
+                row.appendChild(box);
+                row.appendChild(span);
+                container.appendChild(row);
+            }
+
+            function fillExportForm(vis) {
+                var yearSel = exportEl("export-year");
+                yearSel.replaceChildren();
+                var defaultYear = null;
+                exportSource.years.forEach(function (y) {
+                    var count = 0;
+                    for (var i = 0; i < vis.length; i++) { if (rowFor(vis[i], y) !== null) { count++; } }
+                    var opt = document.createElement("option");
+                    opt.value = y;
+                    opt.textContent = (y || T_NOYEAR) + " — " + count + " / " + vis.length + " " + T_ECOLES;
+                    yearSel.appendChild(opt);
+                    if (defaultYear === null && y) { defaultYear = y; }
+                });
+                // Par defaut : l'annee scolaire en cours si elle existe, sinon la plus ancienne.
+                var current = currentSchoolYear();
+                if (exportSource.years.indexOf(current) !== -1) { defaultYear = current; }
+                if (defaultYear !== null) { yearSel.value = defaultYear; }
+                yearSel.disabled = exportSource.years.length === 0;
+
+                var tableBox = exportEl("export-cols-table");
+                var headerBox = exportEl("export-cols-header");
+                tableBox.replaceChildren();
+                headerBox.replaceChildren();
+                TABLE_COLS.forEach(function (c) { makeCheckbox(tableBox, c.id, c.label, true, true); });
+                exportSource.headerCols.forEach(function (c) { makeCheckbox(headerBox, c.id, c.label, c.checked, c.checked); });
+            }
+
+            function exportBoxes() {
+                return Array.prototype.slice.call(document.querySelectorAll("#export-form input[type=checkbox]"));
+            }
+
+            async function openExportDialog() {
+                if (exportBusy) { return; }
                 var vis = filterSchools(document.getElementById("search-input").value);
                 if (vis.length === 0) { return; }
-                var parts = [];
-                for (var i = 0; i < vis.length; i++) { parts.push(renderPrintSchool(vis[i])); }
-                root.innerHTML = parts.join("");
                 closeSugg();
+                exportBusy = true;
+                exportEl("export-fields").hidden = true;
+                exportEl("export-go").disabled = true;
+                setExportStatus("Chargement des colonnes de " + TH_TABLE + "…");
+                exportEl("export-overlay").hidden = false;
+                exportEl("export-cancel").focus();
+                try {
+                    exportSource = await loadExportSource();
+                    fillExportForm(vis);
+                    setExportStatus("");
+                    exportEl("export-fields").hidden = false;
+                    exportEl("export-go").disabled = false;
+                    exportEl("export-year").focus();
+                } catch (err) {
+                    exportSource = null;
+                    setExportStatus("Lecture de " + TH_TABLE + " impossible : " + (err && err.message ? err.message : "erreur inconnue") +
+                        ". Le widget doit disposer d'un accès complet au document.", true);
+                } finally {
+                    exportBusy = false;
+                }
+            }
+
+            function closeExportDialog() {
+                exportEl("export-overlay").hidden = true;
+                document.getElementById("btn-pdf").focus();
+            }
+
+            function runExport() {
+                if (!exportSource) { return; }
+                var vis = filterSchools(document.getElementById("search-input").value);
+                if (vis.length === 0) { closeExportDialog(); return; }
+                var checked = {};
+                exportBoxes().forEach(function (b) { if (b.checked) { checked[b.value] = true; } });
+                var opts = {
+                    year: exportEl("export-year").value || "",
+                    tableCols: TABLE_COLS.filter(function (c) { return checked[c.id]; }),
+                    headerCols: exportSource.headerCols.filter(function (c) { return checked[c.id]; })
+                };
+                var parts = [];
+                for (var i = 0; i < vis.length; i++) { parts.push(renderPrintSchool(vis[i], opts)); }
+                document.getElementById("print-root").innerHTML = parts.join("");
+                closeExportDialog();
                 window.print();
+            }
+
+            function bindExportDialog() {
+                var overlay = exportEl("export-overlay");
+                exportEl("export-form").addEventListener("submit", function (e) {
+                    e.preventDefault();
+                    runExport();
+                });
+                exportEl("export-cancel").addEventListener("click", closeExportDialog);
+                exportEl("export-all").addEventListener("click", function () {
+                    exportBoxes().forEach(function (b) { b.checked = true; });
+                });
+                exportEl("export-none").addEventListener("click", function () {
+                    exportBoxes().forEach(function (b) { b.checked = false; });
+                });
+                exportEl("export-default").addEventListener("click", function () {
+                    exportBoxes().forEach(function (b) { b.checked = b.getAttribute("data-default") === "1"; });
+                });
+                overlay.addEventListener("mousedown", function (e) {
+                    if (e.target === overlay) { closeExportDialog(); }
+                });
+                overlay.addEventListener("keydown", function (e) {
+                    if (e.key === "Escape") {
+                        e.preventDefault();
+                        closeExportDialog();
+                    } else if (e.key === "Tab") {
+                        var items = Array.prototype.filter.call(
+                            overlay.querySelectorAll("button, select, input"),
+                            function (el) { return !el.disabled && el.offsetParent !== null; }
+                        );
+                        if (!items.length) { return; }
+                        var first = items[0];
+                        var last = items[items.length - 1];
+                        if (e.shiftKey && document.activeElement === first) {
+                            e.preventDefault();
+                            last.focus();
+                        } else if (!e.shiftKey && document.activeElement === last) {
+                            e.preventDefault();
+                            first.focus();
+                        }
+                    }
+                });
             }
 
             function render() {
@@ -570,7 +882,8 @@
                     render();
                 });
 
-                document.getElementById("btn-pdf").addEventListener("click", exportPdf);
+                document.getElementById("btn-pdf").addEventListener("click", openExportDialog);
+                bindExportDialog();
 
                 window.addEventListener("afterprint", function () {
                     document.getElementById("print-root").innerHTML = "";
@@ -583,7 +896,7 @@
 
             function init() {
                 bind();
-                grist.ready({ requiredAccess: "read table" });
+                grist.ready({ requiredAccess: "full" });
                 grist.onRecords(function (records) {
                     schools = buildSchools(Array.isArray(records) ? records : []);
                     render();

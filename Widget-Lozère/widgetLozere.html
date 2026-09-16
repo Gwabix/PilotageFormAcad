@@ -29,6 +29,36 @@
         </div>
         <div id="list"></div>
     </div>
+    <div id="export-overlay" hidden>
+        <div id="export-dialog" role="dialog" aria-modal="true" aria-labelledby="export-title">
+            <form id="export-form">
+                <h2 id="export-title">Exporter en PDF</h2>
+                <p id="export-status" role="status" hidden></p>
+                <div id="export-fields" hidden>
+                    <label class="export-label" for="export-year">Année scolaire</label>
+                    <select id="export-year"></select>
+                    <fieldset class="export-group">
+                        <legend>Tableau des enseignants</legend>
+                        <div id="export-cols-table" class="export-cols"></div>
+                    </fieldset>
+                    <fieldset class="export-group">
+                        <legend>En-tête de chaque école</legend>
+                        <div id="export-cols-header" class="export-cols"></div>
+                    </fieldset>
+                    <div class="export-quick">
+                        <button class="btn-link" id="export-all" type="button">Tout cocher</button>
+                        <button class="btn-link" id="export-none" type="button">Tout décocher</button>
+                        <button class="btn-link" id="export-default" type="button">Sélection par défaut</button>
+                    </div>
+                    <p class="export-hint">Dans la boîte d'impression, choisir « Enregistrer au format PDF ».</p>
+                </div>
+                <div class="export-actions">
+                    <button class="btn" id="export-cancel" type="button">Annuler</button>
+                    <button class="btn btn-primary" id="export-go" type="submit">Exporter</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div id="print-root" aria-hidden="true"></div>
     <script src="widgetLozere.js"></script>
 </body>

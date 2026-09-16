@@ -4,8 +4,10 @@
     var TABLE_ID = "Thematiques";
     var ECOLES_TABLE_ID = "Ecoles";
     var COL_ECOLE = "Ecole";
-    var COL_ANNEE = "Annee";
+    var COL_ANNEE = "Annee_du_Plan";
     var COL_REGROUPEMENT = "Regroupement";
+    var COL_ANNEE_SCOLAIRE = "Annee_scolaire";
+    var SCHOOL_YEAR_RE = /^(\d{4})-(\d{4})$/;
     var YEAR_PREFIX = "Année ";
     var YEAR_RE = /^Ann[ée]e\s+(\d+)$/i;
     var DEFAULT_YEAR_COUNT = 4;
@@ -14,13 +16,13 @@
 
     // Commune à toute l'école : affichée sous son nom, écrite sur chacune de ses années.
     var CT_FIELD = { colId: "Competence_fil_rouge", label: "Compétence fil rouge", kind: "text" };
-    var MODALITE_FIELD = { colId: "Modalite_retenue", label: "Modalité retenue", kind: "modalite" };
+    var MODALITE_FIELD = { colId: "Modalite", label: "Modalité", kind: "modalite" };
     var FIELDS = [
         { colId: "Francais", label: "Français", kind: "text" },
         { colId: "Mathematiques", label: "Mathématiques", kind: "text" },
         { colId: "Autre", label: "Autre", kind: "autre" }
     ];
-    var RECORD_COLUMNS = [CT_FIELD.colId, MODALITE_FIELD.colId, COL_REGROUPEMENT].concat(FIELDS.map(function (f) {
+    var RECORD_COLUMNS = [CT_FIELD.colId, MODALITE_FIELD.colId, COL_REGROUPEMENT, COL_ANNEE_SCOLAIRE].concat(FIELDS.map(function (f) {
         return f.colId;
     }));
 
@@ -655,6 +657,23 @@
         return editInput.value.replace(/\r\n/g, "\n").trim();
     }
 
+    // Année scolaire d'une année du plan à créer, déduite de l'année existante la plus proche
+    // de l'école : Année 1 en 2026-2027 donne Année 2 en 2027-2028. Vide si rien ne permet de la déduire.
+    function deduceSchoolYear(school, year) {
+        var best = null;
+        Object.keys(school.years).forEach(function (k) {
+            var n = parseInt(k, 10);
+            var m = trimmed(school.years[k][COL_ANNEE_SCOLAIRE]).match(SCHOOL_YEAR_RE);
+            if (!m || parseInt(m[2], 10) !== parseInt(m[1], 10) + 1) return;
+            if (best === null || Math.abs(n - year) < Math.abs(best.year - year)) {
+                best = { year: n, start: parseInt(m[1], 10) };
+            }
+        });
+        if (best === null) return "";
+        var start = best.start + (year - best.year);
+        return start + "-" + (start + 1);
+    }
+
     // Actions Grist d'une saisie, et mise à jour locale à appliquer une fois l'écriture acceptée.
     function planSave(school, ctx, value) {
         var colId = ctx.field.colId;
@@ -697,6 +716,10 @@
         var fields = {};
         fields[COL_ECOLE] = school.id;
         fields[COL_ANNEE] = YEAR_PREFIX + ctx.year;
+        var schoolYear = deduceSchoolYear(school, ctx.year);
+        if (schoolYear) {
+            fields[COL_ANNEE_SCOLAIRE] = schoolYear;
+        }
         // Une nouvelle année reprend la compétence fil rouge si toutes les années existantes concordent.
         var ct = schoolFilRouge(school);
         if (ct.text && ct.consistent) {
