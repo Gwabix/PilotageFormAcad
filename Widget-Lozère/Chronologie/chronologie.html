@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plan de formation</title>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #f5f6fa;
+            --surface: #ffffff;
+            --border: #dde1ec;
+            --text-primary: #1a1f36;
+            --text-secondary: #4a5178;
+            --accent: #3b5bdb;
+            --accent-light: #e8edff;
+            --line-color: #c0c8f0;
+            --circle-bg: #3b5bdb;
+            --circle-text: #ffffff;
+            --search-border: #b0b8e0;
+            --shadow: 0 2px 12px rgba(59, 91, 219, 0.10);
+            --tag-bg: #e8edff;
+            --tag-text: #2d44a0;
+        }
+
+        body {
+            background: var(--bg) !important;
+            color: var(--text-primary) !important;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            min-height: 100vh;
+            padding: 24px 16px;
+        }
+
+        #search-zone {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 40px;
+            max-width: 480px;
+        }
+
+        #search-zone label {
+            font-weight: 600;
+            color: var(--text-primary) !important;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        #search-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        #search-input {
+            width: 100%;
+            padding: 8px 36px 8px 12px;
+            border: 1.5px solid var(--search-border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--surface) !important;
+            color: var(--text-primary) !important;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #search-input:focus {
+            border-color: var(--accent);
+        }
+
+        #search-clear {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-secondary) !important;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        #search-clear.visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        #search-clear:hover,
+        #search-clear:focus {
+            background: var(--accent-light) !important;
+            color: var(--accent) !important;
+            outline: none;
+        }
+
+        #dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--surface) !important;
+            border: 1.5px solid var(--search-border);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            z-index: 100;
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        #dropdown.open {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 9px 14px;
+            cursor: pointer;
+            color: var(--text-primary) !important;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover,
+        .dropdown-item.active {
+            background: var(--accent-light) !important;
+        }
+
+        .dropdown-item mark {
+            background: transparent;
+            color: var(--accent) !important;
+            font-weight: 700;
+        }
+
+        #no-result {
+            padding: 10px 14px;
+            color: var(--text-secondary) !important;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        /* Timeline */
+        #timeline-container {
+            display: none;
+            position: relative;
+            margin: 0 auto;
+            overflow-x: auto;
+        }
+
+        #timeline-container.visible {
+            display: block;
+        }
+
+        #school-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary) !important;
+            margin-bottom: 36px;
+        }
+
+        #timeline-inner {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-evenly;
+            min-width: max-content;
+            padding: 80px 40px;
+        }
+
+        #timeline-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--line-color);
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+
+        .year-block {
+            position: relative;
+            min-width: 260px;
+            height: 320px;
+            margin: 0 16px;
+            z-index: 1;
+        }
+
+        .year-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--circle-bg) !important;
+            color: var(--circle-text) !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 15px;
+            border: 3px solid var(--surface);
+            box-shadow: 0 0 0 3px var(--accent);
+            flex-shrink: 0;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        .year-content {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface) !important;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            min-width: 240px;
+            max-width: 300px;
+            width: max-content;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .year-content.above {
+            bottom: calc(50% + 42px);
+        }
+
+        .year-content.below {
+            top: calc(50% + 42px);
+        }
+
+        .year-label {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--accent) !important;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .formation-item {
+            font-size: 12px;
+            color: var(--text-secondary) !important;
+            line-height: 1.5;
+            padding: 3px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .empty-editable {
+            font-size: 12px;
+            color: var(--accent) !important;
+            font-weight: 700;
+            line-height: 1.5;
+            padding: 3px 0;
+            border-bottom: 1px dashed var(--border);
+            user-select: none;
+        }
+
+        .empty-editable:last-child {
+            border-bottom: none;
+        }
+
+        .add-formation-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 28px;
+            height: 28px;
+            margin: 8px auto 0;
+            padding: 0;
+            font-size: 0;
+            line-height: 0;
+            font-weight: 400;
+            color: var(--accent) !important;
+            background: none;
+            border: 1.5px dashed var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.15s, background 0.15s;
+            user-select: none;
+        }
+
+        .add-formation-btn::before,
+        .add-formation-btn::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            background: currentColor;
+            transform: translate(-50%, -50%);
+            border-radius: 1px;
+        }
+
+        .add-formation-btn::before {
+            width: 11px;
+            height: 2px;
+        }
+
+        .add-formation-btn::after {
+            width: 2px;
+            height: 11px;
+        }
+
+        .add-formation-btn:hover,
+        .add-formation-btn:focus {
+            opacity: 1;
+            background: var(--accent-light) !important;
+            outline: none;
+        }
+
+        .editable-field {
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.15s, outline-color 0.15s;
+            outline: 1px dashed transparent;
+            outline-offset: 2px;
+        }
+
+        .editable-field:hover,
+        .editable-field:focus {
+            background: var(--accent-light) !important;
+            outline-color: var(--accent);
+        }
+
+        .editable-title {
+            display: inline-block;
+            padding: 4px 8px;
+            margin-left: -8px;
+        }
+
+        #edit-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(26, 31, 54, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 16px;
+        }
+
+        #edit-overlay.open {
+            display: flex;
+        }
+
+        #edit-dialog {
+            width: min(560px, 100%);
+            background: var(--surface) !important;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+
+        #edit-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text-primary) !important;
+        }
+
+        #edit-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary) !important;
+            margin-bottom: 6px;
+        }
+
+        #edit-input {
+            width: 100%;
+            min-height: 96px;
+            resize: vertical;
+            border: 1.5px solid var(--search-border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--text-primary) !important;
+            background: var(--surface) !important;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #edit-input:focus {
+            border-color: var(--accent);
+        }
+
+        #edit-choices {
+            display: none;
+            max-height: 280px;
+            overflow-y: auto;
+            border: 1.5px solid var(--search-border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            background: var(--surface) !important;
+        }
+
+        .choice-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 2px;
+            color: var(--text-primary) !important;
+            font-size: 14px;
+        }
+
+        .choice-item input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent);
+        }
+
+        #edit-choices-empty {
+            color: var(--text-secondary) !important;
+            font-style: italic;
+            font-size: 13px;
+            padding: 4px 2px;
+        }
+
+        #edit-actions {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .btn {
+            border-radius: 8px;
+            border: 1px solid transparent;
+            padding: 7px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+
+        .btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-secondary {
+            background: #f0f2fa;
+            border-color: var(--border);
+            color: var(--text-primary) !important;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--circle-text) !important;
+        }
+
+        .formation-item:last-child {
+            border-bottom: none;
+        }
+
+        .annee-value {
+            font-size: 13px;
+            color: var(--text-primary) !important;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        #status-msg {
+            color: var(--text-secondary) !important;
+            font-size: 13px;
+            font-style: italic;
+            margin-top: 16px;
+        }
+
+        .connector {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            background: var(--line-color);
+            flex-shrink: 0;
+        }
+
+        .connector.above {
+            height: 20px;
+            top: calc(50% - 42px);
+        }
+
+        .connector.below {
+            height: 20px;
+            top: calc(50% + 22px);
+        }
+
+        @media (max-height: 900px),
+        (max-width: 1366px) {
+            body {
+                padding: 14px 12px;
+            }
+
+            #search-zone {
+                margin-bottom: 20px;
+                max-width: 420px;
+            }
+
+            #school-title {
+                font-size: 16px;
+                margin-bottom: 18px;
+            }
+
+            #timeline-inner {
+                padding: 56px 20px;
+            }
+
+            .year-block {
+                min-width: 220px;
+                height: 260px;
+                margin: 0 10px;
+            }
+
+            .year-content {
+                min-width: 200px;
+                max-width: 250px;
+                padding: 10px 12px;
+            }
+
+            .year-content.above {
+                bottom: calc(50% + 36px);
+            }
+
+            .year-content.below {
+                top: calc(50% + 36px);
+            }
+
+            .connector.above,
+            .connector.below {
+                height: 14px;
+            }
+
+            .connector.above {
+                top: calc(50% - 36px);
+            }
+        }
+
+        #competence-transversale {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 20px;
+            margin-left: 25px;
+            font-size: 14px;
+            flex-wrap: nowrap;
+            overflow: hidden;
+        }
+
+        #competence-transversale .ct-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        #competence-transversale .ct-value {
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 40px;
+        }
+
+        #competence-transversale .ct-value:empty::before {
+            content: "—";
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="search-zone">
+        <label for="search-input">École :</label>
+        <div id="search-wrapper">
+            <input type="text" id="search-input" placeholder="Rechercher une école…" autocomplete="off"
+                spellcheck="false" />
+            <button type="button" id="search-clear" aria-label="Vider la recherche" title="Vider">×</button>
+            <div id="dropdown"></div>
+        </div>
+    </div>
+
+    <div id="status-msg">Chargement des données…</div>
+
+    <div id="timeline-container">
+        <div id="school-title"></div>
+        <div id="competence-transversale">
+            <span class="ct-label">Compétence transversale :</span>
+            <span id="ct-value" class="ct-value editable-field" tabindex="0" role="button"></span>
+        </div>
+        <div id="timeline-inner">
+            <div id="timeline-line"></div>
+        </div>
+    </div>
+
+    <div id="edit-overlay" aria-hidden="true">
+        <div id="edit-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+            <div id="edit-title">Modifier</div>
+            <textarea id="edit-input" spellcheck="false"></textarea>
+            <div id="edit-choices" aria-label="Options"></div>
+            <div id="edit-actions">
+                <button type="button" id="edit-cancel" class="btn btn-secondary">Annuler</button>
+                <button type="button" id="edit-save" class="btn btn-primary">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="chronologie.js"></script>
+</body>
+
+</html>
