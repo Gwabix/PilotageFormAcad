@@ -6,7 +6,10 @@
     padding: 0;
 }
 
+/* Widget en thème clair uniquement : sans cette déclaration, un Grist en thème sombre
+   donne aux contrôles natifs (listes déroulantes, cases) un texte clair sur nos fonds blancs. */
 :root {
+    color-scheme: light;
     --bg: #f5f6fa;
     --surface: #ffffff;
     --border: #dde1ec;
@@ -58,9 +61,16 @@ body.dialog-open {
 
 button,
 input,
+select,
 textarea {
     font: inherit;
     color: inherit;
+}
+
+select,
+option {
+    color: var(--text-primary);
+    background-color: var(--surface);
 }
 
 :focus-visible {
@@ -383,6 +393,90 @@ textarea {
     box-shadow: none;
 }
 
+
+.year-school {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    margin: -4px 0 8px;
+}
+
+/* Pastille de l'Année 0, à gauche du cercle de l'Année 1 */
+.zero-badge {
+    position: absolute;
+    top: 50%;
+    right: calc(50% + var(--circle-size) / 2 + 14px);
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 2px dashed var(--accent);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    transform: translateY(-50%);
+    cursor: pointer;
+    transition: background 0.15s, border-style 0.15s;
+}
+
+.zero-badge:hover,
+.zero-badge:focus-visible {
+    background: var(--accent-light);
+    border-style: solid;
+}
+
+#info-fields {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 12px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    font-size: 13px;
+}
+
+#info-fields dt {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+#info-fields dd {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+#info-plan {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#info-plan label {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+#info-plan-select {
+    min-width: 160px;
+    padding: 6px 8px;
+    border: 1.5px solid var(--search-border);
+    border-radius: 8px;
+    background: var(--surface);
+    font: inherit;
+}
+
+#info-plan-select:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
 .year-hint {
     font-size: 12px;
     font-style: italic;
@@ -519,7 +613,8 @@ textarea {
 
 /* ---------- Boîte de dialogue ---------- */
 
-#edit-overlay {
+#edit-overlay,
+#info-overlay {
     position: fixed;
     inset: 0;
     background: rgba(26, 31, 54, 0.35);
@@ -530,7 +625,8 @@ textarea {
     padding: 16px;
 }
 
-#edit-dialog {
+#edit-dialog,
+#info-dialog {
     width: min(560px, 100%);
     max-height: calc(100vh - 32px);
     overflow-y: auto;
@@ -541,12 +637,14 @@ textarea {
     padding: 16px;
 }
 
-#edit-title {
+#edit-title,
+#info-title {
     font-size: 16px;
     font-weight: 700;
 }
 
-#edit-context {
+#edit-context,
+#info-context {
     font-size: 12px;
     color: var(--text-secondary);
     margin: 2px 0 12px;
@@ -637,17 +735,20 @@ textarea {
     font-size: 12px;
 }
 
-#edit-error {
+#edit-error,
+#info-error {
     color: var(--danger-text);
     font-size: 13px;
     margin-top: 8px;
 }
 
-#edit-error:empty {
+#edit-error:empty,
+#info-error:empty {
     display: none;
 }
 
-#edit-actions {
+#edit-actions,
+.dialog-actions {
     margin-top: 12px;
     display: flex;
     justify-content: flex-end;
@@ -730,6 +831,18 @@ textarea {
         transform: translateX(-50%);
     }
 
+    .year-axis {
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    .zero-badge {
+        position: static;
+        transform: none;
+    }
+
     .year-block:last-child .year-axis::before {
         display: none;
     }
@@ -739,4 +852,16 @@ textarea {
     * {
         transition: none !important;
     }
+}
+
+/* Fenêtre Année 0 : la saisie d'un champ s'ouvre par-dessus. */
+#edit-overlay {
+    z-index: 1010;
+}
+
+#info-edit {
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
 }

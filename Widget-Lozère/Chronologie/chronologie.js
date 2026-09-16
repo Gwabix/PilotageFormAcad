@@ -22,7 +22,20 @@
         { colId: "Mathematiques", label: "Mathématiques", kind: "text" },
         { colId: "Autre", label: "Autre", kind: "autre" }
     ];
-    var RECORD_COLUMNS = [CT_FIELD.colId, MODALITE_FIELD.colId, COL_REGROUPEMENT, COL_ANNEE_SCOLAIRE].concat(FIELDS.map(function (f) {
+    // Colonnes affichées en lecture dans les fenêtres « Année 0 » et « année du Plan » ;
+    // une ligne qui en a au moins une de remplie « contient des données ».
+    var INFO_FIELDS = [
+        CT_FIELD,
+        MODALITE_FIELD,
+        { colId: COL_REGROUPEMENT, label: "Regroupement" },
+        FIELDS[0],
+        FIELDS[1],
+        FIELDS[2],
+        { colId: "Formateur_s_", label: "Formateur(s)" },
+        { colId: "Notes_pour_plus_tard", label: "Notes pour plus tard" }
+    ];
+    var PLAN_CHOICES = [0, 1];
+    var RECORD_COLUMNS = [COL_ANNEE_SCOLAIRE].concat(INFO_FIELDS.map(function (f) {
         return f.colId;
     }));
 
@@ -44,6 +57,16 @@
     var editError = document.getElementById("edit-error");
     var editCancelBtn = document.getElementById("edit-cancel");
     var editSaveBtn = document.getElementById("edit-save");
+    var infoOverlay = document.getElementById("info-overlay");
+    var infoTitle = document.getElementById("info-title");
+    var infoContextEl = document.getElementById("info-context");
+    var infoFields = document.getElementById("info-fields");
+    var infoEdit = document.getElementById("info-edit");
+    var infoPlan = document.getElementById("info-plan");
+    var infoSelect = document.getElementById("info-plan-select");
+    var infoError = document.getElementById("info-error");
+    var infoCancelBtn = document.getElementById("info-cancel");
+    var infoSaveBtn = document.getElementById("info-save");
 
     var schools = [];
     var schoolsById = {};
@@ -59,6 +82,9 @@
     var lastTriggerKey = null;
     var statusTimer = null;
     var statusTransient = false;
+    var rawThematiques = null;
+    var rawEcoles = null;
+    var infoContext = null;
 
     editAutreChoice.textContent = AUTRE_CHOICE;
 
@@ -107,9 +133,9 @@
 
     function idleStatus() {
         if (schools.length > 0) {
-            return schools.length + " école(s) avec au moins une année planifiée. Recherchez une école ci-dessus.";
+            return schools.length + " école(s) dans la table " + TABLE_ID + ". Recherchez une école ci-dessus.";
         }
-        return "Aucune école planifiée en Année 1 ou plus dans la table " + TABLE_ID + ".";
+        return "Aucune école dans la table " + TABLE_ID + ".";
     }
 
     // ---------- Chargement des données ----------
@@ -144,6 +170,69 @@
         columnOptionsLoaded = true;
     }
 
+    // Première année d'une année scolaire « 2026-2027 », sinon null.
+    function schoolYearStart(value) {
+        var m = trimmed(value).match(SCHOOL_YEAR_RE);
+        if (!m || parseInt(m[2], 10) !== parseInt(m[1], 10) + 1) return null;
+        return parseInt(m[1], 10);
+    }
+
+    function hasData(rec) {
+        return INFO_FIELDS.some(function (f) {
+            return !!trimmed(rec[f.colId]);
+        });
+    }
+
+    // Les lignes arrivent par identifiant croissant, années renseignées d'abord :
+    // une place déjà prise garde sa ligne (la plus ancienne, ou celle renseignée).
+    function placeRow(school, n, rec) {
+        var slot = n === 0 ? school.zero : school.years[n];
+        if (slot) {
+            if (!rec.inferred) {
+                console.warn("Plusieurs lignes pour " + school.name + ", " + YEAR_PREFIX + n +
+                    " : lignes " + slot.id + " et " + rec.id + ". La plus ancienne est affichée.");
+            }
+            return;
+        }
+        if (n === 0) {
+            school.zero = rec;
+        } else {
+            school.years[n] = rec;
+        }
+    }
+
+    // Range les lignes d'une école par année du Plan. Une ligne sans année du Plan
+    // mais avec une année scolaire prend celle déduite de la ligne renseignée la plus
+    // proche : Année 1 en 2026-2027 et ligne 2027-2028 donnent Année 2.
+    function placeRows(school) {
+        var rows = school.rows.slice().sort(function (a, b) {
+            return a.id - b.id;
+        });
+        var anchors = rows.filter(function (rec) {
+            return rec.planYear !== null;
+        });
+        school.pending = anchors.length === 0;
+
+        anchors.forEach(function (rec) {
+            placeRow(school, rec.planYear, rec);
+        });
+
+        var dated = anchors.filter(function (rec) {
+            return rec.start !== null;
+        });
+        rows.forEach(function (rec) {
+            if (rec.planYear !== null || rec.start === null || dated.length === 0) return;
+            var best = dated[0];
+            dated.forEach(function (a) {
+                if (Math.abs(a.start - rec.start) < Math.abs(best.start - rec.start)) best = a;
+            });
+            var n = best.planYear + (rec.start - best.start);
+            if (n < 0) return;
+            rec.inferred = true;
+            placeRow(school, n, rec);
+        });
+    }
+
     function buildSchools(thematiques, ecoles) {
         var names = {};
         var uais = {};
@@ -158,8 +247,7 @@
         var ids = thematiques.id || [];
         for (var r = 0; r < ids.length; r += 1) {
             var ecoleId = thematiques[COL_ECOLE][r];
-            var year = parseYear(thematiques[COL_ANNEE][r]);
-            if (typeof ecoleId !== "number" || ecoleId <= 0 || year === null || year < 1) continue;
+            if (typeof ecoleId !== "number" || ecoleId <= 0) continue;
 
             var school = byId[ecoleId];
             if (!school) {
@@ -167,24 +255,25 @@
                     id: ecoleId,
                     name: names[ecoleId] || ("École n° " + ecoleId),
                     uai: uais[ecoleId] || "",
-                    years: {}
+                    rows: [],
+                    years: {},
+                    zero: null,
+                    pending: true
                 };
                 byId[ecoleId] = school;
             }
 
-            var rec = { id: ids[r] };
+            var rec = { id: ids[r], planYear: parseYear(thematiques[COL_ANNEE][r]), inferred: false };
             RECORD_COLUMNS.forEach(function (colId) {
                 rec[colId] = thematiques[colId] ? thematiques[colId][r] : null;
             });
-
-            var existing = school.years[year];
-            if (existing) {
-                console.warn("Plusieurs lignes pour " + school.name + ", " + YEAR_PREFIX + year +
-                    " : lignes " + existing.id + " et " + rec.id + ". La plus ancienne est affichée.");
-                if (rec.id > existing.id) continue;
-            }
-            school.years[year] = rec;
+            rec.start = schoolYearStart(rec[COL_ANNEE_SCOLAIRE]);
+            school.rows.push(rec);
         }
+
+        Object.keys(byId).forEach(function (k) {
+            placeRows(byId[k]);
+        });
 
         schoolsById = byId;
         schools = Object.keys(byId).map(function (k) {
@@ -211,7 +300,9 @@
                 setStatus("Colonnes « " + COL_ECOLE + " » ou « " + COL_ANNEE + " » introuvables dans la table " + TABLE_ID + ".");
                 return;
             }
-            buildSchools(thematiques, results[1]);
+            rawThematiques = thematiques;
+            rawEcoles = results[1];
+            buildSchools(rawThematiques, rawEcoles);
         } catch (err) {
             if (seq !== loadSeq) return;
             setStatus("Impossible de lire les données : " + (err && err.message ? err.message : "erreur inconnue") +
@@ -219,17 +310,50 @@
             return;
         }
 
-        if (currentSchoolId !== null && schoolsById[currentSchoolId]) {
-            renderTimeline();
-        } else {
-            if (currentSchoolId !== null) {
-                hideTimeline();
-            }
-            setStatus(idleStatus());
-        }
+        refreshView();
         if (dropdown.classList.contains("open")) {
             renderDropdown();
         }
+    }
+
+    // Réaffiche l'école en cours après un chargement. Une école sans année du Plan
+    // n'a pas de frise ; sa fenêtre de choix ne s'ouvre qu'à la sélection.
+    function refreshView() {
+        var school = currentSchoolId !== null ? schoolsById[currentSchoolId] : null;
+        if (school && !school.pending) {
+            renderTimeline();
+            return;
+        }
+        if (currentSchoolId !== null && !(school && infoContext && infoContext.schoolId === school.id)) {
+            hideTimeline();
+        }
+        if (!school) {
+            setStatus(idleStatus());
+        }
+    }
+
+    // Reporte des actions acceptées par Grist dans les données chargées, puis reconstruit les écoles.
+    function applyToRaw(actions, result) {
+        var retValues = result && result.retValues ? result.retValues : [];
+        actions.forEach(function (action, i) {
+            var fields = action[3];
+            if (action[0] === "UpdateRecord") {
+                var idx = rawThematiques.id.indexOf(action[2]);
+                if (idx === -1) return;
+                Object.keys(fields).forEach(function (colId) {
+                    if (rawThematiques[colId]) rawThematiques[colId][idx] = fields[colId];
+                });
+            } else if (action[0] === "AddRecord") {
+                Object.keys(rawThematiques).forEach(function (colId) {
+                    if (colId === "id") {
+                        rawThematiques.id.push(retValues[i]);
+                    } else {
+                        rawThematiques[colId].push(Object.prototype.hasOwnProperty.call(fields, colId) ? fields[colId] : null);
+                    }
+                });
+            }
+        });
+        buildSchools(rawThematiques, rawEcoles);
     }
 
     // ---------- Recherche ----------
@@ -262,7 +386,7 @@
         if (filteredSchools.length === 0) {
             var noResult = document.createElement("div");
             noResult.id = "no-result";
-            noResult.textContent = schools.length ? "Aucun résultat" : "Aucune école planifiée";
+            noResult.textContent = schools.length ? "Aucun résultat" : "Aucune école";
             dropdown.appendChild(noResult);
         } else {
             filteredSchools.forEach(function (school, i) {
@@ -315,7 +439,13 @@
         searchInput.value = school.name;
         updateSearchClearButton();
         closeDropdown();
-        renderTimeline();
+        if (school.pending) {
+            hideTimeline();
+            currentSchoolId = school.id;
+            openPlanDialog(school);
+        } else {
+            renderTimeline();
+        }
     }
 
     function hideTimeline() {
@@ -456,9 +586,22 @@
 
         var axis = document.createElement("div");
         axis.className = "year-axis";
-        axis.setAttribute("aria-hidden", "true");
+        if (year === 1 && school.zero) {
+            var zero = document.createElement("button");
+            zero.type = "button";
+            zero.className = "zero-badge";
+            zero.textContent = "0";
+            zero.dataset.key = fieldKey(0, "details");
+            zero.setAttribute("aria-label", "Voir la formation " + YEAR_PREFIX + "0");
+            zero.title = YEAR_PREFIX + "0";
+            zero.addEventListener("click", function () {
+                openZeroDialog(school);
+            });
+            axis.appendChild(zero);
+        }
         var circle = document.createElement("span");
         circle.className = "year-circle";
+        circle.setAttribute("aria-hidden", "true");
         circle.textContent = String(year);
         axis.appendChild(circle);
 
@@ -470,6 +613,14 @@
         label.className = "year-label";
         label.textContent = YEAR_PREFIX + year;
         card.appendChild(label);
+
+        var schoolYear = rec ? trimmed(rec[COL_ANNEE_SCOLAIRE]) : "";
+        if (schoolYear) {
+            var yearEl = document.createElement("p");
+            yearEl.className = "year-school";
+            yearEl.textContent = schoolYear;
+            card.appendChild(yearEl);
+        }
 
         if (!rec) {
             var hint = document.createElement("p");
@@ -539,13 +690,17 @@
 
     // ---------- Édition ----------
 
+    function yearRecord(school, year) {
+        return year === 0 ? school.zero : school.years[year];
+    }
+
     function currentValue(ctx) {
         var school = schoolsById[ctx.schoolId];
         if (!school) return "";
         if (ctx.year === null) {
             return schoolFilRouge(school).text;
         }
-        var rec = school.years[ctx.year];
+        var rec = yearRecord(school, ctx.year);
         return rec ? text(rec[ctx.field.colId]) : "";
     }
 
@@ -587,7 +742,7 @@
     function editContextText(school, year) {
         if (year !== null) {
             return school.name + " — " + YEAR_PREFIX + year +
-                (school.years[year] ? "" : " (sera créée à l'enregistrement)");
+                (yearRecord(school, year) ? "" : " (sera créée à l'enregistrement)");
         }
         var count = Object.keys(school.years).length;
         var scope = school.name + " — commune aux " + count + " année(s) existante(s)";
@@ -635,14 +790,14 @@
 
     function focusTrigger() {
         if (!lastTriggerKey) return;
-        var trigger = timelineContainer.querySelector("[data-key=\"" + lastTriggerKey + "\"]");
+        var trigger = document.querySelector("[data-key=\"" + lastTriggerKey + "\"]");
         if (trigger) trigger.focus();
     }
 
     function closeEditDialog() {
         if (isSaving) return;
         editOverlay.hidden = true;
-        document.body.classList.remove("dialog-open");
+        if (infoOverlay.hidden) document.body.classList.remove("dialog-open");
         editContext = null;
         editError.textContent = "";
         editSaveBtn.disabled = false;
@@ -661,12 +816,14 @@
     // de l'école : Année 1 en 2026-2027 donne Année 2 en 2027-2028. Vide si rien ne permet de la déduire.
     function deduceSchoolYear(school, year) {
         var best = null;
-        Object.keys(school.years).forEach(function (k) {
-            var n = parseInt(k, 10);
-            var m = trimmed(school.years[k][COL_ANNEE_SCOLAIRE]).match(SCHOOL_YEAR_RE);
-            if (!m || parseInt(m[2], 10) !== parseInt(m[1], 10) + 1) return;
-            if (best === null || Math.abs(n - year) < Math.abs(best.year - year)) {
-                best = { year: n, start: parseInt(m[1], 10) };
+        var placed = Object.keys(school.years).map(function (k) {
+            return { year: parseInt(k, 10), rec: school.years[k] };
+        });
+        if (school.zero) placed.push({ year: 0, rec: school.zero });
+        placed.forEach(function (p) {
+            if (p.rec.start === null) return;
+            if (best === null || Math.abs(p.year - year) < Math.abs(best.year - year)) {
+                best = { year: p.year, start: p.rec.start };
             }
         });
         if (best === null) return "";
@@ -674,41 +831,40 @@
         return start + "-" + (start + 1);
     }
 
-    // Actions Grist d'une saisie, et mise à jour locale à appliquer une fois l'écriture acceptée.
+    // Mise à jour d'une ligne ; une ligne rangée par déduction reçoit aussi son année du Plan.
+    function updateAction(rec, n, patch) {
+        if (rec.inferred) {
+            patch[COL_ANNEE] = YEAR_PREFIX + n;
+        }
+        return ["UpdateRecord", TABLE_ID, rec.id, patch];
+    }
+
+    // Actions Grist d'une saisie et message de confirmation.
     function planSave(school, ctx, value) {
         var colId = ctx.field.colId;
+        var patch = {};
+        patch[colId] = value;
 
         if (ctx.year === null) {
-            var targets = sortedYearRecords(school).filter(function (rec) {
-                return text(rec[colId]) !== value;
+            var actions = [];
+            Object.keys(school.years).map(function (k) {
+                return parseInt(k, 10);
+            }).sort(function (a, b) {
+                return a - b;
+            }).forEach(function (n) {
+                var rec = school.years[n];
+                if (text(rec[colId]) === value) return;
+                var p = {};
+                p[colId] = value;
+                actions.push(updateAction(rec, n, p));
             });
-            return {
-                actions: targets.map(function (rec) {
-                    var patch = {};
-                    patch[colId] = value;
-                    return ["UpdateRecord", TABLE_ID, rec.id, patch];
-                }),
-                apply: function () {
-                    targets.forEach(function (rec) {
-                        rec[colId] = value;
-                    });
-                },
-                message: "Compétence fil rouge enregistrée."
-            };
+            return { actions: actions, message: "Compétence fil rouge enregistrée." };
         }
 
-        var rec = school.years[ctx.year];
+        var rec = yearRecord(school, ctx.year);
         if (rec) {
             if (value === trimmed(rec[colId])) return { actions: [] };
-            var patch = {};
-            patch[colId] = value;
-            return {
-                actions: [["UpdateRecord", TABLE_ID, rec.id, patch]],
-                apply: function () {
-                    rec[colId] = value;
-                },
-                message: "Modification enregistrée."
-            };
+            return { actions: [updateAction(rec, ctx.year, patch)], message: "Modification enregistrée." };
         }
 
         if (!value) return { actions: [] };
@@ -728,15 +884,16 @@
         fields[colId] = value;
         return {
             actions: [["AddRecord", TABLE_ID, null, fields]],
-            apply: function (result) {
-                var newRec = { id: result && result.retValues ? result.retValues[0] : null };
-                RECORD_COLUMNS.forEach(function (c) {
-                    newRec[c] = Object.prototype.hasOwnProperty.call(fields, c) ? fields[c] : null;
-                });
-                school.years[ctx.year] = newRec;
-            },
             message: YEAR_PREFIX + ctx.year + " créée et enregistrée."
         };
+    }
+
+    // Envoie des actions à Grist puis les reporte dans les données chargées.
+    async function applyActions(actions) {
+        // Écarte une lecture en cours, antérieure à l'écriture : elle ne verrait pas la modification.
+        loadSeq += 1;
+        var result = await grist.docApi.applyUserActions(actions);
+        applyToRaw(actions, result);
     }
 
     async function saveEdit() {
@@ -745,7 +902,7 @@
 
         var school = schoolsById[ctx.schoolId];
         if (!school) {
-            editError.textContent = "Cette école n'est plus planifiée : enregistrement impossible.";
+            editError.textContent = "Cette école n'est plus dans la table : enregistrement impossible.";
             return;
         }
 
@@ -771,17 +928,16 @@
         editSaveBtn.disabled = true;
         editError.textContent = "";
 
-        // Écarte une lecture en cours, antérieure à l'écriture : elle ne verrait pas la nouvelle ligne.
-        loadSeq += 1;
-
         try {
-            var result = await grist.docApi.applyUserActions(plan.actions);
-            plan.apply(result);
-
+            await applyActions(plan.actions);
             isSaving = false;
             closeEditDialog();
             if (currentSchoolId === school.id) {
                 renderTimeline();
+                // Les écoles ont été reconstruites : relire la version à jour.
+                if (infoContext && infoContext.mode === "zero" && infoContext.schoolId === school.id) {
+                    renderZeroContent(schoolsById[school.id]);
+                }
                 focusTrigger();
             }
             setStatus(plan.message, true);
@@ -789,6 +945,188 @@
             isSaving = false;
             editSaveBtn.disabled = false;
             editError.textContent = "Erreur lors de l'enregistrement : " + (err && err.message ? err.message : "inconnue");
+        }
+    }
+
+    // ---------- Année 0 et année du Plan ----------
+
+    // Informations saisies en lecture, sauf les colonnes de `skip`.
+    function renderInfoFields(rec, skip) {
+        infoFields.replaceChildren();
+        INFO_FIELDS.forEach(function (f) {
+            var value = rec ? trimmed(rec[f.colId]) : "";
+            if (!value || (skip && skip[f.colId])) return;
+            var dt = document.createElement("dt");
+            dt.textContent = f.label;
+            var dd = document.createElement("dd");
+            dd.textContent = value;
+            infoFields.appendChild(dt);
+            infoFields.appendChild(dd);
+        });
+        infoFields.hidden = !infoFields.firstChild;
+    }
+
+    function showInfoDialog(ctx) {
+        infoContext = ctx;
+        infoError.textContent = "";
+        infoOverlay.hidden = false;
+        document.body.classList.add("dialog-open");
+        (ctx.mode === "plan" ? infoSelect : infoCancelBtn).focus();
+    }
+
+    // Fenêtre Année 0 : modalité et domaines modifiables comme sur une carte de la frise,
+    // autres informations saisies (compétence fil rouge, regroupement…) en lecture.
+    function renderZeroContent(school) {
+        var rec = school.zero;
+        infoContextEl.textContent = school.name + (rec && trimmed(rec[COL_ANNEE_SCOLAIRE]) ? " — " + trimmed(rec[COL_ANNEE_SCOLAIRE]) : "");
+
+        infoEdit.replaceChildren();
+        var modalite = makeFieldButton(school, 0, rec, MODALITE_FIELD, "modalite-badge", "Choisir une modalité");
+        if (modalite.value && modaliteChoices.length && modaliteChoices.indexOf(modalite.value) === -1) {
+            modalite.button.classList.add("is-invalid");
+            modalite.button.title = "Valeur hors de la liste des modalités prévues";
+        }
+        infoEdit.appendChild(modalite.button);
+        var list = document.createElement("div");
+        list.className = "domain-list";
+        FIELDS.forEach(function (field) {
+            list.appendChild(makeDomain(school, 0, rec, field));
+        });
+        infoEdit.appendChild(list);
+        infoEdit.hidden = false;
+
+        var editable = {};
+        editable[MODALITE_FIELD.colId] = true;
+        FIELDS.forEach(function (f) {
+            editable[f.colId] = true;
+        });
+        renderInfoFields(rec, editable);
+    }
+
+    function openZeroDialog(school) {
+        lastTriggerKey = fieldKey(0, "details");
+        infoTitle.textContent = "Formation " + YEAR_PREFIX + "0";
+        renderZeroContent(school);
+        infoPlan.hidden = true;
+        infoSaveBtn.hidden = true;
+        infoCancelBtn.textContent = "Fermer";
+        showInfoDialog({ mode: "zero", schoolId: school.id });
+    }
+
+    // Ligne à laquelle attribuer l'année du Plan : la plus ancienne année scolaire
+    // parmi les lignes qui contiennent des données, à défaut parmi toutes.
+    function planTarget(school) {
+        var byDate = school.rows.slice().sort(function (a, b) {
+            if (a.start === b.start) return a.id - b.id;
+            if (a.start === null) return 1;
+            if (b.start === null) return -1;
+            return a.start - b.start;
+        });
+        var withData = byDate.filter(hasData);
+        return withData.length ? { rec: withData[0], hasData: true } : { rec: byDate[0], hasData: false };
+    }
+
+    function openPlanDialog(school) {
+        var target = planTarget(school);
+        var schoolYear = trimmed(target.rec[COL_ANNEE_SCOLAIRE]);
+        lastTriggerKey = null;
+        infoTitle.textContent = "Veuillez sélectionner l'année du Plan de formation" +
+            (!target.hasData && schoolYear ? " pour " + schoolYear : "");
+        infoContextEl.textContent = school.name + (target.hasData && schoolYear ? " — " + schoolYear : "");
+        if (target.hasData) {
+            renderInfoFields(target.rec);
+        } else {
+            infoFields.replaceChildren();
+            infoFields.hidden = true;
+        }
+
+        infoSelect.replaceChildren();
+        var placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Choisir…";
+        infoSelect.appendChild(placeholder);
+        PLAN_CHOICES.forEach(function (n) {
+            var opt = document.createElement("option");
+            opt.value = YEAR_PREFIX + n;
+            opt.textContent = YEAR_PREFIX + n;
+            infoSelect.appendChild(opt);
+        });
+        infoEdit.replaceChildren();
+        infoEdit.hidden = true;
+        infoPlan.hidden = false;
+        infoSaveBtn.hidden = false;
+        infoSaveBtn.disabled = false;
+        infoCancelBtn.textContent = "Annuler";
+        showInfoDialog({ mode: "plan", schoolId: school.id, rowId: target.rec.id });
+    }
+
+    function closeInfoDialog() {
+        if (isSaving) return;
+        var ctx = infoContext;
+        infoOverlay.hidden = true;
+        document.body.classList.remove("dialog-open");
+        infoContext = null;
+        if (ctx && ctx.mode === "zero") {
+            lastTriggerKey = fieldKey(0, "details");
+        }
+        if (ctx && ctx.mode === "plan") {
+            var school = schoolsById[ctx.schoolId];
+            if (!school || school.pending) {
+                hideTimeline();
+                setStatus(idleStatus());
+                searchInput.focus();
+            }
+            return;
+        }
+        focusTrigger();
+    }
+
+    async function savePlanYear() {
+        var ctx = infoContext;
+        if (!ctx || ctx.mode !== "plan" || isSaving) return;
+        var value = infoSelect.value;
+        if (!value) {
+            infoError.textContent = "Choisissez l'année du Plan.";
+            return;
+        }
+        var patch = {};
+        patch[COL_ANNEE] = value;
+
+        isSaving = true;
+        infoSaveBtn.disabled = true;
+        infoError.textContent = "";
+        try {
+            await applyActions([["UpdateRecord", TABLE_ID, ctx.rowId, patch]]);
+            isSaving = false;
+            closeInfoDialog();
+            if (currentSchoolId === ctx.schoolId) {
+                renderTimeline();
+            }
+            setStatus("Année du Plan enregistrée.", true);
+        } catch (err) {
+            isSaving = false;
+            infoSaveBtn.disabled = false;
+            infoError.textContent = "Erreur lors de l'enregistrement : " + (err && err.message ? err.message : "inconnue");
+        }
+    }
+
+    // Garde le focus dans une fenêtre ouverte.
+    function trapFocus(overlay, evt, filter) {
+        var focusables = Array.prototype.filter.call(
+            overlay.querySelectorAll("button, textarea, input, select"),
+            function (el) {
+                return !el.disabled && el.offsetParent !== null && (!filter || filter(el));
+            }
+        );
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        if (evt.shiftKey && document.activeElement === first) {
+            evt.preventDefault();
+            last.focus();
+        } else if (!evt.shiftKey && document.activeElement === last) {
+            evt.preventDefault();
+            first.focus();
         }
     }
 
@@ -869,23 +1207,30 @@
             evt.preventDefault();
             saveEdit();
         } else if (evt.key === "Tab") {
-            var focusables = Array.prototype.filter.call(
-                editOverlay.querySelectorAll("button, textarea, input"),
-                function (el) {
-                    return !el.disabled && el.offsetParent !== null &&
-                        (el.type !== "radio" || el.checked || !editModalite.querySelector("input:checked"));
-                }
-            );
-            if (!focusables.length) return;
-            var first = focusables[0];
-            var last = focusables[focusables.length - 1];
-            if (evt.shiftKey && document.activeElement === first) {
-                evt.preventDefault();
-                last.focus();
-            } else if (!evt.shiftKey && document.activeElement === last) {
-                evt.preventDefault();
-                first.focus();
-            }
+            trapFocus(editOverlay, evt, function (el) {
+                return el.type !== "radio" || el.checked || !editModalite.querySelector("input:checked");
+            });
+        }
+    });
+
+    infoCancelBtn.addEventListener("click", closeInfoDialog);
+    infoSaveBtn.addEventListener("click", savePlanYear);
+
+    infoOverlay.addEventListener("mousedown", function (evt) {
+        if (evt.target === infoOverlay) {
+            closeInfoDialog();
+        }
+    });
+
+    infoOverlay.addEventListener("keydown", function (evt) {
+        if (evt.key === "Escape") {
+            evt.preventDefault();
+            closeInfoDialog();
+        } else if (evt.key === "Enter" && evt.target === infoSelect) {
+            evt.preventDefault();
+            savePlanYear();
+        } else if (evt.key === "Tab") {
+            trapFocus(infoOverlay, evt);
         }
     });
 

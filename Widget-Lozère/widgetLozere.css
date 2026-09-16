@@ -454,6 +454,12 @@
             border: 1px solid var(--border);
             border-radius: 5px;
             font: inherit;
+            color: #1f2937;
+            background: #fff
+        }
+
+        #export-year option {
+            color: #1f2937;
             background: #fff
         }
 

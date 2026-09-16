@@ -54,6 +54,25 @@
         </div>
     </div>
 
+    <div id="info-overlay" hidden>
+        <div id="info-dialog" role="dialog" aria-modal="true" aria-labelledby="info-title"
+            aria-describedby="info-context">
+            <h2 id="info-title"></h2>
+            <p id="info-context"></p>
+            <div id="info-edit" hidden></div>
+            <dl id="info-fields" hidden></dl>
+            <div id="info-plan" hidden>
+                <label for="info-plan-select">Année du Plan</label>
+                <select id="info-plan-select"></select>
+            </div>
+            <p id="info-error" role="alert"></p>
+            <div class="dialog-actions">
+                <button type="button" id="info-cancel" class="btn btn-secondary">Annuler</button>
+                <button type="button" id="info-save" class="btn btn-primary">Valider</button>
+            </div>
+        </div>
+    </div>
+
     <script src="chronologie.js"></script>
 </body>
 
