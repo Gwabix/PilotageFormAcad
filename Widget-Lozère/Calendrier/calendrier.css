@@ -50,18 +50,18 @@ input,
 select,
 textarea {
     font: inherit;
-    color: var(--text-primary);
 }
 
 input,
-select,
 textarea {
+    color: var(--text-primary);
     background-color: var(--surface);
 }
 
-/* Les <option> ne reçoivent ni couleur ni fond : color-scheme suffit à les
-   rendre lisibles, et les peindre casse la surbrillance au survol (texte
-   invisible sous le pointeur). */
+/* Ni couleur ni fond sur les <select> et <option> : color-scheme: light suffit
+   à les rendre lisibles, y compris sous un Grist en thème sombre. Les peindre
+   casse la surbrillance de la liste ouverte : l'élément survolé garde le fond
+   imposé mais prend la couleur de texte de la surbrillance, donc disparaît. */
 
 :focus-visible {
     outline: 2px solid var(--accent);
@@ -456,8 +456,6 @@ textarea {
     padding: 6px 8px;
     border: 1.5px solid var(--search-border);
     border-radius: 8px;
-    background-color: var(--surface);
-    color: var(--text-primary);
     outline: none;
     cursor: pointer;
     max-width: 100%;

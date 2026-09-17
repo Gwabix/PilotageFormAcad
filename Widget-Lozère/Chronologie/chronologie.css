@@ -61,15 +61,17 @@ body.dialog-open {
 
 button,
 input,
-select,
 textarea {
     font: inherit;
     color: inherit;
 }
 
-select,
-/* Pas de couleur ni de fond sur les <option> : color-scheme les rend lisibles,
-   et les peindre casse la surbrillance au survol (texte invisible). */
+/* Ni couleur ni fond sur les <select> et <option> : color-scheme: light suffit
+   à les rendre lisibles, et les peindre casse la surbrillance de la liste
+   ouverte (l'élément survolé disparaît). */
+select {
+    font: inherit;
+}
 
 :focus-visible {
     outline: 2px solid var(--accent);
@@ -465,7 +467,6 @@ select,
     padding: 6px 8px;
     border: 1.5px solid var(--search-border);
     border-radius: 8px;
-    background: var(--surface);
     font: inherit;
 }
 
