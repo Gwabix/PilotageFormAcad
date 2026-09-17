@@ -111,8 +111,9 @@
         return result;
     }
 
-    // Voie 2 — API REST.
-    async function fromRestApi(tableId, wanted) {
+    // Voie 2 — API REST. Colonnes visibles seulement : manualSort et les
+    // gristHelper_* n'y figurent pas.
+    async function restColumns(tableId) {
         const tokenInfo = await grist.docApi.getAccessToken({ readOnly: true });
         const url = tokenInfo.baseUrl + '/tables/' + encodeURIComponent(tableId) + '/columns'
             + '?auth=' + encodeURIComponent(tokenInfo.token);
@@ -121,7 +122,11 @@
         if (!response.ok) throw new Error('Statut HTTP ' + response.status);
 
         const data = await response.json();
-        const columns = Array.isArray(data && data.columns) ? data.columns : [];
+        return Array.isArray(data && data.columns) ? data.columns : [];
+    }
+
+    async function fromRestApi(tableId, wanted) {
+        const columns = await restColumns(tableId);
 
         const result = {};
         for (const column of columns) {
@@ -171,10 +176,15 @@
      * l'ordre des lignes, et les colonnes d'affichage `gristHelper_*` des
      * références.
      *
+     * Mêmes voies que fetchColumnDefs : tables système, puis API REST (les
+     * tables système suivent les règles d'accès par défaut du document, souvent
+     * fermées aux non-propriétaires).
+     *
      * @param {string} tableId
      * @returns {Promise<string[]|null>} null si la liste n'a pu être lue.
      */
     async function fetchDataColumnIds(tableId) {
+        let columns;
         try {
             const tables = await grist.docApi.fetchTable('_grist_Tables');
             const index = metaColumn(tables, ['tableId', 'TableId']).indexOf(tableId);
@@ -188,23 +198,37 @@
             const parentIds = metaColumn(cols, ['parentId', 'ParentId']);
             const isFormula = metaColumn(cols, ['isFormula', 'IsFormula']);
 
-            const result = [];
+            columns = [];
             for (let i = 0; i < colIds.length; i++) {
                 if (Number(parentIds[i]) !== tableRowId) continue;
-                if (isFormula[i]) continue;
-
-                const colId = colIds[i];
-                if (typeof colId !== 'string' || !colId) continue;
-                if (colId === 'manualSort' || colId.indexOf('gristHelper_') === 0) continue;
-
-                result.push(colId);
+                columns.push({ colId: colIds[i], isFormula: isFormula[i] });
             }
-            return result;
-        } catch (err) {
-            console.info('[Colonnes] Colonnes de données indisponibles : '
-                + ((err && err.message) ? err.message : err));
-            return null;
+        } catch (metaErr) {
+            console.info('[Colonnes] Tables système illisibles, repli sur l\'API REST :',
+                (metaErr && metaErr.message) ? metaErr.message : metaErr);
+            try {
+                columns = (await restColumns(tableId)).map((column) => ({
+                    colId: column && column.id,
+                    isFormula: !column || !column.fields || column.fields.isFormula
+                }));
+            } catch (restErr) {
+                console.info('[Colonnes] Colonnes de données indisponibles :',
+                    (restErr && restErr.message) ? restErr.message : restErr);
+                return null;
+            }
         }
+
+        const result = [];
+        for (const column of columns) {
+            if (column.isFormula) continue;
+
+            const colId = column.colId;
+            if (typeof colId !== 'string' || !colId) continue;
+            if (colId === 'manualSort' || colId.indexOf('gristHelper_') === 0) continue;
+
+            result.push(colId);
+        }
+        return result;
     }
 
     global.GristColumns = { fetchColumnDefs, fetchDataColumnIds };
