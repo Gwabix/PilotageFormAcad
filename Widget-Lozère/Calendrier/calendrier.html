@@ -53,11 +53,27 @@
         </section>
     </main>
 
+    <div id="choice-overlay" hidden>
+        <form id="choice-dialog" role="dialog" aria-modal="true" aria-labelledby="choice-title">
+            <h2 id="choice-title">Ajouter un choix</h2>
+            <p id="choice-intro">Le choix est ajouté aux listes « Asynchrone 1 » et « Asynchrone 2 », pour toutes les
+                écoles.</p>
+            <label class="choice-label" for="choice-input">Nouveau choix</label>
+            <input type="text" id="choice-input" maxlength="200" autocomplete="off" required>
+            <p id="choice-error" role="alert"></p>
+            <div class="dialog-actions">
+                <button type="button" class="btn" id="choice-cancel">Annuler</button>
+                <button type="submit" class="btn btn-primary" id="choice-add">Ajouter</button>
+            </div>
+        </form>
+    </div>
+
     <div id="toast" role="status" aria-live="polite" hidden>
         <span id="toast-text"></span>
         <button type="button" id="toast-undo" class="btn-link">Annuler</button>
     </div>
 
+    <script src="../../shared/grist-columns.js"></script>
     <script src="../calendrier-dates.js"></script>
     <script src="calendrier.js"></script>
 </body>

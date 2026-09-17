@@ -449,6 +449,48 @@ textarea {
     font-weight: 600;
 }
 
+.slot select {
+    padding: 6px 8px;
+    border: 1.5px solid var(--search-border);
+    border-radius: 8px;
+    background-color: var(--surface);
+    color: var(--text-primary);
+    outline: none;
+    cursor: pointer;
+    max-width: 100%;
+}
+
+.slot select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.slot option {
+    background-color: var(--surface);
+    color: var(--text-primary);
+}
+
+.btn-other {
+    align-self: flex-end;
+    margin-bottom: 1px;
+    padding: 6px 12px;
+    border: 1.5px solid var(--search-border);
+    border-radius: 8px;
+    background-color: var(--surface);
+    color: var(--accent-strong);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.btn-other:hover,
+.btn-other:focus-visible {
+    border-color: var(--accent);
+    background-color: var(--accent-light);
+}
+
 .slot-error {
     margin-top: 6px;
     color: var(--danger-text);
@@ -490,6 +532,104 @@ textarea {
     padding: 6px 10px;
     font-size: 12px;
     margin-bottom: 8px;
+}
+
+/* ---------- Fenêtre « Ajouter un choix » ---------- */
+
+#choice-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(26, 31, 54, 0.4);
+}
+
+#choice-dialog {
+    width: min(460px, 100%);
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 32px rgba(26, 31, 54, 0.22);
+    padding: 18px 20px 16px;
+}
+
+#choice-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+#choice-intro {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.choice-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+#choice-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--search-border);
+    border-radius: 8px;
+    outline: none;
+}
+
+#choice-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+#choice-error {
+    margin-top: 8px;
+    color: var(--danger-text);
+    font-size: 12px;
+}
+
+#choice-error:empty {
+    display: none;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background-color: var(--surface);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn:hover {
+    border-color: var(--search-border);
+    background-color: var(--surface-muted);
+}
+
+.btn-primary {
+    border-color: var(--accent);
+    background-color: var(--accent);
+    color: var(--on-accent);
+}
+
+.btn-primary:hover {
+    border-color: var(--accent-strong);
+    background-color: var(--accent-strong);
 }
 
 /* ---------- Annulation ---------- */

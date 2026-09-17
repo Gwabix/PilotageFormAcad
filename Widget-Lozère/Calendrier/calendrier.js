@@ -34,6 +34,10 @@
     var slotsEl = document.getElementById("slots");
     var previewText = document.getElementById("preview-text");
     var previewWarning = document.getElementById("preview-warning");
+    var choiceOverlay = document.getElementById("choice-overlay");
+    var choiceDialog = document.getElementById("choice-dialog");
+    var choiceInput = document.getElementById("choice-input");
+    var choiceError = document.getElementById("choice-error");
     var toast = document.getElementById("toast");
     var toastText = document.getElementById("toast-text");
     var toastUndo = document.getElementById("toast-undo");
@@ -56,6 +60,11 @@
     var undoPatch = null;
     var loadSeq = 0;
     var reloadTimer = null;
+    // Choix des colonnes Choice (Asynchrone 1 et 2), communs aux deux colonnes.
+    var choiceCols = D.SLOTS.filter(function (s) { return s.choice; }).map(function (s) { return s.col; });
+    var choiceList = [];
+    var choiceDefs = null;
+    var choiceSlotKey = null;
 
     // ---------- Outils ----------
 
@@ -155,6 +164,39 @@
         yearSelect.value = list.indexOf(previous) !== -1 ? previous : list[0];
     }
 
+    // Choix des colonnes Asynchrone : définition des colonnes (module partagé, qui
+    // se replie sur l'API REST quand les tables _grist_* sont refusées), à défaut
+    // valeurs déjà présentes dans la table.
+    async function loadChoices() {
+        var seen = {};
+        var list = [];
+        function add(value) {
+            var v = trimmed(value);
+            var key = D.normKey(v);
+            if (!v || seen[key]) return;
+            seen[key] = true;
+            list.push(v);
+        }
+        if (typeof GristColumns !== "undefined") {
+            try {
+                choiceDefs = await GristColumns.fetchColumnDefs(CAL_TABLE, choiceCols);
+            } catch (err) {
+                choiceDefs = null;
+                console.info("Choix des colonnes indisponibles : " + errorText(err));
+            }
+            choiceCols.forEach(function (col) {
+                var def = choiceDefs && choiceDefs[col];
+                if (def) def.choices.forEach(add);
+            });
+        }
+        if (!list.length) {
+            (calendrier || []).forEach(function (row) {
+                choiceCols.forEach(function (col) { add(row[col]); });
+            });
+        }
+        choiceList = list;
+    }
+
     async function loadData() {
         var seq = ++loadSeq;
         try {
@@ -172,6 +214,8 @@
             calendrier = tableRows(results[1]);
             thematiques = tableRows(results[2]);
             fillYears();
+            await loadChoices();
+            if (seq !== loadSeq) return;
         } catch (err) {
             if (seq !== loadSeq) return;
             setStatus("Impossible de lire les données : " + errorText(err) +
@@ -332,6 +376,29 @@
         return label;
     }
 
+    // Liste déroulante d'une colonne Choice. Une valeur absente de la liste
+    // (saisie dans Grist) reste proposée, signalée comme hors liste.
+    function choiceField(slot, value) {
+        var label = document.createElement("label");
+        label.className = "grow";
+        label.appendChild(document.createTextNode("Choix"));
+        var select = document.createElement("select");
+        select.setAttribute("data-slot", slot.key);
+        select.setAttribute("data-part", "text");
+        var values = [""].concat(choiceList);
+        if (value && choiceList.indexOf(value) === -1) values.push(value);
+        values.forEach(function (v) {
+            var opt = document.createElement("option");
+            opt.value = v;
+            opt.textContent = v || "— Non renseigné —";
+            if (v && choiceList.indexOf(v) === -1) opt.textContent = v + " (hors liste)";
+            opt.selected = v === value;
+            select.appendChild(opt);
+        });
+        label.appendChild(select);
+        return label;
+    }
+
     function isoDay(p) {
         return p.y + "-" + pad(p.m) + "-" + pad(p.d);
     }
@@ -377,6 +444,14 @@
             var value = "";
             if (typeof v[slot.col] === "number") value = isoDay(D.dateParts(v[slot.col]));
             fields.appendChild(inputFor(slot.key, "day", "date", value, "Date"));
+        } else if (slot.choice) {
+            fields.appendChild(choiceField(slot, trimmed(v[slot.col])));
+            var other = document.createElement("button");
+            other.type = "button";
+            other.className = "btn-other";
+            other.setAttribute("data-slot", slot.key);
+            other.textContent = "Autre…";
+            fields.appendChild(other);
         } else {
             fields.appendChild(inputFor(slot.key, "text", "text", trimmed(v[slot.col]), "Texte", "grow"));
         }
@@ -457,7 +532,7 @@
     }
 
     function cardInput(card, part) {
-        return card.querySelector('input[data-part="' + part + '"]');
+        return card.querySelector('[data-part="' + part + '"]');
     }
 
     function parseDay(value) {
@@ -629,6 +704,69 @@
             "Aucune ligne Thematiques pour cette école en " + current.year + " : la colonne Dates ne sera pas mise à jour.";
     }
 
+    // ---------- Ajout d'un choix ----------
+
+    function openChoiceDialog(slotKey) {
+        choiceSlotKey = slotKey;
+        choiceInput.value = "";
+        choiceError.textContent = "";
+        choiceOverlay.hidden = false;
+        choiceInput.focus();
+    }
+
+    function closeChoiceDialog() {
+        choiceOverlay.hidden = true;
+        var card = choiceSlotKey && slotsEl.querySelector('.slot[data-slot="' + choiceSlotKey + '"]');
+        var btn = card && card.querySelector(".btn-other");
+        choiceSlotKey = null;
+        if (btn) btn.focus();
+    }
+
+    // Choix retenu dans la carte qui a ouvert la fenêtre, puis enregistré.
+    function selectChoice(value) {
+        var key = choiceSlotKey;
+        closeChoiceDialog();
+        renderSlots();
+        var card = slotsEl.querySelector('.slot[data-slot="' + key + '"]');
+        if (!card) return;
+        var select = cardInput(card, "text");
+        select.value = value;
+        commitSlot(card);
+    }
+
+    async function addChoice() {
+        var value = trimmed(choiceInput.value);
+        if (!value) {
+            choiceError.textContent = "Saisissez le choix à ajouter.";
+            return;
+        }
+        var existing = choiceList.filter(function (c) { return D.normKey(c) === D.normKey(value); })[0];
+        if (existing) {
+            // Déjà proposé : on le retient sans toucher à la colonne.
+            selectChoice(existing);
+            return;
+        }
+        var actions = choiceCols.map(function (col) {
+            var options = Object.assign({ widget: "TextBox", alignment: "left" },
+                (choiceDefs && choiceDefs[col]) ? choiceDefs[col].widgetOptions : {});
+            options.choices = choiceList.concat(value);
+            return ["ModifyColumn", CAL_TABLE, col, { widgetOptions: JSON.stringify(options) }];
+        });
+        choiceError.textContent = "";
+        try {
+            await grist.docApi.applyUserActions(actions);
+        } catch (err) {
+            choiceError.textContent = "Ajout impossible : " + errorText(err) +
+                ". Modifier la liste des choix demande le droit de modifier la structure du document.";
+            return;
+        }
+        choiceList = choiceList.concat(value);
+        choiceCols.forEach(function (col) {
+            if (choiceDefs && choiceDefs[col]) choiceDefs[col].choices = choiceList.slice();
+        });
+        selectChoice(value);
+    }
+
     // ---------- Retrait d'un créneau et annulation ----------
 
     function hideToast() {
@@ -738,7 +876,7 @@
             var part = e.target.getAttribute("data-part");
             if (part === "day") updateLongDate(card);
             if (part === "start" || part === "end") updatePresets(card);
-            if (part === "text") {
+            if (part === "text" && e.target.tagName === "INPUT") {
                 var key = card.getAttribute("data-slot");
                 clearTimeout(textTimers[key]);
                 textTimers[key] = setTimeout(function () {
@@ -758,9 +896,28 @@
         });
 
         slotsEl.addEventListener("click", function (e) {
-            var btn = e.target.closest(".preset");
-            if (!btn) return;
-            applyPreset(btn.closest(".slot"), btn);
+            var preset = e.target.closest(".preset");
+            if (preset) {
+                applyPreset(preset.closest(".slot"), preset);
+                return;
+            }
+            var other = e.target.closest(".btn-other");
+            if (other) openChoiceDialog(other.getAttribute("data-slot"));
+        });
+
+        choiceDialog.addEventListener("submit", function (e) {
+            e.preventDefault();
+            addChoice();
+        });
+        document.getElementById("choice-cancel").addEventListener("click", closeChoiceDialog);
+        choiceOverlay.addEventListener("mousedown", function (e) {
+            if (e.target === choiceOverlay) closeChoiceDialog();
+        });
+        choiceOverlay.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                closeChoiceDialog();
+            }
         });
 
         toastUndo.addEventListener("click", undo);

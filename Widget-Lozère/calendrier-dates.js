@@ -31,8 +31,9 @@
         { key: "AP3", label: "AP 3", kind: "range", start: "AP3_debut", end: "AP3_fin" },
         { key: "AP4", label: "AP 4", kind: "range", start: "AP4_debut", end: "AP4_fin" },
         { key: "AP5", label: "AP 5", kind: "range", start: "AP5_debut", end: "AP5_fin" },
-        { key: "Asynchrone_1", label: "Asynchrone 1", kind: "text", col: "Asynchrone_1", bare: true },
-        { key: "Asynchrone_2", label: "Asynchrone 2", kind: "text", col: "Asynchrone_2", bare: true },
+        // choice : colonnes Choice, saisies par liste déroulante dans le widget.
+        { key: "Asynchrone_1", label: "Asynchrone 1", kind: "text", col: "Asynchrone_1", bare: true, choice: true },
+        { key: "Asynchrone_2", label: "Asynchrone 2", kind: "text", col: "Asynchrone_2", bare: true, choice: true },
         { key: "PDF1", label: "PDF 1", kind: "date", col: "PDF1" },
         { key: "PDF2", label: "PDF 2", kind: "date", col: "PDF2" },
         { key: "Visite1", label: "Visite 1", kind: "date", col: "Visite1" },
