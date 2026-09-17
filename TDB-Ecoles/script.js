@@ -179,21 +179,40 @@ async function fetchTableRecords(tableId) {
 /* --------------------------------------------------------------------------
    Habilitation à créer une fiche enseignant.
 
-   La colonne Personnes.CreateFiche sert d'autorisation : les règles d'accès
-   Grist ne la montrent qu'aux utilisateurs habilités. Sa VISIBILITÉ est donc
-   le signal, indépendamment de la valeur portée par chaque ligne.
+   La table Creation_fiche sert d'autorisation : une règle d'accès n'en donne
+   la lecture qu'aux utilisateurs dont Personnes.CreateFiche vaut True. Pouvoir
+   la LIRE est donc le signal ; son contenu n'est pas utilisé.
 
-   On interroge les DONNÉES de la table, où une colonne masquée par les règles
-   d'accès est absente de la réponse. Les tables système ne conviendraient pas :
-   elles décrivent la structure du document sans tenir compte des droits, et
-   répondraient donc toujours que la colonne existe.
+   Elle remplace la lecture de Personnes.CreateFiche, qui demandait un accès à
+   la table des attributions : un CPC habilité, qui ne lit pas Personnes, ne
+   voyait pas le bouton. L'ancienne détection reste en repli tant que la table
+   n'existe pas dans le document.
 
-   Table illisible : même traitement qu'une colonne masquée. Mieux vaut
-   proposer le contact de la circonscription d'origine qu'un bouton dont
-   l'écriture sera refusée.
+   Refus de lecture : bouton masqué. Mieux vaut proposer le contact de la
+   circonscription d'origine qu'un bouton dont l'écriture sera refusée.
    -------------------------------------------------------------------------- */
 
+const CREATE_FICHE_TABLE = 'Creation_fiche';
+
 async function detectCreateFichePermission() {
+    try {
+        await grist.docApi.fetchTable(CREATE_FICHE_TABLE);
+        return true;
+    } catch (err) {
+        const message = (err && err.message) ? err.message : String(err);
+        // Table absente du document : on s'en remet à l'ancien signal.
+        if (/not found|introuvable|inconnue|no such table/i.test(message)) {
+            console.info('[CreateFiche] Table ' + CREATE_FICHE_TABLE + ' absente, repli sur Personnes.CreateFiche.');
+            return detectCreateFicheFromPersonnes();
+        }
+        console.info('[CreateFiche] Table ' + CREATE_FICHE_TABLE + ' illisible, création de fiche désactivée : ' + message);
+        return false;
+    }
+}
+
+// Ancien signal : la colonne Personnes.CreateFiche, masquée par les règles
+// d'accès aux utilisateurs non habilités (et absente si la table est refusée).
+async function detectCreateFicheFromPersonnes() {
     try {
         const personnes = await grist.docApi.fetchTable('Personnes');
         return Object.prototype.hasOwnProperty.call(personnes, 'CreateFiche');
