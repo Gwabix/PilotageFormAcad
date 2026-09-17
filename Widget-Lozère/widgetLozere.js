@@ -260,10 +260,18 @@
             var TH_TABLE = "Thematiques";
             var TH_YEAR = "Annee_scolaire";
             var TH_UAI = "UAI";
-            // Colonnes absentes des options d'en-tete : l'annee scolaire se choisit a part ;
-            // UAI et circonscription figurent deja sous le nom de l'ecole ; Ecole le repete.
-            var TH_SKIP = { Annee_scolaire: true, manualSort: true, UAI: true, Circo: true, Ecole: true };
-            var TH_HEADER_DEFAULT = { Competence_fil_rouge: true, Modalite: true };
+            // Colonnes proposees pour l'en-tete de l'ecole, dans l'ordre de Thematiques.
+            // Liste fixe : les tables _grist_* suivent les regles par defaut, qui refusent
+            // la lecture aux non-proprietaires. A tenir a jour si Thematiques change.
+            // Hors liste : l'annee scolaire se choisit a part ; UAI et circonscription
+            // figurent deja sous le nom de l'ecole ; Ecole le repete ; TABLE_COLS.
+            var TH_HEADER_COLS = [
+                { id: "Annee_du_Plan", label: "Année du Plan", type: "Choice" },
+                { id: "Regroupement", label: "Regroupement", type: "Text" },
+                { id: "Competence_fil_rouge", label: "Compétence fil rouge", type: "Text", checked: true },
+                { id: "Modalite", label: "Modalité", type: "Choice", checked: true },
+                { id: "Notes_pour_plus_tard", label: "Notes pour plus tard", type: "Text" }
+            ];
             var PE_COL = "__pe";
             var T_NOYEAR = "Sans année scolaire";
 
@@ -420,11 +428,6 @@
                 return m ? parseInt(m[1], 10) : Infinity;
             }
 
-            function cleanLabel(label, colId) {
-                var l = txt(label);
-                return (!l || l.charAt(0) === "$") ? colId : l;
-            }
-
             function formatValue(v, type) {
                 if (v === null || v === undefined || v === "") { return ""; }
                 if (type === "Bool") { return v === true ? "Oui" : (v === false ? "Non" : txt(v)); }
@@ -435,41 +438,16 @@
             }
 
             async function loadExportSource() {
-                var res = await Promise.all([
-                    grist.docApi.fetchTable(TH_TABLE),
-                    grist.docApi.fetchTable("_grist_Tables"),
-                    grist.docApi.fetchTable("_grist_Tables_column")
-                ]);
-                var data = res[0];
-                var tables = res[1];
-                var cols = res[2];
+                var data = await grist.docApi.fetchTable(TH_TABLE);
                 if (!data[TH_UAI] || !data[TH_YEAR]) {
                     throw new Error("colonnes " + TH_UAI + " ou " + TH_YEAR + " introuvables dans " + TH_TABLE);
                 }
 
-                var tableRef = null;
-                for (var t = 0; t < tables.id.length; t++) {
-                    if (tables.tableId[t] === TH_TABLE) { tableRef = tables.id[t]; break; }
-                }
-                var meta = [];
-                var colIdByRef = {};
-                for (var j = 0; j < cols.id.length; j++) {
-                    colIdByRef[cols.id[j]] = cols.colId[j];
-                    if (cols.parentId[j] === tableRef) {
-                        meta.push({ colId: cols.colId[j], label: cols.label[j], type: String(cols.type[j] || ""), displayCol: cols.displayCol[j], pos: cols.parentPos[j] });
-                    }
-                }
-                meta.sort(function (a, b) { return a.pos - b.pos; });
-
-                var tableIds = {};
-                TABLE_COLS.forEach(function (c) { tableIds[c.id] = true; });
-                var headerCols = [];
-                meta.forEach(function (m) {
-                    if (tableIds[m.colId] || TH_SKIP[m.colId] || m.colId.indexOf("gristHelper_") === 0) { return; }
-                    // Reference : valeur affichee par la colonne d'aide de Grist, pas l'identifiant.
-                    var source = (m.displayCol && colIdByRef[m.displayCol]) ? colIdByRef[m.displayCol] : m.colId;
-                    if (!data[source]) { return; }
-                    headerCols.push({ id: m.colId, label: cleanLabel(m.label, m.colId), source: source, type: m.type, checked: !!TH_HEADER_DEFAULT[m.colId] });
+                // Colonne supprimee ou renommee dans Grist : simplement absente des options.
+                var headerCols = TH_HEADER_COLS.filter(function (c) {
+                    return !!data[c.id];
+                }).map(function (c) {
+                    return { id: c.id, label: c.label, source: c.id, type: c.type, checked: !!c.checked };
                 });
 
                 // Ligne par ecole (code UAI) et par annee ; la plus ancienne en cas de doublon.

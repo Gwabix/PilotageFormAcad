@@ -10,7 +10,16 @@
     var SCHOOL_YEAR_RE = /^(\d{4})-(\d{4})$/;
     var YEAR_PREFIX = "Année ";
     var YEAR_RE = /^Ann[ée]e\s+(\d+)$/i;
-    var DEFAULT_YEAR_COUNT = 4;
+    // Choix des colonnes Annee_du_Plan (Année 0 à 4) et Modalite, recopiés du document.
+    // Pas de lecture de _grist_Tables_column : les tables _grist_* suivent les règles
+    // par défaut, qui refusent la lecture aux non-propriétaires. À tenir à jour à la main.
+    var YEAR_COUNT = 4;
+    var MODALITE_CHOICES = [
+        "Accompagnement de proximité",
+        "Résidence pédagogique",
+        "Constellation",
+        "Animations pédagogiques"
+    ];
     // Valeur exacte interprétée par widgetLozere.js : ne jamais la retaper à la main.
     var AUTRE_CHOICE = "Santé mentale / VSS ou CPS";
 
@@ -70,9 +79,6 @@
 
     var schools = [];
     var schoolsById = {};
-    var yearCount = DEFAULT_YEAR_COUNT;
-    var modaliteChoices = [];
-    var columnOptionsLoaded = false;
     var currentSchoolId = null;
     var filteredSchools = [];
     var activeIndex = -1;
@@ -108,16 +114,6 @@
         return left.localeCompare(right, "fr", { sensitivity: "base", numeric: true });
     }
 
-    function safeParseJson(value) {
-        if (value && typeof value === "object") return value;
-        if (!value || typeof value !== "string") return null;
-        try {
-            return JSON.parse(value);
-        } catch (_err) {
-            return null;
-        }
-    }
-
     function setStatus(message, transient) {
         clearTimeout(statusTimer);
         statusTransient = !!transient;
@@ -139,36 +135,6 @@
     }
 
     // ---------- Chargement des données ----------
-
-    async function loadColumnOptions() {
-        var tables = await grist.docApi.fetchTable("_grist_Tables");
-        var tableRef = null;
-        for (var i = 0; i < tables.id.length; i += 1) {
-            if (tables.tableId[i] === TABLE_ID) {
-                tableRef = tables.id[i];
-                break;
-            }
-        }
-        if (tableRef === null) return;
-
-        var cols = await grist.docApi.fetchTable("_grist_Tables_column");
-        for (var j = 0; j < cols.id.length; j += 1) {
-            if (cols.parentId[j] !== tableRef) continue;
-            var options = safeParseJson(cols.widgetOptions[j]);
-            var choices = options && Array.isArray(options.choices) ? options.choices.map(trimmed).filter(Boolean) : [];
-            if (cols.colId[j] === MODALITE_FIELD.colId) {
-                modaliteChoices = choices;
-            } else if (cols.colId[j] === COL_ANNEE) {
-                var max = 0;
-                choices.forEach(function (c) {
-                    var n = parseYear(c);
-                    if (n !== null && n > max) max = n;
-                });
-                if (max > 0) yearCount = max;
-            }
-        }
-        columnOptionsLoaded = true;
-    }
 
     // Première année d'une année scolaire « 2026-2027 », sinon null.
     function schoolYearStart(value) {
@@ -286,9 +252,6 @@
     async function loadData() {
         var seq = ++loadSeq;
         try {
-            if (!columnOptionsLoaded) {
-                await loadColumnOptions();
-            }
             var results = await Promise.all([
                 grist.docApi.fetchTable(TABLE_ID),
                 grist.docApi.fetchTable(ECOLES_TABLE_ID)
@@ -630,7 +593,7 @@
         }
 
         var modalite = makeFieldButton(school, year, rec, MODALITE_FIELD, "modalite-badge", "Choisir une modalité");
-        if (modalite.value && modaliteChoices.length && modaliteChoices.indexOf(modalite.value) === -1) {
+        if (modalite.value && MODALITE_CHOICES.length && MODALITE_CHOICES.indexOf(modalite.value) === -1) {
             modalite.button.classList.add("is-invalid");
             modalite.button.title = "Valeur hors de la liste des modalités prévues";
         }
@@ -671,7 +634,7 @@
         schoolTitle.textContent = school.name;
         renderFilRouge(school);
 
-        var maxYear = yearCount;
+        var maxYear = YEAR_COUNT;
         Object.keys(school.years).forEach(function (k) {
             maxYear = Math.max(maxYear, parseInt(k, 10));
         });
@@ -709,7 +672,7 @@
             el.remove();
         });
 
-        var options = [""].concat(modaliteChoices);
+        var options = [""].concat(MODALITE_CHOICES);
         options.forEach(function (choice, i) {
             var row = document.createElement("label");
             row.className = "choice-item";
@@ -727,7 +690,7 @@
             editModalite.appendChild(row);
         });
 
-        if (selected && modaliteChoices.indexOf(selected) === -1) {
+        if (selected && MODALITE_CHOICES.indexOf(selected) === -1) {
             var warning = document.createElement("p");
             warning.className = "choice-warning";
             warning.textContent = "Valeur actuelle hors liste : « " + selected + " ». Choisissez l'une des modalités prévues.";
@@ -912,7 +875,7 @@
                 editError.textContent = "Choisissez une modalité.";
                 return;
             }
-            if (value && modaliteChoices.indexOf(value) === -1) {
+            if (value && MODALITE_CHOICES.indexOf(value) === -1) {
                 editError.textContent = "Modalité non prévue.";
                 return;
             }
@@ -982,7 +945,7 @@
 
         infoEdit.replaceChildren();
         var modalite = makeFieldButton(school, 0, rec, MODALITE_FIELD, "modalite-badge", "Choisir une modalité");
-        if (modalite.value && modaliteChoices.length && modaliteChoices.indexOf(modalite.value) === -1) {
+        if (modalite.value && MODALITE_CHOICES.length && MODALITE_CHOICES.indexOf(modalite.value) === -1) {
             modalite.button.classList.add("is-invalid");
             modalite.button.title = "Valeur hors de la liste des modalités prévues";
         }
