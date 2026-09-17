@@ -20,6 +20,9 @@
                 <div id="suggestions" role="listbox"></div>
             </div>
             <div id="toolbar">
+                <label class="year-pick" for="year-select">Année scolaire
+                    <select id="year-select"></select>
+                </label>
                 <button class="btn" id="btn-expand" type="button">Tout déplier</button>
                 <button class="btn" id="btn-collapse" type="button">Tout replier</button>
                 <button class="btn" id="btn-pdf" type="button"
@@ -35,8 +38,8 @@
                 <h2 id="export-title">Exporter en PDF</h2>
                 <p id="export-status" role="status" hidden></p>
                 <div id="export-fields" hidden>
-                    <label class="export-label" for="export-year">Année scolaire</label>
-                    <select id="export-year"></select>
+                    <p class="export-label">Année scolaire</p>
+                    <p id="export-year"></p>
                     <fieldset class="export-group">
                         <legend>Tableau des enseignants</legend>
                         <div id="export-cols-table" class="export-cols"></div>
@@ -60,6 +63,7 @@
         </div>
     </div>
     <div id="print-root" aria-hidden="true"></div>
+    <script src="calendrier-dates.js"></script>
     <script src="widgetLozere.js"></script>
 </body>
 </html>

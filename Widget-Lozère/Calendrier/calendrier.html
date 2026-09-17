@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendrier des formations</title>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <link rel="stylesheet" href="calendrier.css">
+</head>
+
+<body>
+
+    <header id="picker">
+        <div class="field field-school">
+            <label for="search-input">École</label>
+            <div id="search-wrapper">
+                <input type="text" id="search-input" placeholder="Rechercher une école…" autocomplete="off"
+                    spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                    aria-controls="dropdown" />
+                <button type="button" id="search-clear" aria-label="Vider la recherche" title="Vider">×</button>
+                <div id="dropdown" role="listbox" aria-label="Écoles"></div>
+            </div>
+        </div>
+        <div class="field field-year">
+            <label for="year-select">Année scolaire</label>
+            <select id="year-select"></select>
+        </div>
+    </header>
+
+    <p id="status-msg" role="status">Chargement des données…</p>
+
+    <main id="editor" hidden>
+        <div id="editor-head">
+            <div>
+                <h1 id="school-title"></h1>
+                <p id="school-meta"></p>
+            </div>
+            <p id="save-state" role="status" aria-live="polite"></p>
+        </div>
+
+        <fieldset id="slot-picker">
+            <legend>Données à renseigner</legend>
+            <div id="slot-boxes"></div>
+        </fieldset>
+
+        <div id="slots"></div>
+
+        <section id="preview" aria-labelledby="preview-title">
+            <h2 id="preview-title">Colonne « Dates » de Thematiques</h2>
+            <p id="preview-warning" hidden></p>
+            <div id="preview-text"></div>
+        </section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite" hidden>
+        <span id="toast-text"></span>
+        <button type="button" id="toast-undo" class="btn-link">Annuler</button>
+    </div>
+
+    <script src="../calendrier-dates.js"></script>
+    <script src="calendrier.js"></script>
+</body>
+
+</html>
