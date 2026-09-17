@@ -5,11 +5,15 @@
  * début et fin), PDF1-2 et Visite1-2 (Date), Asynchrone_1-2 et GT_Cycle_1
  * (texte libre). Ce module décrit ces créneaux, convertit les valeurs Grist
  * (secondes depuis 1970) en heure de Paris et produit le texte de
- * Thematiques.Dates, une ligne par créneau, valeurs en **gras** :
+ * Thematiques.Dates, une ligne par créneau :
  *
- *   AP 1 : **jeudi 17 septembre 2026 de 9h à 12h**
+ *   AP 1 : jeudi 17 septembre 2026 de 9h à 12h
  *   Parcours M@gistère
- *   PDF 1 : **lundi 21 septembre 2026**
+ *   PDF 1 : lundi 21 septembre 2026
+ *
+ * Le texte reste lisible tel quel dans Grist : aucune marque de mise en forme.
+ * À l'affichage (toHtml, toFragment), la valeur qui suit un libellé connu est
+ * mise en gras ; les anciennes valeurs, écrites avec des **, restent lues.
  *
  * Utilisé par Calendrier/calendrier.js (saisie) et widgetLozere.js (lecture).
  */
@@ -145,7 +149,7 @@
                     return;
                 }
             }
-            if (value) out.push(slot.label + " : **" + value + "**");
+            if (value) out.push(slot.label + " : " + value);
         });
         return out;
     }
@@ -164,22 +168,31 @@
         return l.length ? l.join("\n") : EMPTY_TEXT;
     }
 
-    // Fragment DOM : lignes séparées par <br>, segments **…** en <strong>.
+    // « AP 1 : », « PDF 2 : »… : seuls ces libellés introduisent une valeur en gras.
+    var LABEL_RE = new RegExp("^(" + SLOTS.map(function (s) {
+        return s.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }).join("|") + ") : (.+)$");
+
+    // Une ligne découpée en [libellé, valeur à mettre en gras], ou [ligne].
+    function splitLine(line) {
+        var clean = String(line).replace(/\*\*/g, "");
+        var m = LABEL_RE.exec(clean);
+        return m ? [m[1] + " : ", m[2]] : [clean];
+    }
+
+    // Fragment DOM : lignes séparées par <br>, valeurs en <strong>.
     // Construit par nœuds texte : aucune valeur n'est interprétée comme HTML.
     function toFragment(doc, text) {
         var frag = doc.createDocumentFragment();
         String(text || "").split("\n").forEach(function (line, i) {
             if (i > 0) frag.appendChild(doc.createElement("br"));
-            line.split("**").forEach(function (part, j) {
-                if (!part) return;
-                if (j % 2 === 1) {
-                    var strong = doc.createElement("strong");
-                    strong.textContent = part;
-                    frag.appendChild(strong);
-                } else {
-                    frag.appendChild(doc.createTextNode(part));
-                }
-            });
+            var parts = splitLine(line);
+            frag.appendChild(doc.createTextNode(parts[0]));
+            if (parts.length > 1) {
+                var strong = doc.createElement("strong");
+                strong.textContent = parts[1];
+                frag.appendChild(strong);
+            }
         });
         return frag;
     }
@@ -188,10 +201,8 @@
     // esc : fonction d'échappement de l'appelant, appliquée à chaque segment.
     function toHtml(text, esc) {
         return String(text || "").split("\n").map(function (line) {
-            return line.split("**").map(function (part, j) {
-                if (!part) return "";
-                return j % 2 === 1 ? "<strong>" + esc(part) + "</strong>" : esc(part);
-            }).join("");
+            var parts = splitLine(line);
+            return esc(parts[0]) + (parts.length > 1 ? "<strong>" + esc(parts[1]) + "</strong>" : "");
         }).join("<br>");
     }
 
