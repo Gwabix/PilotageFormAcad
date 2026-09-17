@@ -160,7 +160,9 @@
                         if (c !== 0) { return c; }
                         return norm(a.prenom).localeCompare(norm(b.prenom));
                     });
-                    s.search = norm([s.ecole, s.uai, s.circo, s.dept, s.modalite].join(" "));
+                    // Ni circonscription ni departement : ils portent le nom d'une
+                    // commune ou du departement et rameneraient toutes leurs ecoles.
+                    s.search = norm([s.ecole, s.uai, s.modalite].join(" "));
                     var peTxt = [];
                     for (var m = 0; m < s.pe.length; m++) { peTxt.push(norm(s.pe[m].nom + " " + s.pe[m].prenom + " " + s.pe[m].mail)); }
                     s.searchAll = s.search + " " + peTxt.join(" ");

@@ -123,7 +123,9 @@
             var circo = trimmed(r.Circonscription);
             return {
                 id: r.id, name: name, uai: uai, circo: circo,
-                search: D.normKey([name, uai, circo].join(" "))
+                // Recherche sur le nom et l'UAI seuls : la circonscription porte le
+                // nom d'une commune et ramenerait toutes ses ecoles.
+                search: D.normKey(name + " " + uai)
             };
         }).sort(function (a, b) {
             return a.name.localeCompare(b.name, "fr", { sensitivity: "base", numeric: true });
