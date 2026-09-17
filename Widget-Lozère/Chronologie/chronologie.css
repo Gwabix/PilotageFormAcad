@@ -68,10 +68,8 @@ textarea {
 }
 
 select,
-option {
-    color: var(--text-primary);
-    background-color: var(--surface);
-}
+/* Pas de couleur ni de fond sur les <option> : color-scheme les rend lisibles,
+   et les peindre casse la surbrillance au survol (texte invisible). */
 
 :focus-visible {
     outline: 2px solid var(--accent);

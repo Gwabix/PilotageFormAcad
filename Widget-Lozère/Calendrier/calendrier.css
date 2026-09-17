@@ -55,10 +55,13 @@ textarea {
 
 input,
 select,
-option,
 textarea {
     background-color: var(--surface);
 }
+
+/* Les <option> ne reçoivent ni couleur ni fond : color-scheme suffit à les
+   rendre lisibles, et les peindre casse la surbrillance au survol (texte
+   invisible sous le pointeur). */
 
 :focus-visible {
     outline: 2px solid var(--accent);
@@ -463,11 +466,6 @@ textarea {
 .slot select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-light);
-}
-
-.slot option {
-    background-color: var(--surface);
-    color: var(--text-primary);
 }
 
 .btn-other {

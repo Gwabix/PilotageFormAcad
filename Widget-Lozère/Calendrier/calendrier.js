@@ -730,6 +730,14 @@
         var card = slotsEl.querySelector('.slot[data-slot="' + key + '"]');
         if (!card) return;
         var select = cardInput(card, "text");
+        var known = Array.prototype.some.call(select.options, function (o) { return o.value === value; });
+        if (!known) {
+            // Choix non ajouté à la colonne : proposé pour cette saisie, hors liste.
+            var opt = document.createElement("option");
+            opt.value = value;
+            opt.textContent = value + " (hors liste)";
+            select.appendChild(opt);
+        }
         select.value = value;
         commitSlot(card);
     }
@@ -753,18 +761,29 @@
             return ["ModifyColumn", CAL_TABLE, col, { widgetOptions: JSON.stringify(options) }];
         });
         choiceError.textContent = "";
+        var inList = true;
         try {
             await grist.docApi.applyUserActions(actions);
         } catch (err) {
-            choiceError.textContent = "Ajout impossible : " + errorText(err) +
-                ". Modifier la liste des choix demande le droit de modifier la structure du document.";
-            return;
+            // Allonger la liste est une edition de structure, refusee a la plupart
+            // des utilisateurs : la valeur est alors enregistree telle quelle, hors
+            // liste (Grist l'encadre en rouge dans la grille).
+            inList = false;
+            console.info("Liste des choix inchangée : " + errorText(err));
         }
-        choiceList = choiceList.concat(value);
-        choiceCols.forEach(function (col) {
-            if (choiceDefs && choiceDefs[col]) choiceDefs[col].choices = choiceList.slice();
-        });
+        if (inList) {
+            choiceList = choiceList.concat(value);
+            choiceCols.forEach(function (col) {
+                if (choiceDefs && choiceDefs[col]) choiceDefs[col].choices = choiceList.slice();
+            });
+        }
         selectChoice(value);
+        if (!inList) {
+            await saveChain;
+            if (!saveState.classList.contains("error")) {
+                setSaveState("saved", "Enregistré hors liste : « " + value + " »");
+            }
+        }
     }
 
     // ---------- Retrait d'un créneau et annulation ----------

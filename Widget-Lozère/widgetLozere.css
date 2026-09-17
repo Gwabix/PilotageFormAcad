@@ -152,10 +152,8 @@
             cursor: pointer
         }
 
-        #year-select option {
-            color: #1f2937;
-            background-color: #fff
-        }
+        /* Pas de couleur ni de fond sur les <option> : color-scheme les rend
+           lisibles, et les peindre casse la surbrillance au survol. */
 
         #year-select:disabled {
             opacity: .6;
