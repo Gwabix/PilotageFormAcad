@@ -1017,13 +1017,36 @@ async function loadData() {
     }
 }
 
+/*
+ * Catégories de Personnes retenues comme formateurs, et fonction inscrite dans
+ * Formateurs.Fonction pour chacune.
+ *
+ * La correspondance n'est pas l'identité : « CPD-Num » distingue, côté
+ * Personnes, le conseiller pédagogique départemental au numérique. Cette
+ * nuance n'a pas cours dans Formateurs, où seul compte « CPD » — sans quoi le
+ * même métier s'y écrirait de deux façons, et les tris comme les filtres par
+ * fonction se scinderaient en deux.
+ *
+ * Une chaîne vide rend la personne éligible sans rien écrire dans Fonction :
+ * c'est le cas de « Formateur », qui ne désigne pas une fonction hiérarchique.
+ * Une personne cumulant plusieurs catégories reçoit la première qui donne une
+ * fonction, dans l'ordre où SES catégories sont déclarées — un « Formateur »
+ * par ailleurs CPC est donc bien enregistré CPC.
+ */
+const FONCTION_PAR_CATEGORIE = {
+    'CPC': 'CPC',
+    'CPD': 'CPD',
+    'CPD-Num': 'CPD',
+    'Formateur': ''
+};
+
 /**
  * Synchronise la table Formateurs à partir de la table Personnes au chargement du widget.
  * - Uppercases le champ Nom lors de la construction du nom complet.
- * - Filtre les personnes dont la Categorie contient "CPC", "CPD" ou "Formateur".
+ * - Filtre les personnes dont la Categorie figure dans FONCTION_PAR_CATEGORIE.
  * - Ajoute uniquement les couples "Prenom NOM" absents de la colonne Formateur,
  *   en marquant les nouvelles lignes AutoLoad=true et Lister=true.
- * - Copie la catégorie dans Fonction si celle-ci est "CPC" ou "CPD".
+ * - Inscrit dans Fonction la valeur associée à la catégorie ("CPD-Num" → "CPD").
  * - Pour les entrées AutoLoad=true qui ne correspondent plus à une personne éligible,
  *   applique Lister=false (soft-remove) sans supprimer la ligne.
  * - N'écrase pas les données existantes et ne crée pas de doublon.
@@ -1064,8 +1087,7 @@ async function syncFormateursFromPersonnes() {
         const departementChoices = await loadFormateursDepartementChoices();
         const sousCategorieColumn = getTableColumn(personnesTable, ['Sous-catégorie', 'Sous_categorie', 'Sous-categorie']);
 
-        const targetCategories = new Set(['CPC', 'CPD', 'Formateur']);
-        const fonctionCategories = new Set(['CPC', 'CPD']);
+        const targetCategories = new Set(Object.keys(FONCTION_PAR_CATEGORIE));
 
         // Ensemble normalisé des formateurs existants pour la détection de doublons
         const existingNormalized = new Set(
@@ -1121,7 +1143,9 @@ async function syncFormateursFromPersonnes() {
                 sousCategoriesMap,
                 departementChoices
             );
-            const fonctionCat = matchedCats.find(n => fonctionCategories.has(n)) || '';
+            const fonctionCat = matchedCats
+                .map(n => FONCTION_PAR_CATEGORIE[n])
+                .find(Boolean) || '';
             eligibleFormateursByKey.set(normKey, { departement, fonctionCat });
 
             // Planifier l'ajout si absent de Formateurs (comparaison normalisée)
