@@ -14,6 +14,15 @@
  *    partagées (retiré de l'école A mais toujours en poste sur l'école B).
  *  - Sinon, on part de sa date de retrait la plus récente : il est purgeable
  *    si elle remonte à plus de RETENTION_DAYS jours.
+ *  - Le regroupement se fait sur l'ID_PE, et sur lui seul. Une ligne SANS
+ *    ID_PE est donc jugée seule, sur sa propre date de retrait, et elle seule
+ *    est supprimée : sans identifiant, rien ne permet de lui rattacher les
+ *    autres lignes de la personne. Cas du contractuel de passage, parti avant
+ *    d'avoir reçu un identifiant. Ces lignes ont normalement vocation à être
+ *    rapprochées d'une fiche existante par le panneau d'incohérences
+ *    (./liste-pe-coherence.js, rapprochement par le mail), qui leur attribue
+ *    un ID_PE ; la purge ne prend que celles que personne n'a réclamées en
+ *    cinq ans.
  *  - Le contrôle n'est exécuté que si l'utilisateur voit STRICTEMENT PLUS de
  *    MIN_DEPARTEMENTS départements dans Liste_PE. En deçà, les règles d'accès
  *    Grist peuvent masquer une mutation inter-départementale et faire passer
@@ -110,11 +119,21 @@
             return { sufficientScope, visibleDepartementCount, candidates: [] };
         }
 
+        /*
+         * Le regroupement se fait sur l'ID_PE, et sur lui seul : c'est la
+         * seule clé qui désigne une personne à coup sûr. `sanitizeText` le
+         * débarrasse au passage des blancs parasites, sans quoi deux lignes
+         * réduites à des espaces formeraient une seule « personne » et
+         * seraient purgées ensemble. Tous les widgets ne font pas précéder la
+         * purge d'un nettoyage des blancs : la défense est donc ici.
+         *
+         * Les lignes sans ID_PE sont traitées à part, une par une, plus bas.
+         */
         const byTeacher = new Map();
+        const sansIdPe = [];
         for (const row of listePe) {
-            const id = row.ID_PE;
-            if (id === null || id === undefined || id === '') continue;
-            const key = String(id);
+            const key = sanitizeText(row.ID_PE);
+            if (!key) { sansIdPe.push(row); continue; }
             if (!byTeacher.has(key)) byTeacher.set(key, []);
             byTeacher.get(key).push(row);
         }
@@ -123,6 +142,14 @@
 
         const todayDayIndex = epochSecondsToDayIndex(todayDateEpochSeconds());
         const candidates = [];
+
+        const formationIdsOf = (listePeRowIds) => {
+            const ids = [];
+            for (const rowId of listePeRowIds) {
+                for (const f of (formationsByListePeRow.get(rowId) || [])) ids.push(f.id);
+            }
+            return ids;
+        };
 
         for (const [key, rows] of byTeacher) {
             // Un enseignant encore rattaché à AU MOINS UNE école sans date de
@@ -154,19 +181,52 @@
             if (daysSinceRetrait < RETENTION_DAYS) continue;
 
             const listePeRowIds = rows.map(r => r.id);
-            const formationRowIds = [];
-            for (const rowId of listePeRowIds) {
-                for (const f of (formationsByListePeRow.get(rowId) || [])) formationRowIds.push(f.id);
-            }
+            const formationRowIds = formationIdsOf(listePeRowIds);
 
             candidates.push({
                 key,
                 identity: teacherIdentity(rows[0]) || ('ID_PE ' + key),
+                sansIdPe: false,
                 lastRetraitEpoch: latestRetraitEpoch,
                 daysSinceRetrait,
                 listePeRowIds,
                 formationRowIds,
                 totalRows: listePeRowIds.length + formationRowIds.length
+            });
+        }
+
+        /*
+         * Lignes sans ID_PE — un contractuel de passage peut n'avoir jamais
+         * reçu d'identifiant. Faute de clé sûre, aucun regroupement : chaque
+         * ligne est jugée sur sa seule date de retrait, et elle seule est
+         * supprimée. On ne touche donc jamais les autres lignes de la
+         * personne, qu'on serait bien incapable d'identifier.
+         *
+         * Ces lignes ont normalement vocation à être rapprochées d'une fiche
+         * existante par le panneau d'incohérences (./liste-pe-coherence.js,
+         * rapprochement par le mail), qui leur attribue un ID_PE. La purge
+         * n'intervient que pour celles que personne n'a réclamées en cinq ans.
+         */
+        for (const row of sansIdPe) {
+            const retraitEpoch = parseDateEpochSeconds(row.Retrait);
+            if (retraitEpoch === null) continue;
+
+            const daysSinceRetrait = todayDayIndex - epochSecondsToDayIndex(retraitEpoch);
+            if (daysSinceRetrait < RETENTION_DAYS) continue;
+
+            const formationRowIds = formationIdsOf([row.id]);
+
+            candidates.push({
+                key: 'ROW:' + row.id,
+                identity: teacherIdentity(row) || sanitizeText(row.Mail) || 'Identité inconnue',
+                // La confirmation de purge doit pouvoir dire que cette ligne
+                // est visée seule, faute d'identifiant.
+                sansIdPe: true,
+                lastRetraitEpoch: retraitEpoch,
+                daysSinceRetrait,
+                listePeRowIds: [row.id],
+                formationRowIds,
+                totalRows: 1 + formationRowIds.length
             });
         }
 

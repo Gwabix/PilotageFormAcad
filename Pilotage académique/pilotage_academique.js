@@ -1791,7 +1791,10 @@ function openRgpdModal() {
         name.textContent = c.identity;
         const detail = document.createElement('span');
         detail.className = 'conservation-item-detail';
-        detail.textContent = ' — retrait le ' + RgpdPurge.formatEpochDate(c.lastRetraitEpoch)
+        // Sans ID_PE, le regroupement repose sur l'identité : le dire, la
+        // suppression étant irréversible.
+        detail.textContent = (c.sansIdPe ? ' (sans ID PE, rapproché sur l\'identité)' : '')
+            + ' — retrait le ' + RgpdPurge.formatEpochDate(c.lastRetraitEpoch)
             + ' (' + c.daysSinceRetrait + ' jours) · '
             + c.totalRows + ' ligne' + (c.totalRows > 1 ? 's' : '')
             + ' (' + c.formationRowIds.length + ' Formations, '
