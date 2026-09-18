@@ -723,7 +723,7 @@ function getUniqueValues(records, field) {
 }
 
 function populateDepartementFilter() {
-    const values = getUniqueValues(getYearScopedEcoles(), 'Libelle_departement');
+    const values = getUniqueValues(getSelectableEcoles(), 'Libelle_departement');
     const wrapper = document.getElementById('filter-departement-wrapper');
     const select = document.getElementById('filter-departement');
 
@@ -751,8 +751,8 @@ function populateDepartementFilter() {
 }
 
 function populateCirconscriptionFilter() {
-    const yearScopedEcoles = getYearScopedEcoles();
-    const departements = getUniqueValues(yearScopedEcoles, 'Libelle_departement');
+    const selectableEcoles = getSelectableEcoles();
+    const departements = getUniqueValues(selectableEcoles, 'Libelle_departement');
     const wrapper = document.getElementById('filter-circonscription-wrapper');
     const select = document.getElementById('filter-circonscription');
 
@@ -765,8 +765,8 @@ function populateCirconscriptionFilter() {
     }
 
     const relevant = state.currentDepartement
-        ? yearScopedEcoles.filter(e => e.Libelle_departement === state.currentDepartement)
-        : yearScopedEcoles;
+        ? selectableEcoles.filter(e => e.Libelle_departement === state.currentDepartement)
+        : selectableEcoles;
 
     const values = getUniqueValues(relevant, 'Circonscription');
 
@@ -825,15 +825,13 @@ function attachFilterListeners() {
 const yearIndex = {
     year: undefined,
     personnels: null,
-    byEcoleRowId: null,
-    scopedEcoles: null
+    byEcoleRowId: null
 };
 
 function invalidateYearIndex() {
     yearIndex.year = undefined;
     yearIndex.personnels = null;
     yearIndex.byEcoleRowId = null;
-    yearIndex.scopedEcoles = null;
 }
 
 function ensureYearIndex() {
@@ -858,7 +856,6 @@ function ensureYearIndex() {
     yearIndex.year = state.currentYear;
     yearIndex.personnels = personnels;
     yearIndex.byEcoleRowId = byEcoleRowId;
-    yearIndex.scopedEcoles = state.ecoles.filter(ecole => byEcoleRowId.has(ecole.id));
 }
 
 function getYearFilteredPersonnels() {
@@ -874,22 +871,37 @@ function getPersonnelEcoleRowId(record) {
     return null;
 }
 
-function getYearScopedEcoles() {
-    ensureYearIndex();
-    return yearIndex.scopedEcoles;
+/**
+ * Établissements que le tableau de bord peut présenter : TOUS les
+ * établissements actifs, y compris ceux sans aucun enseignant.
+ *
+ * Ils étaient auparavant restreints à ceux ayant au moins un enseignant
+ * l'année en cours, ce qui rendait inatteignable le bouton « Ajouter un
+ * enseignant » de leur fiche, précisément quand on en a besoin : au lendemain
+ * d'un import, une école dont personne n'est encore affecté n'apparaissait
+ * nulle part et ne pouvait donc jamais recevoir sa première affectation.
+ *
+ * La liste ne dépend donc pas de l'année, et n'a pas sa place dans
+ * l'index annuel : c'est `state.ecoles`, déjà filtré sur `Ecoles.OK`
+ * (../shared/ecoles-actives.js). Le volume reste borné par les filtres
+ * département et circonscription, que getScopeSelectionMessage() impose de
+ * choisir dès qu'il y en a plusieurs.
+ */
+function getSelectableEcoles() {
+    return state.ecoles;
 }
 
 function getScopeSelectionMessage() {
-    const yearScopedEcoles = getYearScopedEcoles();
-    const departements = getUniqueValues(yearScopedEcoles, 'Libelle_departement');
+    const selectableEcoles = getSelectableEcoles();
+    const departements = getUniqueValues(selectableEcoles, 'Libelle_departement');
 
     if (departements.length > 1 && !state.currentDepartement) {
         return 'Sélectionnez un département pour afficher les établissements.';
     }
 
     const relevant = state.currentDepartement
-        ? yearScopedEcoles.filter(e => e.Libelle_departement === state.currentDepartement)
-        : yearScopedEcoles;
+        ? selectableEcoles.filter(e => e.Libelle_departement === state.currentDepartement)
+        : selectableEcoles;
     const circonscriptions = getUniqueValues(relevant, 'Circonscription');
 
     if (circonscriptions.length > 1 && !state.currentCirconscription) {
@@ -902,7 +914,7 @@ function getScopeSelectionMessage() {
 function getFilteredEcoles() {
     if (getScopeSelectionMessage()) return [];
 
-    return getYearScopedEcoles().filter(e => {
+    return getSelectableEcoles().filter(e => {
         if (state.currentDepartement && e.Libelle_departement !== state.currentDepartement) return false;
         if (state.currentCirconscription && e.Circonscription !== state.currentCirconscription) return false;
         return true;
@@ -1084,10 +1096,9 @@ function renderDashboard() {
     const filtered = getFilteredEcoles();
 
     if (!filtered.length) {
-        const yearLabel = state.currentYear !== null
-            ? ' pour l\'année scolaire ' + state.currentYear + '-' + (state.currentYear + 1)
-            : '';
-        container.innerHTML = '<div class="no-results">Aucun établissement avec enseignant' + yearLabel + ' ne correspond aux filtres sélectionnés.</div>';
+        // La liste ne dépend plus des enseignants : si elle est vide, ce sont
+        // les filtres, ou la table Ecoles elle-même, qui ne donnent rien.
+        container.innerHTML = '<div class="no-results">Aucun établissement ne correspond aux filtres sélectionnés.</div>';
         return;
     }
 
