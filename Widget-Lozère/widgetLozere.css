@@ -436,6 +436,18 @@
             border-color: var(--warn-bd)
         }
 
+        /* Cas particulier : une seule cellule couvre les modules remplaces. */
+        .cas-cell {
+            text-align: center;
+            background: #fdf4ff
+        }
+
+        .cas-cell .tag {
+            background: #fae8ff;
+            color: #86198f;
+            border-color: #f0abfc
+        }
+
         .list-plain {
             display: inline-block;
             max-width: 100%;
@@ -472,7 +484,8 @@
             display: none !important
         }
 
-        #export-overlay {
+        #export-overlay,
+        #cas-overlay {
             position: fixed;
             inset: 0;
             z-index: 100;
@@ -483,7 +496,8 @@
             background: rgba(17, 24, 39, .4)
         }
 
-        #export-dialog {
+        #export-dialog,
+        #cas-dialog {
             width: min(520px, 100%);
             max-height: calc(100vh - 32px);
             overflow-y: auto;
@@ -494,19 +508,26 @@
             padding: 16px 18px
         }
 
-        #export-title {
+        #export-title,
+        #cas-title {
             margin: 0 0 12px;
             font-size: 16px;
             color: #111827
         }
 
-        #export-status {
+        #export-status,
+        #cas-status {
             margin: 0 0 12px;
             color: var(--muted);
             font-style: italic
         }
 
-        #export-status.error {
+        #cas-status {
+            margin: 12px 0 0
+        }
+
+        #export-status.error,
+        #cas-status.error {
             color: #b91c1c;
             font-style: normal
         }
@@ -530,20 +551,23 @@
 
         #year-select:focus-visible,
         .export-check input:focus-visible,
+        .cas-check input:focus-visible,
         .btn:focus-visible,
         .btn-link:focus-visible {
             outline: 2px solid var(--primary);
             outline-offset: 2px
         }
 
-        .export-group {
+        .export-group,
+        .cas-pe {
             margin: 12px 0 0;
             padding: 6px 10px 8px;
             border: 1px solid var(--border);
             border-radius: 6px
         }
 
-        .export-group legend {
+        .export-group legend,
+        .cas-pe legend {
             padding: 0 4px;
             font-size: 11px;
             font-weight: 600;
@@ -558,7 +582,8 @@
             gap: 0 12px
         }
 
-        .export-check {
+        .export-check,
+        .cas-check {
             display: flex;
             align-items: center;
             gap: 7px;
@@ -567,13 +592,37 @@
             border-radius: 4px
         }
 
-        .export-check:hover {
+        .export-check:hover,
+        .cas-check:hover {
             background: var(--primary-light)
         }
 
-        .export-check input {
+        .export-check input,
+        .cas-check input {
             margin: 0;
             accent-color: var(--primary)
+        }
+
+        .cas-phrase {
+            margin: 2px 0 8px;
+            font-size: 13px;
+            line-height: 1.45;
+            color: #374151
+        }
+
+        .cas-modes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0 16px;
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+            border-bottom: 1px dashed var(--border)
+        }
+
+        .cas-cols {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 0 12px
         }
 
         .export-quick {
@@ -675,7 +724,8 @@
             }
 
             #app,
-            #export-overlay {
+            #export-overlay,
+            #cas-overlay {
                 display: none !important
             }
 

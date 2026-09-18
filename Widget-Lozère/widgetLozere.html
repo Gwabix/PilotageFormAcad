@@ -62,6 +62,19 @@
             </form>
         </div>
     </div>
+    <div id="cas-overlay" hidden>
+        <div id="cas-dialog" role="dialog" aria-modal="true" aria-labelledby="cas-title">
+            <form id="cas-form">
+                <h2 id="cas-title">Cas particuliers</h2>
+                <div id="cas-list"></div>
+                <p id="cas-status" role="status" hidden></p>
+                <div class="export-actions">
+                    <button class="btn" id="cas-close" type="button" hidden>Fermer</button>
+                    <button class="btn btn-primary" id="cas-go" type="submit">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div id="print-root" aria-hidden="true"></div>
     <script src="calendrier-dates.js"></script>
     <script src="widgetLozere.js"></script>

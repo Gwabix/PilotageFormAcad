@@ -7,7 +7,6 @@
             var T_CPS6 = "CPS (6h)";
             var T_SMVSS = "Sant\u00E9 mentale / VSS";
             var T_SMVSS_CPS = "Sant\u00E9 mentale / VSS ou CPS";
-            var T_EVAL = "\u00C9valuation d'\u00E9cole";
             var T_NOMOD = "Modalit\u00E9 non renseign\u00E9e";
             var T_NOPE = "Aucun PE rattach\u00E9 \u00E0 cette \u00E9cole.";
             var T_NORES = "Aucune \u00E9cole ne correspond \u00E0 votre recherche.";
@@ -87,27 +86,90 @@
 
             // text : libelle de la colonne Autres ; modules : modules a suivre par
             // l'enseignant, dont les dates viennent d'Autres_modules.
-            function computeAutres(base, laicite, cps) {
+            function computeAutres(base, laicite, cps, francais, maths) {
+                var laiRetenue = (laicite === false);
                 var hasSmvssCps = !!base && base.indexOf(T_SMVSS_CPS) !== -1;
+                // La Laicite ne se cumule jamais avec Sante mentale / VSS ni CPS :
+                // elle les remplace. Elle remplace aussi tout autre module quand
+                // Francais et Maths sont deja pourvus ; sinon elle s'y ajoute.
+                if (laiRetenue && (hasSmvssCps || (!!txt(francais) && !!txt(maths)))) {
+                    return { text: T_LAICITE, warn: false, modules: [MOD_LAICITE] };
+                }
+                if (laiRetenue) {
+                    return {
+                        text: base ? base + "\n+ " + T_LAICITE6 : T_LAICITE6,
+                        warn: true,
+                        modules: [MOD_LAICITE]
+                    };
+                }
                 if (base === T_SMVSS_CPS) {
-                    if (laicite === false) { return { text: T_LAICITE, warn: false, modules: [MOD_LAICITE] }; }
+                    // Le choix CPS / Sante mentale remplace le libelle « ou ».
                     if (cps === false) { return { text: T_CPS, warn: false, modules: [MOD_CPS] }; }
                     return { text: T_SMVSS, warn: false, modules: [MOD_SMVSS] };
                 }
-                if (base === T_EVAL) {
-                    if (laicite === false) { return { text: T_LAICITE, warn: false, modules: [MOD_LAICITE] }; }
-                    return { text: T_EVAL, warn: false, modules: [] };
+                if (hasSmvssCps) {
+                    var mod = (cps === false) ? MOD_CPS : MOD_SMVSS;
+                    if (cps === false) { return { text: base + "\n+ " + T_CPS6, warn: true, modules: [mod] }; }
+                    return { text: base, warn: false, modules: [mod] };
                 }
-                var modules = [];
-                if (laicite === false) { modules.push(MOD_LAICITE); }
-                if (hasSmvssCps) { modules.push(cps === false ? MOD_CPS : MOD_SMVSS); }
-                if (laicite === false) {
-                    return { text: base ? base + "\n+ " + T_LAICITE6 : T_LAICITE6, warn: true, modules: modules };
+                return { text: base, warn: false, modules: [] };
+            }
+
+            // ---------- Cas particuliers ----------
+
+            // Liste_PE.Remplace et Liste_PE.En_plus_de sont des ChoiceList visant
+            // des modules du tableau ; « Toute la formation » vaut pour les trois,
+            // exactement comme leur reunion.
+            var T_TOUT = "Toute la formation";
+            var CAS_CHOICES = [
+                { key: "francais", label: T_FR },
+                { key: "maths", label: "Maths" },
+                { key: "autre", label: "Autre" }
+            ];
+            var CAS_KEYS = ["francais", "maths", "autre"];
+            // Colonne du tableau -> module qu'un cas particulier peut viser.
+            var CAS_BY_COL = { Francais: "francais", Mathematiques: "maths", Autre: "autre" };
+
+            // Valeurs d'une ChoiceList (["L", "Maths", ...]), a defaut d'un texte.
+            function listValues(v) {
+                if (Array.isArray(v)) {
+                    var out = [];
+                    for (var i = 0; i < v.length; i++) {
+                        if (i === 0 && v[i] === "L") { continue; }
+                        var s = txt(v[i]);
+                        if (s) { out.push(s); }
+                    }
+                    return out;
                 }
-                if (cps === false && hasSmvssCps) {
-                    return { text: base + "\n+ " + T_CPS6, warn: true, modules: modules };
+                var t = txt(v);
+                if (!t) { return []; }
+                return t.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+            }
+
+            // Modules vises par Remplace / En_plus_de, ou null si la colonne est vide.
+            function parseTargets(value) {
+                var names = listValues(value).map(norm);
+                if (!names.length) { return null; }
+                var tout = names.indexOf(norm(T_TOUT)) !== -1;
+                var targets = null;
+                for (var i = 0; i < CAS_CHOICES.length; i++) {
+                    if (tout || names.indexOf(norm(CAS_CHOICES[i].label)) !== -1) {
+                        if (!targets) { targets = {}; }
+                        targets[CAS_CHOICES[i].key] = true;
+                    }
                 }
-                return { text: base, warn: false, modules: modules };
+                return targets;
+            }
+
+            // Cas particulier d'un enseignant. pending : un libelle sans colonne
+            // cible, la modale demandera lesquels il remplace ou complete.
+            function computeCas(rec) {
+                var text = txt(rec.Cas_particuliers);
+                var remplace = parseTargets(rec.Remplace);
+                var ajout = parseTargets(rec.En_plus_de);
+                if (!text && !remplace && !ajout) { return null; }
+                if (!remplace && !ajout) { return { text: text, pending: true }; }
+                return { text: text, remplace: remplace, ajout: ajout, pending: false };
             }
 
             // Liste_PE a-t-elle une colonne Annee_scolaire visible dans la vue ?
@@ -148,8 +210,33 @@
                     if (!sc.modalite) { sc.modalite = modaliteVal; }
                     var lai = toBool(rec.Laicite_OK);
                     var cps = toBool(rec.CPS_OK);
-                    var au = computeAutres(thValue(row, "Autre", rec, "Autres"), lai, cps);
-                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: thValue(row, "Francais", rec, "Francais"), maths: thValue(row, "Mathematiques", rec, "Maths"), autres: au.text, warn: au.warn, modules: au.modules, laicite: lai, cps: cps, formateurs: thValue(row, "Formateur_s_", rec, "Formateurs") });
+                    var fra = thValue(row, "Francais", rec, "Francais");
+                    var mat = thValue(row, "Mathematiques", rec, "Maths");
+                    // Le calcul Laicite / CPS s'appuie sur le plan de l'ecole ; le
+                    // cas particulier ne s'applique qu'ensuite, sur l'affichage.
+                    var au = computeAutres(thValue(row, "Autre", rec, "Autres"), lai, cps, fra, mat);
+                    var cells = { francais: fra, maths: mat, autre: au.text };
+                    var warns = { francais: false, maths: false, autre: au.warn };
+                    var mods = au.modules;
+                    var cas = computeCas(rec);
+                    var casText = "";
+                    var casTargets = null;
+                    if (cas && !cas.pending) {
+                        for (var c = 0; c < CAS_KEYS.length; c++) {
+                            var ck = CAS_KEYS[c];
+                            if (cas.remplace && cas.remplace[ck]) {
+                                cells[ck] = "";
+                                warns[ck] = false;
+                                // Module remplace : l'enseignant ne le suit plus.
+                                if (ck === "autre") { mods = []; }
+                            } else if (cas.text && cas.ajout && cas.ajout[ck]) {
+                                cells[ck] = cells[ck] ? cells[ck] + "\n+ " + cas.text : cas.text;
+                                warns[ck] = true;
+                            }
+                        }
+                        if (cas.text && cas.remplace) { casText = cas.text; casTargets = cas.remplace; }
+                    }
+                    sc.pe.push({ id: rec.id, civilite: txt(rec.Civilite), nom: txt(rec.Nom), prenom: txt(rec.Prenom), mail: txt(rec.Mail), fonction: txt(rec.Fonction), quotite: txt(rec.Quotite_de_service), niveaux: txt(rec.Niveau_x_), francais: cells.francais, maths: cells.maths, autres: cells.autre, warnF: warns.francais, warnM: warns.maths, warn: warns.autre, modules: mods, casText: casText, casTargets: casTargets, casPending: (cas && cas.pending) ? cas.text : "", formateurs: thValue(row, "Formateur_s_", rec, "Formateurs") });
                 }
                 var list = [];
                 for (var j = 0; j < order.length; j++) { list.push(map[order[j]]); }
@@ -213,31 +300,73 @@
                 return '<span class="list-plain">' + esc(text) + '</span>';
             }
 
+            // Nom complet « Mme Roux Alice », sans les parties absentes.
+            function peFullName(pe) {
+                var parts = [];
+                if (pe.civilite) { parts.push(pe.civilite); }
+                if (pe.nom) { parts.push(pe.nom); }
+                if (pe.prenom) { parts.push(pe.prenom); }
+                return parts.join(" ");
+            }
+
+            function peModuleText(pe, key) {
+                if (key === "francais") { return pe.francais; }
+                if (key === "maths") { return pe.maths; }
+                return pe.autres;
+            }
+
+            function peModuleWarn(pe, key) {
+                if (key === "francais") { return pe.warnF; }
+                if (key === "maths") { return pe.warnM; }
+                return pe.warn;
+            }
+
+            // Cellules d'une ligne. Un contenu remplace couvre d'un seul tenant les
+            // modules vises : les colonnes voisines visees sont fusionnees.
+            function rowCells(pe, cells) {
+                var out = [];
+                for (var i = 0; i < cells.length; i++) {
+                    var key = cells[i].key;
+                    if (pe.casText && key && pe.casTargets[key]) {
+                        var n = 1;
+                        while (i + n < cells.length && cells[i + n].key && pe.casTargets[cells[i + n].key]) { n++; }
+                        out.push('<td class="cas-cell"' + (n > 1 ? ' colspan="' + n + '"' : "") + ">" + tag(pe.casText, false) + "</td>");
+                        i += n - 1;
+                        continue;
+                    }
+                    out.push("<td>" + cells[i].html() + "</td>");
+                }
+                return out.join("");
+            }
+
+            function moduleCell(pe, key) {
+                return { key: key, html: function () { return tag(peModuleText(pe, key), peModuleWarn(pe, key)); } };
+            }
+
             function renderPe(pe) {
-                var nameParts = [];
-                if (pe.civilite) { nameParts.push(pe.civilite); }
-                if (pe.nom) { nameParts.push(pe.nom); }
-                if (pe.prenom) { nameParts.push(pe.prenom); }
-                var full = nameParts.join(" ");
+                var full = peFullName(pe);
                 var subParts = [];
                 if (pe.fonction) { subParts.push(pe.fonction); }
                 if (pe.quotite) { subParts.push(pe.quotite); }
                 if (pe.niveaux) { subParts.push(pe.niveaux); }
                 var sub = subParts.join(DOT);
                 var isPartTime = !!pe.quotite && pe.quotite !== "100%";
-                var h = [];
-                h.push(isPartTime ? '<tr class="quotite-partial"><td>' : "<tr><td>");
-                h.push('<div class="pe-name">');
-                h.push(full ? esc(full) : DASH);
-                h.push("</div>");
-                if (pe.mail) { h.push('<div class="pe-sub">' + esc(pe.mail) + "</div>"); }
-                if (sub) { h.push('<div class="pe-sub">' + esc(sub) + "</div>"); }
-                h.push("</td><td>" + tag(pe.francais, false) + "</td>");
-                h.push("<td>" + tag(pe.maths, false) + "</td>");
-                h.push("<td>" + tag(pe.autres, pe.warn) + "</td>");
-                h.push("<td>" + plainList(pe.formateurs) + "</td>");
-                h.push("<td>" + modulesCell(pe.modules) + "</td></tr>");
-                return h.join("");
+                var cells = [
+                    {
+                        html: function () {
+                            var n = '<div class="pe-name">' + (full ? esc(full) : DASH) + "</div>";
+                            if (pe.mail) { n += '<div class="pe-sub">' + esc(pe.mail) + "</div>"; }
+                            if (sub) { n += '<div class="pe-sub">' + esc(sub) + "</div>"; }
+                            return n;
+                        }
+                    },
+                    moduleCell(pe, "francais"),
+                    moduleCell(pe, "maths"),
+                    moduleCell(pe, "autre"),
+                    { html: function () { return plainList(pe.formateurs); } },
+                    { html: function () { return modulesCell(pe.modules); } }
+                ];
+                return (isPartTime ? '<tr class="quotite-partial">' : "<tr>") + rowCells(pe, cells) + "</tr>";
             }
 
             // Ligne Autres_modules du module pour l'annee choisie, ou null.
@@ -354,9 +483,9 @@
             // l'en-tete de l'ecole.
             var TABLE_COLS = [
                 { id: PE_COL, label: "Enseignant", weight: 24 },
-                { id: "Francais", label: T_FR, weight: 20, kind: "tag" },
-                { id: "Mathematiques", label: "Maths", weight: 20, kind: "tag" },
-                { id: "Autre", label: "Autres", weight: 22, kind: "autres" },
+                { id: "Francais", label: T_FR, weight: 20 },
+                { id: "Mathematiques", label: "Maths", weight: 20 },
+                { id: "Autre", label: "Autres", weight: 22 },
                 { id: "Formateur_s_", label: T_FORM, weight: 14, kind: "plain" }
             ];
 
@@ -438,14 +567,18 @@
             }
 
             // Une colonne est remplie si au moins un enseignant de l'ecole y affiche
-            // quelque chose : pour Autres, apres le calcul CPS / Laicite.
+            // quelque chose : pour les modules, apres le calcul CPS / Laicite et le
+            // cas particulier, qui different d'un enseignant a l'autre.
             function columnUsed(col, sc, row) {
                 if (col.id === PE_COL) { return true; }
-                var value = cellValue(col, row);
-                if (col.kind === "autres") {
-                    return sc.pe.some(function (pe) { return !!computeAutres(value, pe.laicite, pe.cps).text; });
+                var key = CAS_BY_COL[col.id];
+                if (key) {
+                    return sc.pe.some(function (pe) {
+                        if (pe.casText && pe.casTargets[key]) { return true; }
+                        return !!peModuleText(pe, key);
+                    });
                 }
-                return !!value;
+                return !!cellValue(col, row);
             }
 
             function printColWidths(cols, sc, row) {
@@ -583,11 +716,7 @@
 
             function renderPrintCell(col, pe, row) {
                 if (col.id === PE_COL) {
-                    var nameParts = [];
-                    if (pe.civilite) { nameParts.push(pe.civilite); }
-                    if (pe.nom) { nameParts.push(pe.nom); }
-                    if (pe.prenom) { nameParts.push(pe.prenom); }
-                    var full = nameParts.join(" ");
+                    var full = peFullName(pe);
                     var isPartTime = !!pe.quotite && pe.quotite !== "100%";
                     var subParts = [];
                     if (pe.fonction) { subParts.push(esc(pe.fonction)); }
@@ -600,11 +729,11 @@
                     if (subParts.length) { h += '<div class="pe-sub">' + subParts.join(DOT) + "</div>"; }
                     return h;
                 }
+                // Modules : valeurs deja calculees pour l'enseignant (Laicite, cas
+                // particulier) plutot que la seule ligne Thematiques de l'ecole.
+                var key = CAS_BY_COL[col.id];
+                if (key) { return tag(peModuleText(pe, key), peModuleWarn(pe, key)); }
                 var value = cellValue(col, row);
-                if (col.kind === "autres") {
-                    var au = computeAutres(value, pe.laicite, pe.cps);
-                    return tag(au.text, au.warn);
-                }
                 if (col.kind === "plain") { return plainList(value); }
                 return tag(value, false);
             }
@@ -671,9 +800,9 @@
                         var pe = sc.pe[i];
                         var isPartTime = !!pe.quotite && pe.quotite !== "100%";
                         h.push(isPartTime ? '<tr class="quotite-partial">' : "<tr>");
-                        for (var k = 0; k < opts.tableCols.length; k++) {
-                            h.push("<td>" + renderPrintCell(opts.tableCols[k], pe, row) + "</td>");
-                        }
+                        h.push(rowCells(pe, opts.tableCols.map(function (col) {
+                            return { key: CAS_BY_COL[col.id], html: function () { return renderPrintCell(col, pe, row); } };
+                        })));
                         h.push("</tr>");
                     }
                     h.push("</tbody></table>");
@@ -797,22 +926,221 @@
                     if (e.key === "Escape") {
                         e.preventDefault();
                         closeExportDialog();
-                    } else if (e.key === "Tab") {
-                        var items = Array.prototype.filter.call(
-                            overlay.querySelectorAll("button, select, input"),
-                            function (el) { return !el.disabled && el.offsetParent !== null; }
-                        );
-                        if (!items.length) { return; }
-                        var first = items[0];
-                        var last = items[items.length - 1];
-                        if (e.shiftKey && document.activeElement === first) {
-                            e.preventDefault();
-                            last.focus();
-                        } else if (!e.shiftKey && document.activeElement === last) {
-                            e.preventDefault();
-                            first.focus();
+                    } else {
+                        trapTab(overlay, e);
+                    }
+                });
+            }
+
+            // Le clavier reste dans la modale : Tab boucle sur ses controles actifs.
+            function trapTab(overlay, e) {
+                if (e.key !== "Tab") { return; }
+                var items = Array.prototype.filter.call(
+                    overlay.querySelectorAll("button, select, input"),
+                    function (el) { return !el.disabled && el.offsetParent !== null; }
+                );
+                if (!items.length) { return; }
+                var first = items[0];
+                var last = items[items.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+
+            // ---------- Modale des cas particuliers ----------
+
+            // Enseignants deja interroges : la modale ne revient pas en boucle si
+            // l'enregistrement echoue ou si la question reste sans reponse.
+            var casAsked = {};
+
+            function casEl(id) { return document.getElementById(id); }
+
+            function setCasStatus(message, isError) {
+                var st = casEl("cas-status");
+                st.textContent = message || "";
+                st.hidden = !message;
+                st.classList.toggle("error", !!isError);
+            }
+
+            function accorde(civilite) {
+                var c = norm(civilite);
+                if (c.indexOf("mme") === 0 || c.indexOf("madame") === 0) { return "concernée"; }
+                if (c.indexOf("m.") === 0 || c.indexOf("mr") === 0 || c.indexOf("monsieur") === 0) { return "concerné"; }
+                return "concerné(e)";
+            }
+
+            // Cas particuliers sans colonne cible, dans les ecoles affichees.
+            function pendingCas() {
+                var out = [];
+                for (var i = 0; i < schools.length; i++) {
+                    for (var j = 0; j < schools[i].pe.length; j++) {
+                        var pe = schools[i].pe[j];
+                        if (pe.casPending && pe.id && !casAsked[pe.id]) {
+                            out.push({ id: pe.id, nom: peFullName(pe), civilite: pe.civilite, ecole: schools[i].ecole, text: pe.casPending });
                         }
                     }
+                }
+                return out;
+            }
+
+            function casCheck(container, key, label) {
+                var row = document.createElement("label");
+                row.className = "cas-check";
+                var box = document.createElement("input");
+                box.type = "checkbox";
+                box.setAttribute("data-key", key);
+                var span = document.createElement("span");
+                span.textContent = label;
+                row.appendChild(box);
+                row.appendChild(span);
+                container.appendChild(row);
+            }
+
+            function casFieldset(item) {
+                var fs = document.createElement("fieldset");
+                fs.className = "cas-pe";
+                fs.setAttribute("data-id", String(item.id));
+                var legend = document.createElement("legend");
+                legend.textContent = item.nom || "Enseignant";
+                fs.appendChild(legend);
+
+                var p = document.createElement("p");
+                p.className = "cas-phrase";
+                p.textContent = (item.nom || "Cet enseignant") + (item.ecole ? " à " + item.ecole : "") +
+                    " est " + accorde(item.civilite) + " par le « cas particulier » " + item.text +
+                    ". Veuillez sélectionner le ou les modules concernés.";
+                fs.appendChild(p);
+
+                var modes = document.createElement("div");
+                modes.className = "cas-modes";
+                [["remplace", "Remplace"], ["ajout", "En plus de"]].forEach(function (m, i) {
+                    var row = document.createElement("label");
+                    row.className = "cas-check";
+                    var radio = document.createElement("input");
+                    radio.type = "radio";
+                    radio.name = "cas-mode-" + item.id;
+                    radio.value = m[0];
+                    radio.checked = i === 0;
+                    var span = document.createElement("span");
+                    span.textContent = m[1];
+                    row.appendChild(radio);
+                    row.appendChild(span);
+                    modes.appendChild(row);
+                });
+                fs.appendChild(modes);
+
+                var cols = document.createElement("div");
+                cols.className = "cas-cols";
+                CAS_CHOICES.forEach(function (c) { casCheck(cols, c.key, c.label); });
+                casCheck(cols, "tout", T_TOUT);
+                fs.appendChild(cols);
+                return fs;
+            }
+
+            function casBoxes(fs) {
+                var boxes = {};
+                Array.prototype.forEach.call(fs.querySelectorAll("input[type=checkbox]"), function (b) {
+                    boxes[b.getAttribute("data-key")] = b;
+                });
+                return boxes;
+            }
+
+            // « Toute la formation » et les trois modules disent la meme chose.
+            function casSync(fs, changedKey) {
+                var boxes = casBoxes(fs);
+                if (changedKey === "tout") {
+                    CAS_KEYS.forEach(function (k) { boxes[k].checked = boxes.tout.checked; });
+                } else {
+                    boxes.tout.checked = CAS_KEYS.every(function (k) { return boxes[k].checked; });
+                }
+            }
+
+            function casSelection(fs) {
+                var boxes = casBoxes(fs);
+                return CAS_KEYS.filter(function (k) { return boxes[k].checked; });
+            }
+
+            function casFieldsets() {
+                return Array.prototype.slice.call(document.querySelectorAll("#cas-list .cas-pe"));
+            }
+
+            function casUpdateGo() {
+                var list = casFieldsets();
+                casEl("cas-go").disabled = list.length === 0 || list.some(function (fs) {
+                    return casSelection(fs).length === 0;
+                });
+            }
+
+            // Ecrit le choix dans Remplace ou En_plus_de ; les trois modules
+            // s'enregistrent sous « Toute la formation », qui leur est equivalent.
+            async function saveCas() {
+                var updates = casFieldsets().map(function (fs) {
+                    var keys = casSelection(fs);
+                    var labels = keys.length === CAS_KEYS.length ? [T_TOUT] : CAS_CHOICES.filter(function (c) {
+                        return keys.indexOf(c.key) !== -1;
+                    }).map(function (c) { return c.label; });
+                    var mode = fs.querySelector("input[type=radio]:checked");
+                    var fields = {};
+                    fields[(mode && mode.value === "ajout") ? "En_plus_de" : "Remplace"] = ["L"].concat(labels);
+                    return { id: Number(fs.getAttribute("data-id")), fields: fields };
+                });
+                casEl("cas-go").disabled = true;
+                setCasStatus("Enregistrement…", false);
+                try {
+                    await grist.getTable().update(updates);
+                    closeCasDialog();
+                } catch (err) {
+                    setCasStatus("Enregistrement impossible : " + (err && err.message ? err.message : "erreur inconnue") +
+                        ". Le widget doit pouvoir modifier Liste_PE.", true);
+                    casEl("cas-close").hidden = false;
+                    casUpdateGo();
+                }
+            }
+
+            function closeCasDialog() {
+                casEl("cas-overlay").hidden = true;
+                document.getElementById("search-input").focus();
+            }
+
+            function maybeOpenCasDialog() {
+                if (!casEl("cas-overlay").hidden || !exportEl("export-overlay").hidden) { return; }
+                var items = pendingCas();
+                if (!items.length) { return; }
+                var list = casEl("cas-list");
+                list.replaceChildren();
+                items.forEach(function (item) {
+                    casAsked[item.id] = true;
+                    list.appendChild(casFieldset(item));
+                });
+                setCasStatus("", false);
+                casEl("cas-close").hidden = true;
+                casUpdateGo();
+                casEl("cas-overlay").hidden = false;
+                var first = list.querySelector("input");
+                if (first) { first.focus(); }
+            }
+
+            function bindCasDialog() {
+                var overlay = casEl("cas-overlay");
+                casEl("cas-form").addEventListener("submit", function (e) {
+                    e.preventDefault();
+                    saveCas();
+                });
+                casEl("cas-close").addEventListener("click", closeCasDialog);
+                casEl("cas-list").addEventListener("change", function (e) {
+                    var fs = e.target.closest(".cas-pe");
+                    if (!fs) { return; }
+                    if (e.target.type === "checkbox") { casSync(fs, e.target.getAttribute("data-key")); }
+                    casUpdateGo();
+                });
+                // Ni Echap ni clic exterieur : la reponse conditionne l'affichage.
+                overlay.addEventListener("keydown", function (e) {
+                    if (e.key === "Escape") { e.preventDefault(); return; }
+                    trapTab(overlay, e);
                 });
             }
 
@@ -871,6 +1199,7 @@
                 fillYearSelect();
                 schools = buildSchools(allRecords);
                 render();
+                maybeOpenCasDialog();
             }
 
             // Relit Thematiques et Autres_modules. strict : l'erreur est relancee
@@ -1038,6 +1367,7 @@
 
                 document.getElementById("btn-pdf").addEventListener("click", openExportDialog);
                 bindExportDialog();
+                bindCasDialog();
 
                 window.addEventListener("afterprint", function () {
                     document.getElementById("print-root").innerHTML = "";
