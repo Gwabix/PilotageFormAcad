@@ -262,6 +262,20 @@ function applyCreateFichePermission() {
 const WHITESPACE_SENSITIVE_FIELDS = ['ID_PE', 'Civilite', 'Nom', 'Prenom', 'Mail'];
 
 /*
+ * Colonnes d'adresse électronique : TOUT espace y est retiré, pas seulement
+ * ceux des bords ou les doublons.
+ *
+ * Une adresse ne contient jamais d'espace. Le repli générique en laisserait
+ * passer un au milieu — « sacha. nougaro@… » ne présente aucune anomalie au
+ * sens de DIRTY_WHITESPACE — et cette espace casse aussi bien le
+ * rapprochement des doublons que le lien mailto.
+ *
+ * Pour les autres colonnes, retirer tous les espaces serait évidemment faux :
+ * un nom composé en a légitimement.
+ */
+const MAIL_FIELDS = new Set(['Mail', 'Email']);
+
+/*
  * Signature d'une anomalie : blanc en bord, deux blancs consécutifs, saut de
  * ligne ou tabulation. Un simple test, sans allocation de chaîne, de façon à
  * pouvoir balayer une table entière sans peser sur le chargement.
@@ -272,8 +286,27 @@ function collapseWhitespace(value) {
     return String(value).replace(/\s+/g, ' ').trim();
 }
 
+/** Valeur propre attendue pour une colonne donnée. */
+function cleanValueFor(field, value) {
+    return MAIL_FIELDS.has(field)
+        ? String(value).replace(/\s+/g, '')
+        : collapseWhitespace(value);
+}
+
 function hasDirtyWhitespace(value) {
     return typeof value === 'string' && value !== '' && DIRTY_WHITESPACE.test(value);
+}
+
+/**
+ * La cellule doit-elle être réécrite ?
+ *
+ * Pour une adresse, le seul critère qui vaille est la présence d'un espace,
+ * où qu'il soit : DIRTY_WHITESPACE ne voit pas celui du milieu.
+ */
+function needsWhitespaceFix(field, value) {
+    if (typeof value !== 'string' || value === '') return false;
+    if (MAIL_FIELDS.has(field)) return /\s/.test(value);
+    return hasDirtyWhitespace(value);
 }
 
 // Une anomalie existe-t-elle quelque part dans ces enregistrements ?
@@ -283,7 +316,7 @@ function anyDirtyWhitespace(records) {
     for (const row of records) {
         for (const key in row) {
             if (key === 'id' || key.charAt(0) === '_') continue;
-            if (hasDirtyWhitespace(row[key])) return true;
+            if (needsWhitespaceFix(key, row[key])) return true;
         }
     }
     return false;
@@ -306,8 +339,8 @@ async function normalizeRecordsWhitespace(tableId, records, fields) {
         const patch = {};
         for (const field of fields) {
             const raw = row[field];
-            if (!hasDirtyWhitespace(raw)) continue;
-            const cleaned = collapseWhitespace(raw);
+            if (!needsWhitespaceFix(field, raw)) continue;
+            const cleaned = cleanValueFor(field, raw);
             if (cleaned !== raw) patch[field] = cleaned;
         }
         if (Object.keys(patch).length) {

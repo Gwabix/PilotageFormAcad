@@ -29,7 +29,9 @@
  *    sont vraisemblablement la même personne, dont l'une des deux fiches a
  *    été saisie de travers.
  *
- * La comparaison des mails ignore toujours la casse et les accents.
+ * La comparaison des mails ignore toujours la casse, les accents et les
+ * espaces — les adresses académiques sont souvent saisies avec des majuscules,
+ * et une espace égarée est une faute de frappe, pas une autre adresse.
  *
  * Dépendance : ../shared/search-text.js (normalisation, Levenshtein).
  */
@@ -78,6 +80,22 @@
     // visible en console.
     function norm(value) {
         return global.SearchText.normalize(value);
+    }
+
+    /*
+     * Normalisation d'une adresse mail : celle de norm(), plus le retrait de
+     * TOUT espace.
+     *
+     * Une adresse ne contient jamais d'espace ; il n'y en a que par accident
+     * de saisie. Or le nettoyage des blancs ne réduit une suite d'espaces
+     * qu'à un seul et ne touche pas ceux du milieu : « sacha. nougaro@… »
+     * traverse intact. Sans ce retrait, deux lignes dont l'une porte cette
+     * faute ne se rapprochent pas — le rapprochement approché ne rattrape le
+     * cas que si l'une des deux n'a pas d'ID_PE, et jamais si l'espace tombe
+     * dans le domaine, que mailsClose() exige identique.
+     */
+    function normMail(value) {
+        return norm(value).replace(/\s+/g, '');
     }
 
     // Partie locale et domaine d'une adresse normalisée, ou null si l'adresse
@@ -177,7 +195,7 @@
         // croisée de toutes les lignes entre elles.
         const byMail = new Map();
         for (const row of rows) {
-            const mail = norm(row.Mail);
+            const mail = normMail(row.Mail);
             if (!mail) continue;
             if (!byMail.has(mail)) byMail.set(mail, []);
             byMail.get(mail).push(row);
