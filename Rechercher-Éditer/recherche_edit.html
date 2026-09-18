@@ -49,12 +49,13 @@
                     </select>
                 </div>
 
-                <!-- École : visible uniquement si l'enseignant est affecté à plusieurs écoles -->
-                <div class="form-group" id="ecole-select-group" hidden>
-                    <label for="ecole-select">École</label>
-                    <select id="ecole-select" aria-label="École d'affectation"></select>
-                </div>
+            </div>
 
+            <!-- Affectations : visible uniquement si l'enseignant exerce sur plusieurs écoles -->
+            <div class="affectations" id="affectations-group" hidden>
+                <p class="affectations-label" id="affectations-label">Affectations</p>
+                <div class="affectations-chips" id="affectations-chips" role="radiogroup"
+                    aria-labelledby="affectations-label"></div>
             </div>
         </section>
 
@@ -64,6 +65,10 @@
         <!-- ===== ZONE MODIFIER (masquée jusqu'à sélection) ===== -->
         <section class="section-block" id="section-modifier" hidden>
             <h2>Modifier</h2>
+
+            <!-- Portée des modifications, renseignée en cas d'affectations multiples -->
+            <p class="multi-note" id="multi-note" hidden></p>
+
             <form id="edit-form" novalidate>
 
                 <!-- Groupe Identification -->
@@ -103,16 +108,19 @@
                     <legend>École et fonction</legend>
                     <div class="fields-grid">
                         <div class="form-group form-group--ecole">
-                            <label for="edit-ecole-search">École</label>
+                            <label for="edit-ecole-search">École<span class="scope-badge" id="scope-ecole"
+                                    hidden>cette affectation</span></label>
                             <div class="search-container">
                                 <input type="text" id="edit-ecole-search" placeholder="Rechercher une école…"
-                                    autocomplete="off" aria-autocomplete="list" aria-controls="ecole-results">
+                                    autocomplete="off" aria-autocomplete="list" aria-controls="ecole-results"
+                                    aria-describedby="ecole-note">
                                 <button type="button" class="clear-input-btn" id="clear-ecole"
                                     aria-label="Effacer l'école" hidden>✕</button>
                                 <ul class="autocomplete-list" id="ecole-results" role="listbox"
                                     aria-label="Écoles correspondantes"></ul>
                                 <input type="hidden" id="edit-ecole" name="Ecole">
                             </div>
+                            <p class="ecole-note" id="ecole-note" hidden></p>
                         </div>
                         <div class="form-group">
                             <label>UAI</label>
@@ -127,7 +135,8 @@
                             <input type="text" id="edit-ecole-dept" readonly class="field-readonly">
                         </div>
                         <div class="form-group">
-                            <label for="edit-fonction">Fonction</label>
+                            <label for="edit-fonction">Fonction<span class="scope-badge" id="scope-fonction"
+                                    hidden>cette affectation</span></label>
                             <select id="edit-fonction" name="Fonction">
                                 <option value=""></option>
                             </select>
@@ -146,7 +155,8 @@
                     <legend>Niveaux</legend>
 
                     <div class="choicelist-group">
-                        <p class="choicelist-label">Niveau(x)</p>
+                        <p class="choicelist-label">Niveau(x)<span class="scope-badge" id="scope-niveaux"
+                                hidden>cette affectation</span></p>
                         <div class="checkboxes" id="edit-niveau"></div>
                     </div>
                 </fieldset>
@@ -194,6 +204,13 @@
         </section>
 
     </div><!-- /.container -->
+
+    <!-- Rappel de saisie non enregistrée, collé en bas de la fenêtre -->
+    <div class="save-reminder" id="save-reminder" role="alert" hidden>
+        <span class="save-reminder-icon" aria-hidden="true">⚠</span>
+        <span class="save-reminder-text">Pensez à valider la saisie, en bas de la page</span>
+        <button type="button" class="save-reminder-goto" id="save-reminder-goto">Aller à "Valider"</button>
+    </div>
 
     <script src="https://grist.numerique.gouv.fr/grist-plugin-api.js"></script>
     <script src="../shared/search-text.js"></script>

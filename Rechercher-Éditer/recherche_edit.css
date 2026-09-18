@@ -426,3 +426,194 @@ input[type="checkbox"]:focus {
     padding: 12px;
     font-style: italic;
 }
+/* ----- Affectations multiples -----
+   Un enseignant exerçant sur plusieurs écoles a une ligne Liste_PE par école :
+   elles sont toutes présentées, l'affectation ouverte étant cochée. */
+.affectations {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed #dde6f0;
+}
+
+.affectations[hidden] {
+    display: none;
+}
+
+.affectations-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #34495e;
+    margin: 0 0 6px;
+}
+
+.affectations-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.affectation-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    background: #e8f4fd;
+    border: 1px solid #ccd6e0;
+    border-radius: 16px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #2c3e50;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.affectation-chip:hover {
+    background: #d6ebfa;
+    border-color: #a8cbe6;
+}
+
+.affectation-chip input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    border: 1px solid #9aacba;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: border-color 0.12s;
+}
+
+.affectation-chip input[type="radio"]:checked {
+    border-color: #2980b9;
+    border-width: 4px;
+}
+
+.affectation-chip input[type="radio"]:focus-visible {
+    outline: 2px solid rgba(52, 152, 219, 0.45);
+    outline-offset: 2px;
+}
+
+/* :has() permet de mettre en avant la puce cochée sans classe supplémentaire ;
+   le style de la pastille radio suffit là où il n'est pas géré. */
+.affectation-chip:has(input:checked) {
+    background: #2980b9;
+    border-color: #2980b9;
+    color: white;
+    box-shadow: 0 1px 3px rgba(41, 128, 185, 0.35);
+}
+
+.affectation-chip:has(input:checked) input[type="radio"] {
+    background: white;
+    border-color: white;
+}
+
+/* ----- Portée des modifications ----- */
+.multi-note {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #1a6fa8;
+    background: #ebf5fb;
+    border-left: 3px solid #3498db;
+    border-radius: 0 4px 4px 0;
+    padding: 9px 12px;
+    margin: 0 0 14px;
+}
+
+.scope-badge {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 1px 7px;
+    background: #ebf5fb;
+    border: 1px solid #b9dcf2;
+    border-radius: 10px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #1a6fa8;
+    vertical-align: middle;
+}
+
+/* ----- École hors du périmètre de l'utilisateur ----- */
+.ecole-note {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: #8a6d1f;
+    background: #fdf6e3;
+    border: 1px solid #f0dda6;
+    border-radius: 4px;
+    padding: 7px 10px;
+    margin: 4px 0 0;
+}
+
+/* ----- Champ modifié, non encore enregistré ----- */
+.field-modified,
+input[type="text"].field-modified,
+input[type="email"].field-modified,
+select.field-modified {
+    border-color: #e74d3c9c;
+    box-shadow: 0 0 5px 0px #e74c3c;
+}
+
+.checkboxes.field-modified {
+    border: 1px solid #e74c3c;
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.14);
+    padding: 4px 8px;
+    margin-left: calc(1rem - 9px);
+}
+
+/* ----- Rappel de saisie non enregistrée ----- */
+.save-reminder {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2000;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 18px;
+    background: #fdf2f2;
+    border-top: 2px solid #e74c3c;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    color: #c0392b;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.save-reminder[hidden] {
+    display: none;
+}
+
+.save-reminder-icon {
+    font-size: 1rem;
+}
+
+.save-reminder-goto {
+    padding: 5px 12px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.save-reminder-goto:hover {
+    background: #c0392b;
+}
+
+/* La barre est fixe : réserver la place pour ne pas masquer « Valider ». */
+body.has-save-reminder {
+    padding-bottom: 72px;
+}

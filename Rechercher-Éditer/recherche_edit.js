@@ -24,6 +24,27 @@ const choiceOptions = {
 let currentNom = '';
 let currentRecordId = null;
 let currentRecordData = null;
+/*
+ * Deux jeux de lignes, et la distinction compte.
+ *
+ * currentPersonRecords — TOUTES les lignes Liste_PE de la personne pour
+ * l'année, lignes retirées comprises. C'est la cible de la propagation des
+ * données communes : une ligne retirée porte toujours l'identité de la
+ * personne, elle doit suivre une correction de nom ou de mail.
+ *
+ * currentAffectations — les seules lignes rattachées à une école, donc
+ * modifiables ici. Un enseignant exerçant sur plusieurs écoles a une ligne
+ * par école ; une ligne retirée, elle, n'a plus d'école à décrire.
+ */
+let currentPersonRecords = [];
+let currentAffectations = [];
+// L'école a-t-elle été touchée depuis le chargement du formulaire ? Sans ce
+// drapeau, une école hors périmètre — donc non résolue — serait réécrite à
+// null à la validation, détachant l'enseignant de son établissement.
+let ecoleDirty = false;
+// Instantané du formulaire, pour signaler les champs modifiés.
+let formBaseline = null;
+let formDirty = false;
 let nomSearchResults = [];
 let activeNomIdx = -1;
 let ecoleSearchResults = [];
@@ -103,6 +124,61 @@ function findEcoleByUaiOrId(ref) {
 }
 
 /**
+ * Ligne retirée : l'enseignant a quitté l'école, la ligne a été détachée et
+ * horodatée (UAI à 0, fonction et niveaux vidés — voir
+ * ../shared/liste-pe-retrait.js). Elle ne décrit plus d'affectation, mais elle
+ * porte toujours l'identité de la personne.
+ */
+function isRetiree(record) {
+    return !!record && typeof record.Retrait === 'number' && Number.isFinite(record.Retrait);
+}
+
+/** Une référence vide ou nulle désigne une ligne détachée de toute école. */
+function isEmptyEcoleRef(ref) {
+    const refStr = normalizeEcoleRef(ref);
+    return refStr === '' || refStr === '0';
+}
+
+/**
+ * Informations d'école d'une ligne Liste_PE.
+ *
+ * La table Ecoles est souvent filtrée par circonscription alors que Liste_PE
+ * est visible à l'échelle du département : la ligne référencée est alors hors
+ * de portée et ecolesData ne la contient pas. Les colonnes formule de Liste_PE
+ * (Ecole, Circonscription, Departement) sont, elles, calculées côté document
+ * et suivent les droits de la ligne d'enseignant : elles servent de repli.
+ *
+ * Renvoie null si la ligne n'est rattachée à aucune école.
+ */
+function ecoleInfoForRecord(record) {
+    if (!record || isEmptyEcoleRef(record.UAI)) return null;
+
+    const ref = normalizeEcoleRef(record.UAI);
+    const ecole = findEcoleByUaiOrId(ref);
+    if (ecole) {
+        return {
+            nom: ecole.nomCompletCommune || ecole.nom,
+            uai: ecole.uai,
+            circonscription: ecole.circonscription,
+            departement: ecole.departement,
+            horsPerimetre: false,
+        };
+    }
+
+    // Repli. Une référence purement numérique est un row ID, inexploitable
+    // pour afficher un code UAI ; toute autre valeur est la valeur affichée
+    // de la colonne Ref, c'est-à-dire l'Identifiant_de_l_etablissement.
+    const estRowId = /^\d+$/.test(ref);
+    return {
+        nom: record.Ecole || '',
+        uai: estRowId ? '' : ref,
+        circonscription: record.Circonscription || '',
+        departement: record.Departement || '',
+        horsPerimetre: true,
+    };
+}
+
+/**
  * Normalise une chaîne pour la comparaison (minuscules, sans accents).
  */
 function normalizeStr(str) {
@@ -161,6 +237,12 @@ async function loadData() {
             Prenom: sanitizeGristValue(pe.Prenom[i]),
             Mail: sanitizeGristValue(pe.Mail[i]),
             UAI: parseEcoleRef(pe.UAI, i),
+            // Colonnes formule de Liste_PE. Elles sont calculées côté document
+            // et restent lisibles même quand la ligne d'Ecoles référencée est
+            // hors du périmètre de l'utilisateur : voir ecoleInfoForRecord().
+            Ecole: sanitizeGristValue((pe.Ecole || [])[i]),
+            Circonscription: sanitizeGristValue((pe.Circonscription || [])[i]),
+            Departement: sanitizeGristValue((pe.Departement || [])[i]),
             Fonction: sanitizeGristValue(pe.Fonction[i]),
             Quotite_de_service: sanitizeGristValue(pe.Quotite_de_service[i]),
             D_dir: sanitizeGristValue(pe.D_dir[i]) || [],
@@ -169,6 +251,9 @@ async function loadData() {
             D_synd_: sanitizeGristValue(pe.D_synd_[i]) || [],
             Autre: sanitizeGristValue(pe.Autre[i]) || [],
             Preciser: sanitizeGristValue(pe.Preciser[i]),
+            // Date de retrait : la ligne n'a plus d'école, ce n'est plus une
+            // affectation. Voir isRetiree() et ../shared/liste-pe-retrait.js.
+            Retrait: sanitizeGristValue((pe.Retrait || [])[i]),
         }));
 
         // Nom normalisé pré-calculé : la recherche par nom balaye toute la
@@ -195,7 +280,12 @@ async function loadData() {
             nom: sanitizeGristValue((ec.Nom_etablissement || ec.Nom || [])[i]),
             nomCompletCommune: sanitizeGristValue(ecoleNomCommuneColumn[i]),
             uai: sanitizeGristValue(ecoleUaiColumn[i]),
-            circonscription: sanitizeGristValue((ec.nom_irconscription || ec.nom_circonscription || ec.Circonscription || [])[i]),
+            // Ecoles.Circonscription est la formule qui retire le préfixe
+            // « Circonscription d'inspection du 1er degré de … ». C'est aussi
+            // ce que renvoie Liste_PE.Circonscription : sans cette priorité,
+            // une même école s'afficherait différemment selon que sa ligne
+            // d'Ecoles est lisible ou non.
+            circonscription: sanitizeGristValue((ec.Circonscription || ec.nom_circonscription || ec.nom_irconscription || [])[i]),
             departement: (ec.Code_departement ? sanitizeGristValue(ec.Code_departement[i]) : '')
                 + (ec.Libelle_departement ? ' ' + sanitizeGristValue(ec.Libelle_departement[i]) : ''),
         })).filter(e => e.nom && ecolesActives.has(e.id));
@@ -455,7 +545,7 @@ function updatePrenomSelect(nom) {
 
     const sel = document.getElementById('prenom-select');
     sel.innerHTML = '';
-    document.getElementById('ecole-select-group').hidden = true;
+    hideAffectations();
 
     if (prenoms.length === 0) {
         addOption(sel, '', '— Aucun prénom trouvé —');
@@ -483,7 +573,7 @@ function resetPrenomAndForm() {
     sel.innerHTML = '';
     addOption(sel, '', '— Sélectionnez d\'abord un nom —');
     sel.disabled = true;
-    document.getElementById('ecole-select-group').hidden = true;
+    hideAffectations();
     currentNom = '';
     currentRecordId = null;
     currentRecordData = null;
@@ -497,53 +587,149 @@ function addOption(select, value, text) {
     select.appendChild(opt);
 }
 
-// Toutes les affectations correspondant à la sélection nom / prénom / année.
-// Un enseignant peut exercer sur plusieurs écoles : il a alors une ligne
-// Liste_PE par école.
+// Toutes les lignes Liste_PE correspondant à la sélection nom / prénom / année,
+// lignes retirées comprises. Un enseignant peut exercer sur plusieurs écoles :
+// il a alors une ligne par école. L'appelant écarte les lignes retirées de ce
+// qui est proposé à l'édition, mais pas de la propagation.
 function getMatchingRecords() {
     const prenom = document.getElementById('prenom-select').value;
     if (!prenom) return [];
 
     const year = getSelectedYear();
-    return listePEData.filter(p =>
-        p.Nom === currentNom
-        && p.Prenom === prenom
-        && p.Annee_scolaire === year
-    );
+    return listePEData
+        .filter(p =>
+            p.Nom === currentNom
+            && p.Prenom === prenom
+            && p.Annee_scolaire === year
+        )
+        // Ordre stable d'un rechargement à l'autre : les row IDs suivent
+        // l'ordre de création, pas celui des écoles.
+        .sort((a, b) => ecoleLabelForRecord(a).localeCompare(ecoleLabelForRecord(b), 'fr'));
 }
 
 function ecoleLabelForRecord(record) {
-    const ecole = findEcoleByUaiOrId(normalizeEcoleRef(record.UAI));
-    if (!ecole) return 'École non renseignée';
-    return ecole.nomCompletCommune || ecole.nom || 'École non renseignée';
+    const info = ecoleInfoForRecord(record);
+    return (info && info.nom) || 'École non renseignée';
 }
 
-// Affiche le sélecteur d'école uniquement en cas d'affectations multiples.
-function updateEcoleSelect(records) {
-    const group = document.getElementById('ecole-select-group');
-    const sel = document.getElementById('ecole-select');
-    if (!group || !sel) return;
+function hideAffectations() {
+    const group = document.getElementById('affectations-group');
+    const chips = document.getElementById('affectations-chips');
+    group.hidden = true;
+    chips.innerHTML = '';
+    document.getElementById('multi-note').hidden = true;
+    ['scope-ecole', 'scope-fonction', 'scope-niveaux'].forEach(id => {
+        document.getElementById(id).hidden = true;
+    });
+}
 
-    if (records.length < 2) {
-        group.hidden = true;
-        sel.innerHTML = '';
+/**
+ * Affiche les affectations de la personne, l'affectation courante cochée. La
+ * liste est masquée quand il n'y en a qu'une : l'école est déjà dans le
+ * formulaire, un choix unique n'apporterait rien.
+ *
+ * La note de portée, elle, apparaît dès qu'il existe une autre ligne à écrire,
+ * affectation supplémentaire ou ligne retirée : la propagation ne doit jamais
+ * être silencieuse.
+ *
+ * Sécurisé : textContent uniquement, aucun innerHTML avec données.
+ *
+ * @param {object[]} affectations lignes rattachées à une école
+ * @param {number} nbRetirees lignes retirées de la même personne et année
+ */
+function renderAffectations(affectations, nbRetirees) {
+    const group = document.getElementById('affectations-group');
+    const chips = document.getElementById('affectations-chips');
+    const multiNote = document.getElementById('multi-note');
+
+    chips.innerHTML = '';
+
+    if (affectations.length < 2 && nbRetirees === 0) {
+        hideAffectations();
         return;
     }
 
-    const previous = sel.value;
-    sel.innerHTML = '';
-    records.forEach(record => addOption(sel, String(record.id), ecoleLabelForRecord(record)));
+    if (affectations.length < 2) {
+        group.hidden = true;
+        ['scope-ecole', 'scope-fonction', 'scope-niveaux'].forEach(id => {
+            document.getElementById(id).hidden = true;
+        });
+        multiNote.textContent = nbRetirees > 1
+            ? `Cet enseignant a ${nbRetirees} lignes dont l'affectation a été retirée. `
+              + 'Les données communes — identité, mail, quotité, décharges — y sont aussi enregistrées.'
+            : 'Cet enseignant a une ligne dont l\'affectation a été retirée. '
+              + 'Les données communes — identité, mail, quotité, décharges — y sont aussi enregistrées.';
+        multiNote.hidden = false;
+        return;
+    }
 
-    const stillThere = records.some(r => String(r.id) === previous);
-    sel.value = stillThere ? previous : String(records[0].id);
+    document.getElementById('affectations-label').textContent =
+        `Affectations (${affectations.length})`;
+
+    affectations.forEach(record => {
+        const inputId = `affectation-${record.id}`;
+        const chip = document.createElement('label');
+        chip.className = 'affectation-chip';
+        chip.setAttribute('for', inputId);
+
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'affectation';
+        radio.id = inputId;
+        radio.value = String(record.id);
+        radio.checked = record.id === currentRecordId;
+        radio.addEventListener('change', () => selectAffectation(record.id));
+
+        chip.appendChild(radio);
+        chip.appendChild(document.createTextNode(ecoleLabelForRecord(record)));
+        chips.appendChild(chip);
+    });
+
     group.hidden = false;
+
+    multiNote.textContent = `Cet enseignant exerce sur ${affectations.length} écoles. `
+        + 'Les modifications sont appliquées à toutes ses lignes de l\'année'
+        + (nbRetirees > 0 ? ', y compris celles dont l\'affectation a été retirée' : '')
+        + ', à l\'exception de l\'école, de la fonction et des niveaux, propres à '
+        + 'l\'affectation sélectionnée ci-dessus.';
+    multiNote.hidden = false;
+
+    ['scope-ecole', 'scope-fonction', 'scope-niveaux'].forEach(id => {
+        document.getElementById(id).hidden = false;
+    });
 }
 
-function loadRecordForCurrentSelection() {
-    const records = getMatchingRecords();
+/**
+ * Change d'affectation. Une saisie en cours serait perdue : on la signale
+ * plutôt que de l'abandonner en silence, et on remet la coche en place.
+ */
+function selectAffectation(recordId) {
+    if (recordId === currentRecordId) return;
 
-    if (records.length === 0) {
-        document.getElementById('ecole-select-group').hidden = true;
+    if (formDirty) {
+        const radio = document.getElementById(`affectation-${currentRecordId}`);
+        if (radio) radio.checked = true;
+        showStatus('Modifications non enregistrées : validez ou annulez avant de changer d\'affectation.', 'error');
+        return;
+    }
+
+    loadRecordForCurrentSelection(recordId);
+}
+
+/**
+ * Charge une affectation dans le formulaire.
+ * @param {number} [preferredId] affectation à ouvrir, la première par défaut.
+ */
+function loadRecordForCurrentSelection(preferredId) {
+    const lignes = getMatchingRecords();
+    currentPersonRecords = lignes;
+    // Une ligne retirée n'a plus d'école à décrire : elle n'est pas proposée,
+    // mais reste dans currentPersonRecords pour recevoir les données communes.
+    const affectations = lignes.filter(r => !isRetiree(r));
+    currentAffectations = affectations;
+
+    if (lignes.length === 0) {
+        hideAffectations();
         if (document.getElementById('prenom-select').value) {
             showStatus('Aucun enregistrement trouvé pour cette sélection.', 'error');
         }
@@ -551,15 +737,19 @@ function loadRecordForCurrentSelection() {
         return;
     }
 
-    updateEcoleSelect(records);
+    if (affectations.length === 0) {
+        hideAffectations();
+        hideEditSection();
+        showStatus('Cet enseignant n\'a plus d\'affectation pour l\'année sélectionnée : '
+            + 'sa ligne a été retirée. Rien n\'est modifiable ici.', 'error');
+        return;
+    }
 
-    const selectedId = records.length > 1
-        ? safeParseInt(document.getElementById('ecole-select').value, 0)
-        : records[0].id;
-    const record = records.find(r => r.id === selectedId) || records[0];
-
+    const record = affectations.find(r => r.id === preferredId) || affectations[0];
     currentRecordId = record.id;
     currentRecordData = { ...record };
+
+    renderAffectations(affectations, lignes.length - affectations.length);
     populateEditForm(record);
     showEditSection();
     hideStatus();
@@ -576,18 +766,35 @@ function populateEditForm(record) {
     document.getElementById('edit-mail').value = record.Mail || '';
     updateMailLink(record.Mail || '');
 
-    // École (référence par UAI dans Liste_PE)
-    const recordUAI = normalizeEcoleRef(record.UAI);
-    const ecoleObj = findEcoleByUaiOrId(recordUAI);
-    const ecoleName = ecoleObj
-        ? (ecoleObj.nomCompletCommune || ecoleObj.nom)
+    // École : ecolesData quand la ligne d'Ecoles est accessible, sinon repli
+    // sur les colonnes formule de la ligne d'enseignant.
+    const info = ecoleInfoForRecord(record);
+    const horsPerimetre = !!(info && info.horsPerimetre);
+    document.getElementById('edit-ecole-search').value = info ? info.nom : '';
+    // Le champ caché ne porte une valeur que si l'école est sélectionnable
+    // dans la liste : il sert à distinguer un choix fait d'une saisie libre.
+    document.getElementById('edit-ecole').value = (info && !horsPerimetre)
+        ? normalizeEcoleRef(info.uai)
         : '';
-    document.getElementById('edit-ecole-search').value = ecoleName;
-    document.getElementById('edit-ecole').value = normalizeEcoleRef(ecoleObj?.uai || '');
-    document.getElementById('clear-ecole').hidden = !ecoleName;
-    document.getElementById('edit-ecole-uai').value = ecoleObj?.uai || '';
-    document.getElementById('edit-ecole-circo').value = ecoleObj?.circonscription || '';
-    document.getElementById('edit-ecole-dept').value = ecoleObj?.departement || '';
+    document.getElementById('clear-ecole').hidden = !(info && info.nom);
+    document.getElementById('edit-ecole-uai').value = info ? info.uai : '';
+    document.getElementById('edit-ecole-circo').value = info ? info.circonscription : '';
+    document.getElementById('edit-ecole-dept').value = info ? info.departement : '';
+
+    const ecoleNote = document.getElementById('ecole-note');
+    if (horsPerimetre) {
+        ecoleNote.textContent = 'École hors de votre périmètre : ses informations '
+            + 'proviennent de la fiche de l\'enseignant. Elle est conservée telle '
+            + 'quelle ; ne la remplacez que pour changer réellement d\'affectation.';
+        ecoleNote.hidden = false;
+    } else {
+        ecoleNote.textContent = '';
+        ecoleNote.hidden = true;
+    }
+
+    // Repartir d'une école intacte : sans modification explicite, la colonne
+    // UAI ne sera pas réécrite à la validation.
+    ecoleDirty = false;
 
     // Choice
     document.getElementById('edit-fonction').value = record.Fonction || '';
@@ -602,6 +809,61 @@ function populateEditForm(record) {
 
     // Texte libre
     document.getElementById('edit-preciser').value = record.Preciser || '';
+
+    // Le formulaire vient d'être aligné sur la base : plus rien n'est modifié.
+    snapshotForm();
+    updateDirtyUI();
+}
+
+// ===== SUIVI DES MODIFICATIONS =====
+
+/* Champs comparés à l'instantané pour encadrer ce qui a changé. L'école est
+ * suivie à part : son champ visible est un libellé, pas la valeur enregistrée. */
+const TRACKED_FIELDS = ['edit-civilite', 'edit-nom', 'edit-prenom', 'edit-id-pe',
+    'edit-mail', 'edit-fonction', 'edit-quotite', 'edit-preciser'];
+const TRACKED_CHOICELISTS = ['edit-niveau', 'edit-tp', 'edit-d-dir', 'edit-d-synd',
+    'edit-autre'];
+
+/** Signature stable d'un ChoiceList : l'ordre des cases ne doit pas compter. */
+function choiceListSignature(containerId) {
+    return collectChoiceList(containerId).slice(1).sort().join('|');
+}
+
+function snapshotForm() {
+    formBaseline = { fields: {}, lists: {}, ecole: '' };
+    TRACKED_FIELDS.forEach(id => {
+        formBaseline.fields[id] = document.getElementById(id).value;
+    });
+    TRACKED_CHOICELISTS.forEach(id => {
+        formBaseline.lists[id] = choiceListSignature(id);
+    });
+    formBaseline.ecole = document.getElementById('edit-ecole-search').value;
+}
+
+/** Encadre les champs modifiés et affiche le rappel de validation. */
+function updateDirtyUI() {
+    if (!formBaseline) return;
+    let dirty = false;
+
+    const mark = (el, changed) => {
+        el.classList.toggle('field-modified', changed);
+        if (changed) dirty = true;
+    };
+
+    TRACKED_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        mark(el, el.value !== formBaseline.fields[id]);
+    });
+    TRACKED_CHOICELISTS.forEach(id => {
+        mark(document.getElementById(id), choiceListSignature(id) !== formBaseline.lists[id]);
+    });
+
+    const ecoleSearch = document.getElementById('edit-ecole-search');
+    mark(ecoleSearch, ecoleSearch.value !== formBaseline.ecole);
+
+    formDirty = dirty;
+    document.getElementById('save-reminder').hidden = !dirty;
+    document.body.classList.toggle('has-save-reminder', dirty);
 }
 
 /**
@@ -698,6 +960,8 @@ function renderPreciserResults(items, query) {
 function selectPreciser(val) {
     document.getElementById('edit-preciser').value = val;
     closePreciserResults();
+    // Affectation programmatique : aucun événement input n'est émis.
+    updateDirtyUI();
 }
 
 function closePreciserResults() {
@@ -748,6 +1012,8 @@ function handleEcoleInput() {
     document.getElementById('edit-ecole-uai').value = '';
     document.getElementById('edit-ecole-circo').value = '';
     document.getElementById('edit-ecole-dept').value = '';
+    document.getElementById('ecole-note').hidden = true;
+    ecoleDirty = true;
 
     if (!query) {
         closeEcoleResults();
@@ -797,7 +1063,10 @@ function selectEcole(ecole) {
     document.getElementById('edit-ecole-uai').value = ecole.uai || '';
     document.getElementById('edit-ecole-circo').value = ecole.circonscription || '';
     document.getElementById('edit-ecole-dept').value = ecole.departement || '';
+    ecoleDirty = true;
     closeEcoleResults();
+    // Affectation programmatique : aucun événement input n'est émis.
+    updateDirtyUI();
 }
 
 function closeEcoleResults() {
@@ -858,50 +1127,90 @@ async function handleSubmit(e) {
         return;
     }
 
-    const ecoleSearchText = validateInput(document.getElementById('edit-ecole-search').value.trim(), 200);
-    const ecoleUAI = validateInput(document.getElementById('edit-ecole').value.trim(), 100);
+    // Les autres lignes de la personne pour l'année, lignes retirées comprises :
+    // elles portent son identité et doivent suivre une correction.
+    const autresLignes = currentPersonRecords.filter(r => r.id !== currentRecordId);
 
-    if (ecoleSearchText && !ecoleUAI) {
-        showStatus('Veuillez sélectionner une école dans la liste proposée.', 'error');
-        document.getElementById('edit-ecole-search').focus();
-        return;
+    /*
+     * École. Tant qu'elle n'a pas été touchée, la colonne UAI n'est PAS
+     * réécrite : une école hors périmètre n'est pas résoluble en row ID, et la
+     * réécrire reviendrait à la remplacer par null, détachant l'enseignant.
+     */
+    const donneesAffectation = {
+        Fonction: validateInput(document.getElementById('edit-fonction').value, 100),
+        Niveau_x_: collectChoiceList('edit-niveau'),
+    };
+
+    if (ecoleDirty) {
+        const ecoleSearchText = validateInput(document.getElementById('edit-ecole-search').value.trim(), 200);
+        const ecoleUAI = validateInput(document.getElementById('edit-ecole').value.trim(), 100);
+
+        if (ecoleSearchText && !ecoleUAI) {
+            showStatus('Veuillez sélectionner une école dans la liste proposée.', 'error');
+            document.getElementById('edit-ecole-search').focus();
+            return;
+        }
+
+        const ecoleRow = ecoleUAI ? findEcoleByUaiOrId(ecoleUAI) : null;
+        if (ecoleUAI && !ecoleRow) {
+            showStatus('École non reconnue: enregistrement annulé pour éviter une référence invalide.', 'error');
+            document.getElementById('edit-ecole-search').focus();
+            return;
+        }
+
+        // Une même personne ne peut pas avoir deux lignes sur la même école
+        // et la même année : ce serait un doublon d'affectation. Les lignes
+        // retirées sont hors sujet, elles n'ont plus d'école.
+        const autresAffectations = currentAffectations.filter(r => r.id !== currentRecordId);
+        if (ecoleRow && autresAffectations.some(r => isSameEcoleRef(r.UAI, ecoleRow))) {
+            showStatus('Cet enseignant est déjà affecté à cette école pour l\'année sélectionnée.', 'error');
+            document.getElementById('edit-ecole-search').focus();
+            return;
+        }
+
+        // La colonne UAI de Liste_PE est un Ref Ecoles: on enregistre l'ID ligne résolu depuis l'UAI.
+        donneesAffectation.UAI = ecoleRow ? ecoleRow.id : null;
     }
 
-    const ecoleRow = ecoleUAI ? findEcoleByUaiOrId(ecoleUAI) : null;
-    if (ecoleUAI && !ecoleRow) {
-        showStatus('École non reconnue: enregistrement annulé pour éviter une référence invalide.', 'error');
-        document.getElementById('edit-ecole-search').focus();
-        return;
-    }
-
-    const data = {
+    /*
+     * Champs de la personne, et non de l'affectation : ils sont propagés à
+     * toutes ses lignes de l'année. Sans cela, un mail ou une quotité corrigés
+     * sur une école resteraient faux sur les autres.
+     */
+    const donneesCommunes = {
         Civilite: validateInput(document.getElementById('edit-civilite').value, 20),
         Nom: nom,
         Prenom: prenom,
         ID_PE: validateInput(document.getElementById('edit-id-pe').value.trim(), 100),
         Mail: mail,
-        // La colonne UAI de Liste_PE est un Ref Ecoles: on enregistre l'ID ligne résolu depuis l'UAI.
-        UAI: ecoleRow ? ecoleRow.id : null,
-        Fonction: validateInput(document.getElementById('edit-fonction').value, 100),
         Quotite_de_service: validateInput(document.getElementById('edit-quotite').value, 100),
         D_dir: collectChoiceList('edit-d-dir'),
-        Niveau_x_: collectChoiceList('edit-niveau'),
         TP: collectChoiceList('edit-tp'),
         D_synd_: collectChoiceList('edit-d-synd'),
         Autre: collectChoiceList('edit-autre'),
         Preciser: validateInput(document.getElementById('edit-preciser').value.trim(), 500),
     };
 
+    const actions = [
+        ['UpdateRecord', 'Liste_PE', currentRecordId,
+            { ...donneesCommunes, ...donneesAffectation }],
+    ];
+    if (autresLignes.length > 0) {
+        actions.push(['BulkUpdateRecord', 'Liste_PE',
+            autresLignes.map(r => r.id),
+            repeatColumns(donneesCommunes, autresLignes.length)]);
+    }
+
     const btnValider = document.getElementById('btn-valider');
     btnValider.disabled = true;
     btnValider.textContent = 'Enregistrement…';
 
     try {
-        await grist.docApi.applyUserActions([
-            ['UpdateRecord', 'Liste_PE', currentRecordId, data]
-        ]);
-        await refreshAfterUpdate(nom, prenom);
-        showStatus('✓ Modifications enregistrées avec succès.', 'success');
+        await grist.docApi.applyUserActions(actions);
+        await refreshAfterUpdate();
+        showStatus(autresLignes.length > 0
+            ? `✓ Modifications enregistrées sur les ${autresLignes.length + 1} lignes de cet enseignant.`
+            : '✓ Modifications enregistrées avec succès.', 'success');
     } catch (err) {
         // Ne pas exposer les détails de l'erreur à l'utilisateur
         console.error('Erreur UpdateRecord Liste_PE :', err);
@@ -910,6 +1219,15 @@ async function handleSubmit(e) {
         btnValider.disabled = false;
         btnValider.textContent = 'Valider';
     }
+}
+
+/** Étend un jeu de valeurs à N lignes, au format attendu par BulkUpdateRecord. */
+function repeatColumns(values, count) {
+    const columns = {};
+    for (const [colId, value] of Object.entries(values)) {
+        columns[colId] = new Array(count).fill(value);
+    }
+    return columns;
 }
 
 /**
@@ -926,14 +1244,14 @@ function collectChoiceList(containerId) {
 /**
  * Recharge les données et met à jour l'UI après une sauvegarde réussie.
  */
-async function refreshAfterUpdate(newNom, newPrenom) {
+async function refreshAfterUpdate() {
+    const savedId = currentRecordId;
     await loadData();
 
-    const updatedRecord = listePEData.find(r => r.id === currentRecordId);
+    const updatedRecord = listePEData.find(r => r.id === savedId);
     if (!updatedRecord) return;
 
     currentNom = updatedRecord.Nom;
-    currentRecordData = { ...updatedRecord };
 
     // Mise à jour du champ de recherche Nom
     document.getElementById('nom-input').value = updatedRecord.Nom;
@@ -942,8 +1260,9 @@ async function refreshAfterUpdate(newNom, newPrenom) {
     // Reconstruction du sélecteur Prénom sans déclencher d'événement
     rebuildPrenomSelectSilent(updatedRecord.Nom, updatedRecord.Prenom);
 
-    // Rechargement du formulaire avec les données fraîches
-    populateEditForm(updatedRecord);
+    // Rechargement complet de la sélection : l'école a pu changer, donc les
+    // libellés de la liste d'affectations aussi.
+    loadRecordForCurrentSelection(savedId);
 }
 
 /**
@@ -981,12 +1300,19 @@ function handleAnnuler() {
 
 function showEditSection() {
     const section = document.getElementById('section-modifier');
+    const etaitMasquee = section.hidden;
     section.hidden = false;
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Ne défiler qu'à l'ouverture : après un enregistrement, la section est
+    // déjà visible et un saut de page serait déroutant.
+    if (etaitMasquee) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function hideEditSection() {
     document.getElementById('section-modifier').hidden = true;
+    formBaseline = null;
+    formDirty = false;
+    document.getElementById('save-reminder').hidden = true;
+    document.body.classList.remove('has-save-reminder');
 }
 
 // ===== MESSAGES DE STATUT =====
@@ -1035,10 +1361,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Changement de prénom
-    document.getElementById('prenom-select').addEventListener('change', loadRecordForCurrentSelection);
+    // Fonction fléchée : l'objet Event ne doit pas passer pour un ID d'affectation.
+    document.getElementById('prenom-select').addEventListener('change', () => loadRecordForCurrentSelection());
 
-    // Changement d'école (affectations multiples)
-    document.getElementById('ecole-select').addEventListener('change', loadRecordForCurrentSelection);
 
     // Autocomplete Préciser
     const preciserInput = document.getElementById('edit-preciser');
@@ -1061,8 +1386,25 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-ecole-uai').value = '';
         document.getElementById('edit-ecole-circo').value = '';
         document.getElementById('edit-ecole-dept').value = '';
+        document.getElementById('ecole-note').hidden = true;
+        // Effacer l'école, c'est vouloir détacher la ligne : la colonne UAI
+        // sera bien réécrite à la validation.
+        ecoleDirty = true;
         closeEcoleResults();
+        updateDirtyUI();
         ecoleSearch.focus();
+    });
+
+    // Suivi des modifications : un seul écouteur délégué couvre les champs
+    // texte, les listes déroulantes et les cases à cocher du formulaire.
+    const editForm = document.getElementById('edit-form');
+    editForm.addEventListener('input', updateDirtyUI);
+    editForm.addEventListener('change', updateDirtyUI);
+
+    // Rappel de saisie : conduit au bouton Valider.
+    document.getElementById('save-reminder-goto').addEventListener('click', () => {
+        document.getElementById('btn-valider').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('btn-valider').focus();
     });
 
     // Lien mailto dynamique
