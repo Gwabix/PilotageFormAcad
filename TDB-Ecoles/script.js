@@ -396,6 +396,38 @@ async function normalizeWhitespace() {
     return true;
 }
 
+/*
+ * Datation des lignes détachées sans date de retrait. Voir
+ * ../shared/liste-pe-retrait.js : sans cette date, ni la règle des lignes
+ * fantômes ni la purge RGPD ne peuvent traiter la ligne, qui resterait
+ * indéfiniment. Retourne true si des lignes ont été datées, ce qui commande
+ * un rechargement.
+ */
+async function stampMissingRetrait() {
+    if (typeof ListePeRetrait === 'undefined'
+        || typeof ListePeRetrait.buildStampRetraitActions !== 'function') {
+        console.warn('[Liste_PE] Module ../shared/liste-pe-retrait.js non chargé : '
+            + 'les lignes détachées sans date de retrait ne sont pas datées.');
+        return false;
+    }
+
+    const actions = ListePeRetrait.buildStampRetraitActions(state.personnels);
+    if (!actions.length) return false;
+
+    const count = actions[0][2].length;
+    try {
+        await grist.docApi.applyUserActions(actions);
+        console.info('[Liste_PE] ' + count + ' ligne(s) détachée(s) datée(s) du jour.');
+        return true;
+    } catch (err) {
+        // Écriture refusée par les règles d'accès : on n'insiste pas, le
+        // tableau de bord reste utilisable.
+        console.info('[Liste_PE] Datation des lignes détachées impossible — '
+            + ((err && err.message) ? err.message : err));
+        return false;
+    }
+}
+
 // Remise en ordre de Liste_PE : suppression des lignes fantômes (détachées
 // alors que la personne est affectée ailleurs la même année) et fusion des
 // doublons. Retourne true si des lignes ont été supprimées.
@@ -424,7 +456,7 @@ async function cleanupListePe() {
     }
 }
 
-async function loadAllData(skipNormalize, skipMerge) {
+async function loadAllData(skipNormalize, skipMerge, skipStamp) {
     try {
         showStatus('Chargement des données...', false);
 
@@ -454,20 +486,28 @@ async function loadAllData(skipNormalize, skipMerge) {
         }
 
         /*
-         * Deux remises en ordre automatiques avant tout rendu, chacune tentée
-         * une seule fois par cycle de chargement.
+         * Trois remises en ordre automatiques avant tout rendu, chacune tentée
+         * une seule fois par cycle de chargement, dans cet ordre.
          *
          * Les blancs parasites d'abord : une valeur contenant un saut de ligne
          * ne s'apparie avec rien, la fusion qui suit doit donc travailler sur
-         * des valeurs propres. D'où le rechargement entre les deux, qui laisse
-         * la fusion s'exécuter sur les données nettoyées.
+         * des valeurs propres. D'où le rechargement entre chaque étape, qui
+         * laisse la suivante s'exécuter sur les données à jour.
+         *
+         * La datation des lignes détachées ensuite : le délai de grâce des
+         * lignes fantômes se compte depuis `Retrait`, la fusion a donc besoin
+         * que la date existe pour savoir quel âge a la ligne.
          */
         if (!skipNormalize && await normalizeWhitespace()) {
-            return loadAllData(true, skipMerge);
+            return loadAllData(true, skipMerge, skipStamp);
+        }
+
+        if (!skipStamp && await stampMissingRetrait()) {
+            return loadAllData(true, skipMerge, true);
         }
 
         if (!skipMerge && await cleanupListePe()) {
-            return loadAllData(true, true);
+            return loadAllData(true, true, true);
         }
 
         const choicesByCol = await fetchColumnChoices('Liste_PE', ['Niveau_x_', 'Fonction', 'D_dir', 'TP', 'D_synd_', 'Autre']);
