@@ -2201,13 +2201,11 @@ function buildNiveauxCell(record) {
         checkbox.checked = currentValues.includes(niveau);
 
         checkbox.addEventListener('change', () => {
-            const updated = new Set(currentValues);
-            if (checkbox.checked) {
-                updated.add(niveau);
-            } else {
-                updated.delete(niveau);
-            }
-            const newList = NIVEAUX_OPTIONS.filter(n => updated.has(n));
+            // État lu dans les cases (et non figé à la construction) : sinon
+            // chaque clic repart des valeurs initiales et efface le précédent.
+            const checked = new Set(Array.from(inner.querySelectorAll('input:checked'), cb => cb.value));
+            const orphans = parseNiveaux(record.Niveau_x_).filter(n => !NIVEAUX_OPTIONS.includes(n));
+            const newList = [...NIVEAUX_OPTIONS.filter(n => checked.has(n)), ...orphans];
             savePersonnelField(record.id, 'Niveau_x_', toChoiceListValue(newList), () => {
                 record.Niveau_x_ = newList;
             });
