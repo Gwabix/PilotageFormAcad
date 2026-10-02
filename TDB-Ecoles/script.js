@@ -4,7 +4,11 @@ const state = {
     ecoles: [],
     personnels: [],
     formations: [],
+    // Formations chargée : condition de la purge RGPD.
     relatedTablesLoaded: false,
+    // Formations chargée OU absente du document : rien ne peut alors pointer
+    // vers une ligne Liste_PE supprimée. Condition de la fusion des doublons.
+    canMergeListePe: false,
     ecolesTable: null,
     personnelsTable: null,
     mappings: {},
@@ -167,13 +171,32 @@ function initGrist() {
 
 // Charge une table Grist ; retourne null (sans faire échouer le chargement)
 // si elle est absente ou inaccessible.
-async function fetchTableRecords(tableId) {
+/*
+ * Chargement de Formations, en distinguant deux échecs que tout oppose :
+ *
+ *  - table ABSENTE : le document n'en a pas (plan de formation Lozère, par
+ *    exemple). Aucune ligne ne peut alors référencer Liste_PE, il n'y a rien
+ *    à repointer : fusion et résolution des doublons restent possibles ;
+ *  - table ILLISIBLE (règle d'accès, autre erreur) : des fiches peuvent
+ *    référencer une ligne qu'on supprimerait. Tout ce qui supprime des lignes
+ *    Liste_PE est alors désactivé.
+ *
+ * L'absence se reconnaît au message de Grist : « [Sandbox] KeyError
+ * 'Formations' » (relevé dans les journaux de Grist 1.7), ou « Table not
+ * found » selon le chemin emprunté côté serveur ; « Table inconnue » pour le
+ * faux Grist des tests. Dans le doute, c'est l'illisibilité qui l'emporte :
+ * elle ne fait que désactiver.
+ */
+const TABLE_ABSENTE = /KeyError|not found|no such table|unknown table|inconnue/i;
+
+async function loadFormations() {
     try {
-        return tableToRecords(await grist.docApi.fetchTable(tableId));
+        return { status: 'ok', records: tableToRecords(await grist.docApi.fetchTable('Formations')) };
     } catch (err) {
-        console.warn('[Liste_PE] Table « ' + tableId + ' » non chargée :',
-            (err && err.message) ? err.message : err);
-        return null;
+        const message = (err && err.message) ? err.message : String(err);
+        if (TABLE_ABSENTE.test(message)) return { status: 'absent', records: [] };
+        console.warn('[Liste_PE] Table « Formations » non chargée :', message);
+        return { status: 'unreadable', records: [] };
     }
 }
 
@@ -437,7 +460,7 @@ async function cleanupListePe() {
         console.warn('[Liste_PE] Module ../shared/liste-pe-merge.js non chargé.');
         return false;
     }
-    if (!state.relatedTablesLoaded) return false; // déjà signalé au chargement
+    if (!state.canMergeListePe) return false; // déjà signalé au chargement
 
     const { actions, summary, removedCount } =
         ListePeMerge.buildCleanupActions(state.personnels, state.formations);
@@ -476,14 +499,18 @@ async function loadAllData(skipNormalize, skipMerge, skipStamp) {
             ecole._normCommuneNom = normalizeStr(ecole.Commune_Nom || '');
         }
 
-        // Formations est indispensable : ses lignes référencent Liste_PE et
-        // doivent être repointées avant toute fusion ou suppression.
-        const formationsRecords = await fetchTableRecords("Formations");
-        state.formations = formationsRecords || [];
-        state.relatedTablesLoaded = formationsRecords !== null;
+        // Formations : ses lignes référencent Liste_PE et doivent être
+        // repointées avant toute fusion ou suppression.
+        const formations = await loadFormations();
+        state.formations = formations.records;
+        state.relatedTablesLoaded = formations.status === 'ok';
+        state.canMergeListePe = formations.status !== 'unreadable';
 
-        if (!state.relatedTablesLoaded) {
-            console.warn('[Liste_PE] Table Formations indisponible : purge RGPD et fusion des doublons désactivées.');
+        if (formations.status === 'absent') {
+            console.info('[Liste_PE] Pas de table Formations dans ce document : '
+                + 'fusion des doublons sans repointage, purge RGPD désactivée.');
+        } else if (formations.status === 'unreadable') {
+            console.warn('[Liste_PE] Table Formations illisible : purge RGPD et fusion des doublons désactivées.');
         }
 
         /*
@@ -3045,9 +3072,10 @@ const DUPLICATE_REQUIRED_FIELDS = ['Nom', 'Prenom'];
 
 function computeDuplicateGroups() {
     if (typeof ListePeMerge === 'undefined') return []; // déjà signalé par cleanupListePe
-    // Sans Formations, les fiches de la ligne supprimée ne pourraient pas
-    // être repointées : la résolution est désactivée, comme la fusion.
-    if (!state.relatedTablesLoaded) return [];
+    // Formations illisible : les fiches de la ligne supprimée ne pourraient
+    // pas être repointées, la résolution est désactivée comme la fusion. Une
+    // table absente, elle, n'a rien à repointer.
+    if (!state.canMergeListePe) return [];
     return ListePeMerge.findConflictGroups(state.personnels);
 }
 
