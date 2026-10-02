@@ -22,6 +22,16 @@
  *  2. DOUBLONS — même enseignant, même année scolaire ET même école
  *     (équivalent de `IDunique`), fusionnés selon les règles ci-dessous.
  *
+ *     SAUF EN CAS DE CONFLIT : dès que deux valeurs renseignées s'opposent
+ *     sur l'identité ou le poste (civilité, nom, prénom, mail, fonction,
+ *     quotité), aucune règle ne peut dire laquelle est juste. Le groupe est
+ *     alors laissé intact et soumis à l'utilisateur, qui choisit la ligne à
+ *     conserver (`findConflictGroups`, `buildKeepActions`). Une valeur vide
+ *     face à une valeur renseignée n'est pas un conflit, ni une différence
+ *     de niveaux, de décharges, de précision ou de date de retrait : la
+ *     fusion sait les réunir. La fusion automatique « première valeur non
+ *     vide » perdait sans le dire l'autre orthographe d'un nom.
+ *
  * Les affectations partagées — même enseignant, même année, écoles
  * DIFFÉRENTES — ne sont JAMAIS ni supprimées ni fusionnées.
  *
@@ -47,6 +57,7 @@
 (function (global) {
     const CHOICE_LIST_FIELDS = ['Niveau_x_', 'D_dir', 'TP', 'D_synd_', 'Autre'];
     const TEXT_FIELDS = ['Civilite', 'Nom', 'Prenom', 'Mail', 'Fonction'];
+    const CONFLICT_FIELDS = [...TEXT_FIELDS, 'Quotite_de_service'];
     const NUMBER_IN_TEXT = /(\d+(?:[.,]\d+)?)/;
     const SECONDS_PER_DAY = 86400;
 
@@ -171,6 +182,60 @@
             if (rows.length > 1) groups.push({ key, rows });
         }
         return groups;
+    }
+
+    // Forme comparée d'une valeur pour la détection des conflits. Le mail
+    // ignore casse et espaces (une adresse n'en contient jamais) ; la quotité
+    // compare le nombre, « 100 % » et « 100% » étant la même quotité.
+    function conflictValue(field, value) {
+        if (field === 'Mail') return text(value).replace(/\s+/g, '').toLowerCase();
+        if (field === 'Quotite_de_service') {
+            const num = parseQuotite(value);
+            return num >= 0 ? String(num) : text(value);
+        }
+        return text(value);
+    }
+
+    /**
+     * Données sur lesquelles des lignes du groupe s'opposent : au moins deux
+     * valeurs RENSEIGNÉES distinctes. Une valeur vide n'oppose rien.
+     * @returns {string[]} champs en conflit, dans l'ordre de CONFLICT_FIELDS
+     */
+    function conflictingFields(rows) {
+        return CONFLICT_FIELDS.filter(field => {
+            const values = new Set();
+            for (const row of rows) {
+                const value = conflictValue(field, row[field]);
+                if (value) values.add(value);
+            }
+            return values.size > 1;
+        });
+    }
+
+    // Toutes les données d'une fiche qu'un utilisateur peut comparer.
+    const DIFF_FIELDS = [...CONFLICT_FIELDS, ...CHOICE_LIST_FIELDS, 'Preciser'];
+
+    // Forme comparée pour l'affichage des différences : mêmes équivalences
+    // que pour les conflits, listes de choix sans ordre, retours à la ligne
+    // unifiés pour la précision.
+    function diffValue(field, value) {
+        if (CHOICE_LIST_FIELDS.includes(field)) {
+            return choiceListValues(value).slice().sort().join('\u0001');
+        }
+        if (field === 'Preciser') return text(value).replace(/\r\n?/g, '\n');
+        return conflictValue(field, value);
+    }
+
+    /**
+     * Données qui diffèrent d'une ligne à l'autre, une valeur vide comptant
+     * cette fois comme une valeur : c'est ce que perdrait la ligne supprimée.
+     * Sert à mettre en avant les écarts au moment du choix, non à décider
+     * d'une fusion (voir conflictingFields).
+     * @returns {string[]} champs différents, dans l'ordre de DIFF_FIELDS
+     */
+    function differingFields(rows) {
+        return DIFF_FIELDS.filter(field =>
+            new Set(rows.map(row => diffValue(field, row[field]))).size > 1);
     }
 
     /** Valeurs fusionnées d'un groupe + ligne conservée et lignes à supprimer. */
@@ -311,7 +376,7 @@
         const survivorIds = [];
         const survivorValues = [];
         const removeIds = [];
-        const summary = { fantomes: [], fusions: [] };
+        const summary = { fantomes: [], fusions: [], conflits: [] };
 
         // 1. Lignes fantômes
         const orphans = findOrphanRows(listePe);
@@ -341,6 +406,12 @@
             : listePe;
 
         for (const group of findDuplicateGroups(remaining)) {
+            const conflicts = conflictingFields(group.rows);
+            if (conflicts.length) {
+                summary.conflits.push({ key: group.key, rowIds: group.rows.map(r => r.id), fields: conflicts });
+                continue;
+            }
+
             const { survivor, losers, merged } = mergeGroup(group.rows);
             let movedFormations = 0;
 
@@ -383,10 +454,86 @@
         return { actions, summary, removedCount: removeIds.length };
     }
 
+    /**
+     * Doublons que la fusion automatique laisse à l'utilisateur, faute de
+     * pouvoir trancher entre deux valeurs renseignées.
+     *
+     * Les lignes fantômes sont écartées d'abord, comme dans
+     * buildCleanupActions : un groupe ne doit pas être présenté s'il est sur
+     * le point d'être supprimé automatiquement.
+     *
+     * @returns {{ key: string, rows: object[], fields: string[] }[]}
+     */
+    function findConflictGroups(listePe) {
+        const orphanIds = new Set(findOrphanRows(listePe).map(o => o.row.id));
+        const remaining = orphanIds.size
+            ? listePe.filter(row => !orphanIds.has(row.id))
+            : listePe;
+
+        const groups = [];
+        for (const group of findDuplicateGroups(remaining)) {
+            const fields = conflictingFields(group.rows);
+            if (fields.length) groups.push({ key: group.key, rows: group.rows, fields });
+        }
+        return groups;
+    }
+
+    /**
+     * « Conserver cette ligne » : la ligne choisie reçoit les valeurs saisies,
+     * les autres lignes du groupe sont supprimées et leurs fiches Formations
+     * repointées vers elle, en une seule transaction.
+     *
+     * Rien n'est réuni depuis les lignes supprimées : toutes les données de
+     * la ligne (identité, poste, niveaux, décharges, précision) sont
+     * modifiables avant validation, l'utilisateur conserve donc une ligne
+     * telle qu'il l'a vue et corrigée.
+     *
+     * @param {object} kept ligne conservée
+     * @param {object} values valeurs saisies { champ: valeur } ; seules celles
+     *        qui diffèrent de la ligne sont écrites
+     * @param {object[]} others lignes à supprimer
+     * @param {object[]} formations enregistrements Formations
+     */
+    function buildKeepActions(kept, values, others, formations) {
+        const otherIds = new Set(others.map(r => r.id));
+        const formationIds = [];
+        for (const record of (formations || [])) {
+            if (otherIds.has(refRowId(record.ID_PE))) formationIds.push(record.id);
+        }
+
+        // Listes de choix comparées par leurs valeurs : vide, null et ['L']
+        // désignent la même liste vide.
+        const changes = {};
+        for (const [field, value] of Object.entries(values || {})) {
+            const same = CHOICE_LIST_FIELDS.includes(field)
+                ? sameValues(choiceListValues(kept[field]), choiceListValues(value))
+                : text(kept[field]) === text(value);
+            if (!same) changes[field] = value;
+        }
+
+        const actions = [];
+        if (formationIds.length) {
+            actions.push(['BulkUpdateRecord', 'Formations', formationIds,
+                { ID_PE: formationIds.map(() => kept.id) }]);
+        }
+        if (Object.keys(changes).length) {
+            actions.push(['UpdateRecord', 'Liste_PE', kept.id, changes]);
+        }
+        if (otherIds.size) {
+            actions.push(['BulkRemoveRecord', 'Liste_PE', [...otherIds]]);
+        }
+        return actions;
+    }
+
     global.ListePeMerge = {
+        CONFLICT_FIELDS,
         findDuplicateGroups,
         findOrphanRows,
+        findConflictGroups,
+        conflictingFields,
+        differingFields,
         mergeGroup,
-        buildCleanupActions
+        buildCleanupActions,
+        buildKeepActions
     };
 })(typeof window !== 'undefined' ? window : this);

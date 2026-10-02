@@ -49,6 +49,11 @@
         <button type="button" id="coherence-review-btn">Examiner</button>
     </div>
 
+    <div id="duplicate-check" class="hidden" role="alert">
+        <span id="duplicate-check-text"></span>
+        <button type="button" id="duplicate-review-btn">Résoudre</button>
+    </div>
+
     <main id="ecoles-container" aria-live="polite">
         <div id="loading-indicator">Chargement des données...</div>
     </main>
@@ -241,6 +246,30 @@
                 <button type="button" class="secondary" id="coherence-skip-btn">Annuler et conserver
                     les doublons</button>
                 <button type="button" class="primary" id="coherence-confirm-btn">Valider la saisie</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup doublons en conflit -->
+    <div id="duplicate-modal-overlay" class="hidden">
+        <div id="duplicate-modal" class="modal-box" role="dialog" aria-modal="true"
+            aria-labelledby="duplicate-modal-title">
+            <h2 id="duplicate-modal-title">Doublons à résoudre</h2>
+            <p id="duplicate-modal-progress" class="coherence-progress"></p>
+            <p id="duplicate-modal-intro">
+                Ces lignes désignent le même enseignant, la même année, dans la même école,
+                mais ne concordent pas. Mettez à jour la ligne à garder (identité, poste,
+                niveaux, décharges), puis conservez-la : elle est enregistrée telle que
+                saisie, les autres sont supprimées et leurs formations rattachées à celle-ci.
+            </p>
+            <p id="duplicate-modal-context" class="coherence-reasons"></p>
+
+            <div id="duplicate-profiles"></div>
+
+            <p id="duplicate-modal-error" class="coherence-error hidden" role="alert"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="secondary" id="duplicate-skip-btn">Plus tard</button>
             </div>
         </div>
     </div>

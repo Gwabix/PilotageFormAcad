@@ -26,7 +26,8 @@ const state = {
         rgpd: false,
         addTeacher: false,
         quitSchool: false,
-        coherence: false
+        coherence: false,
+        duplicates: false
     }
 };
 
@@ -545,6 +546,7 @@ async function loadAllData(skipNormalize, skipMerge, skipStamp) {
         attachAddTeacherListeners();
         attachQuitSchoolListeners();
         attachCoherenceListeners();
+        attachDuplicateListeners();
 
         state.canCreateFiche = await detectCreateFichePermission();
         applyCreateFichePermission();
@@ -568,6 +570,12 @@ async function loadAllData(skipNormalize, skipMerge, skipStamp) {
         refreshCoherenceBanner();
     } catch (coherenceBannerErr) {
         console.error('[Cohérence] Échec du bandeau :', coherenceBannerErr);
+    }
+
+    try {
+        refreshDuplicateBanner();
+    } catch (duplicateBannerErr) {
+        console.error('[Doublons] Échec du bandeau :', duplicateBannerErr);
     }
 }
 
@@ -1181,15 +1189,9 @@ function buildEcoleCard(ecole) {
     return card;
 }
 
-function buildPersonnelsTable(ecole) {
-    const wrapper = document.createElement('div');
-    const personnels = getPersonnelsForEcole(ecole);
-
-    if (!personnels.length) {
-        wrapper.innerHTML = '<div class="personnels-empty">Aucun enseignant renseigné pour cette école.</div>';
-        return wrapper;
-    }
-
+// Tableau des enseignants, colonnes et en-têtes seulement : partagé par les
+// fiches d'école et la modale des doublons. Contenu statique, sans donnée.
+function createPersonnelsTable() {
     const table = document.createElement('table');
     table.className = 'personnels-table';
     table.innerHTML =
@@ -1201,7 +1203,19 @@ function buildPersonnelsTable(ecole) {
         '<th>Civilité</th><th>Nom</th><th>Prénom</th><th>Mail</th><th>Fonction</th>' +
         '<th>Quotité</th><th>Décharge\r\nDir.</th><th>TP</th><th>Décharge\r\nsynd.</th><th>Autre</th>' +
         '</tr></thead>';
+    return table;
+}
 
+function buildPersonnelsTable(ecole) {
+    const wrapper = document.createElement('div');
+    const personnels = getPersonnelsForEcole(ecole);
+
+    if (!personnels.length) {
+        wrapper.innerHTML = '<div class="personnels-empty">Aucun enseignant renseigné pour cette école.</div>';
+        return wrapper;
+    }
+
+    const table = createPersonnelsTable();
     const tbody = document.createElement('tbody');
     personnels
         .slice() // ne pas trier l'index en place
@@ -1477,7 +1491,8 @@ function ensureQuotiteWarningTooltip() {
     const tip = document.createElement('div');
     tip.className = 'quotite-warning-tooltip';
     tip.setAttribute('role', 'tooltip');
-    tip.textContent = 'Veuillez renseigner les détails du temps partiel';
+    tip.textContent = 'Veuillez renseigner les détails du temps partiel '
+        + '(ou « TPT » en précision d\'une décharge Autre pour un temps partiel thérapeutique)';
     document.body.appendChild(tip);
     quotiteTooltipState.el = tip;
 
@@ -1511,6 +1526,19 @@ function positionQuotiteWarningTooltip(anchor, tip) {
     tip.style.top = Math.round(top) + 'px';
 }
 
+/**
+ * La précision désigne-t-elle un temps partiel thérapeutique ?
+ * Seules les lettres comptent, sans casse ni accent : « TPT », « (tpt) » ou
+ * « TPT 50 % » le désignent ; « TPT lundi » non, l'ajout d'un mot pouvant
+ * changer le sens.
+ */
+function isTptPrecision(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[^A-Za-z]/g, '')
+        .toUpperCase() === 'TPT';
+}
+
 function bindQuotiteWarningTooltip(cell) {
     const show = () => {
         if (!cell.classList.contains('quotite-warning')) return;
@@ -1529,7 +1557,13 @@ function bindQuotiteWarningTooltip(cell) {
     cell.addEventListener('focusout', hide);
 }
 
-function buildPersonnelRow(p, ecole) {
+/**
+ * Les trois lignes d'un enseignant : identité, niveaux et décharges, actions.
+ * `buildActions`, facultatif, remplace les boutons de la ligne d'actions
+ * (« Changer d'établissement », « Retirer de l'école ») : la modale des
+ * doublons y place « Conserver cette ligne ».
+ */
+function buildPersonnelRow(p, ecole, buildActions) {
     const fragment = document.createDocumentFragment();
 
     // Vérifie s'il y a des jours enregistrés dans la cellule Grist
@@ -1659,15 +1693,30 @@ function buildPersonnelRow(p, ecole) {
         return hasDecharge('TP');
     };
 
+    // Temps partiel thérapeutique : saisi en décharge « Autre », précision
+    // « TPT ». Pris en compte seulement si « Autre » a au moins un jour,
+    // c'est-à-dire quand la précision est visible.
+    const autreDaysSelect = cellDaysAutre.querySelector('select');
+    const preciserInput = cellDaysAutre.querySelector('.preciser-input');
+
+    const isTherapeuticPartTime = () => {
+        if (!triggerAutre.input.checked || !autreDaysSelect || !preciserInput) return false;
+        const hasDay = Array.from(autreDaysSelect.selectedOptions).some(opt => opt.value !== '');
+        return hasDay && isTptPrecision(preciserInput.value);
+    };
+
     const refreshQuotiteWarning = () => {
         const quotite = quotiteSelect ? quotiteSelect.value : '';
-        const incomplete = quotite !== '100%' && !isPartTimeDetailed();
+        const incomplete = quotite !== '100%' && !isPartTimeDetailed() && !isTherapeuticPartTime();
         quotiteCell.classList.toggle('quotite-warning', incomplete);
     };
 
     if (quotiteSelect) quotiteSelect.addEventListener('change', refreshQuotiteWarning);
     triggerTP.input.addEventListener('change', refreshQuotiteWarning);
     if (tpDaysSelect) tpDaysSelect.addEventListener('change', refreshQuotiteWarning);
+    triggerAutre.input.addEventListener('change', refreshQuotiteWarning);
+    if (autreDaysSelect) autreDaysSelect.addEventListener('change', refreshQuotiteWarning);
+    if (preciserInput) preciserInput.addEventListener('input', refreshQuotiteWarning);
 
     bindQuotiteWarningTooltip(quotiteCell);
     refreshQuotiteWarning();
@@ -1684,6 +1733,14 @@ function buildPersonnelRow(p, ecole) {
 
     const actionButtons = document.createElement('div');
     actionButtons.className = 'action-buttons';
+
+    if (buildActions) {
+        actionButtons.append(...buildActions());
+        actionsTd.appendChild(actionButtons);
+        trNiveaux.appendChild(actionsTd);
+        fragment.append(trMain, trDecharges, trNiveaux);
+        return fragment;
+    }
 
     const changeBtn = document.createElement('button');
     changeBtn.type = 'button';
@@ -1788,36 +1845,39 @@ function buildDechargeSelectCell(record, field, options) {
 
     const MARGIN = 8;
 
-    const positionExpanded = () => {
+    /*
+     * La liste dépliée se superpose à la liste repliée, même coin supérieur
+     * gauche (`origin`, mesuré avant le dépliage). Les jours sélectionnés
+     * étant en tête dans les deux états, ils restent sous la souris : la
+     * sélection se poursuit sans déplacement. Seul un manque de place en bas
+     * de l'écran fait remonter la liste, juste ce qu'il faut.
+     */
+    const positionExpanded = (origin) => {
         select.style.top = '0px';
         select.style.left = '0px';
+        select.scrollTop = 0;
 
         const anchor = td.getBoundingClientRect();
-        const box = select.getBoundingClientRect();
+        const start = origin || anchor;
         const vw = window.innerWidth;
         const vh = window.innerHeight;
+
+        select.style.maxHeight = Math.max(60, vh - (2 * MARGIN)) + 'px';
+        const box = select.getBoundingClientRect();
         const maxWidth = Math.max(60, vw - (2 * MARGIN));
         const effectiveWidth = Math.min(Math.max(box.width, anchor.width), maxWidth);
 
-        const spaceBelow = vh - anchor.bottom - MARGIN;
-        const spaceAbove = anchor.top - MARGIN;
+        let top = start.top;
+        if (top + box.height > vh - MARGIN) top = vh - MARGIN - box.height;
+        if (top < MARGIN) top = MARGIN;
 
-        let top;
-        if (box.height <= spaceBelow || spaceBelow >= spaceAbove) {
-            top = anchor.bottom;
-            select.style.maxHeight = Math.max(60, spaceBelow) + 'px';
-        } else {
-            top = Math.max(MARGIN, anchor.top - box.height);
-            select.style.maxHeight = Math.max(60, spaceAbove) + 'px';
-        }
-
-        let left = anchor.left;
+        let left = start.left;
         if (left + effectiveWidth > vw - MARGIN) left = vw - MARGIN - effectiveWidth;
         if (left < MARGIN) left = MARGIN;
 
         select.style.top = Math.round(top) + 'px';
         select.style.left = Math.round(left) + 'px';
-        select.style.minWidth = Math.round(anchor.width) + 'px';
+        select.style.minWidth = Math.round(start.width) + 'px';
 
         if (closeButton) {
             const buttonSize = 18;
@@ -1848,9 +1908,11 @@ function buildDechargeSelectCell(record, field, options) {
 
     const expand = () => {
         if (select.classList.contains('expanded')) return;
+        // Mesurée avant le dépliage : c'est là que la liste doit s'ouvrir.
+        const origin = select.getBoundingClientRect();
         select.size = expandedSize();
         select.classList.add('expanded');
-        positionExpanded();
+        positionExpanded(origin);
 
         if (closeButton) {
             closeButton.classList.add('visible');
@@ -1924,10 +1986,43 @@ function buildDechargeSelectCell(record, field, options) {
     });
     td.appendChild(closeButton);
 
-    select._collapse = collapse;
+    // Fermeture automatique : dépliée, la liste recouvre les lignes voisines.
+    // Si la souris la quitte sans revenir, on la referme comme la croix le
+    // ferait. Le délai laisse le temps de revenir après un écart involontaire.
+    let leaveTimer = null;
+    const cancelAutoClose = () => {
+        if (leaveTimer === null) return;
+        clearTimeout(leaveTimer);
+        leaveTimer = null;
+    };
+
+    const scheduleAutoClose = () => {
+        if (!select.classList.contains('expanded')) return;
+        cancelAutoClose();
+        leaveTimer = setTimeout(() => {
+            leaveTimer = null;
+            if (!select.classList.contains('expanded')) return;
+            collapse();
+            select.blur();
+        }, DECHARGE_AUTO_CLOSE_MS);
+    };
+
+    // La croix fait partie de la liste : la survoler ne doit pas la fermer.
+    select.addEventListener('mouseleave', scheduleAutoClose);
+    select.addEventListener('mouseenter', cancelAutoClose);
+    closeButton.addEventListener('mouseleave', scheduleAutoClose);
+    closeButton.addEventListener('mouseenter', cancelAutoClose);
+
+    select._collapse = () => {
+        cancelAutoClose();
+        collapse();
+    };
 
     return td;
 }
+
+// Délai avant fermeture d'une liste de jours dépliée que la souris a quittée.
+const DECHARGE_AUTO_CLOSE_MS = 2500;
 
 function buildAutreDechargeCell(record) {
     const td = buildDechargeSelectCell(record, 'Autre', DECHARGES_OPTIONS.Autre);
@@ -2229,6 +2324,16 @@ function parseNiveaux(rawValue) {
 }
 
 async function savePersonnelField(personnelId, field, value, onSuccessLocal) {
+    // Ligne affichée dans la modale des doublons : la saisie va au brouillon,
+    // écrit seulement par « Conserver cette ligne ».
+    const draft = duplicateState.drafts.get(personnelId);
+    if (draft) {
+        draft[field] = value;
+        if (onSuccessLocal) onSuccessLocal();
+        refreshDuplicateHighlights();
+        return;
+    }
+
     try {
         await grist.docApi.applyUserActions([
             ['UpdateRecord', 'Liste_PE', personnelId, { [field]: value }]
@@ -2877,6 +2982,307 @@ function attachCoherenceListeners() {
     });
 
     state.listenersAttached.coherence = true;
+}
+
+/* ==========================================================================
+   Doublons en conflit : même enseignant, même année, même école, mais deux
+   valeurs renseignées qui s'opposent (nom, prénom, civilité, mail, fonction,
+   quotité).
+
+   La fusion automatique les laisse de côté — aucune règle ne sait laquelle
+   est juste — et l'utilisateur choisit la ligne à conserver, après l'avoir
+   corrigée au besoin. Détection et actions : ../shared/liste-pe-merge.js.
+   ========================================================================== */
+
+const duplicateState = {
+    groups: [],
+    index: 0,
+    busy: false,
+    // rowId -> saisies en attente { champ: valeur } des lignes affichées
+    // dans la modale ; vide quand elle est fermée.
+    drafts: new Map()
+};
+
+const DUPLICATE_FIELD_LABELS = {
+    Civilite: 'Civilité',
+    Nom: 'Nom',
+    Prenom: 'Prénom',
+    Mail: 'Mail',
+    Fonction: 'Fonction',
+    Quotite_de_service: 'Quotité',
+    Niveau_x_: 'Niveaux',
+    D_dir: 'Décharge de direction',
+    TP: 'Temps partiel',
+    D_synd_: 'Décharge syndicale',
+    Autre: 'Autre décharge',
+    Preciser: 'Précision'
+};
+
+/*
+ * Cellules à mettre en avant pour chaque donnée, dans l'ordre de
+ * buildPersonnelRow : [classe de la ligne, index de la cellule].
+ *
+ * Une décharge marque aussi sa case de la ligne d'identité : quand elle est
+ * vide, la cellule de ses jours est masquée (visibility), et l'écart ne
+ * se verrait pas.
+ */
+const DUPLICATE_DIFF_CELLS = {
+    Civilite: [['main-row', 0]],
+    Nom: [['main-row', 1]],
+    Prenom: [['main-row', 2]],
+    Mail: [['main-row', 3]],
+    Fonction: [['main-row', 4]],
+    Quotite_de_service: [['main-row', 5]],
+    D_dir: [['main-row', 6], ['decharges-row', 1]],
+    TP: [['main-row', 7], ['decharges-row', 2]],
+    D_synd_: [['main-row', 8], ['decharges-row', 3]],
+    Autre: [['main-row', 9], ['decharges-row', 4]],
+    Niveau_x_: [['decharges-row', 0]],
+    Preciser: [['decharges-row', 4]]
+};
+
+const DUPLICATE_REQUIRED_FIELDS = ['Nom', 'Prenom'];
+
+function computeDuplicateGroups() {
+    if (typeof ListePeMerge === 'undefined') return []; // déjà signalé par cleanupListePe
+    // Sans Formations, les fiches de la ligne supprimée ne pourraient pas
+    // être repointées : la résolution est désactivée, comme la fusion.
+    if (!state.relatedTablesLoaded) return [];
+    return ListePeMerge.findConflictGroups(state.personnels);
+}
+
+function refreshDuplicateBanner() {
+    const notice = document.getElementById('duplicate-check');
+    const text = document.getElementById('duplicate-check-text');
+    if (!notice || !text) {
+        console.warn('[Doublons] Élément #duplicate-check introuvable dans le DOM.');
+        return;
+    }
+
+    duplicateState.groups = computeDuplicateGroups();
+
+    const nb = duplicateState.groups.length;
+    if (!nb) {
+        notice.classList.add('hidden');
+        return;
+    }
+
+    text.textContent = nb === 1
+        ? '⚠️ Un enseignant a deux lignes discordantes sur la même école.'
+        : '⚠️ ' + nb + ' enseignants ont des lignes discordantes sur une même école.';
+    notice.classList.remove('hidden');
+}
+
+function showDuplicateError(message) {
+    const el = document.getElementById('duplicate-modal-error');
+    el.textContent = message;
+    el.classList.toggle('hidden', !message);
+}
+
+// Nombre de fiches Formations rattachées à chaque ligne Liste_PE.
+function countFormationsByRow() {
+    const counts = new Map();
+    for (const record of state.formations) {
+        for (const value of flattenRecordValue(record.ID_PE)) {
+            if (typeof value === 'number' && value > 0) {
+                counts.set(value, (counts.get(value) || 0) + 1);
+                break;
+            }
+        }
+    }
+    return counts;
+}
+
+// Ligne d'actions d'un doublon : repère, formations rattachées (seule donnée
+// non modifiable ici, elles suivent la ligne conservée) et bouton.
+function buildDuplicateActions(row, position, formationsCount) {
+    const info = document.createElement('span');
+    info.className = 'duplicate-row-info';
+    info.textContent = 'Ligne ' + (position + 1) + ' · formations : ' + (formationsCount
+        ? formationsCount + ' fiche' + (formationsCount > 1 ? 's' : '')
+        : 'aucune');
+
+    const keepBtn = document.createElement('button');
+    keepBtn.type = 'button';
+    keepBtn.className = 'duplicate-keep-btn';
+    keepBtn.textContent = 'Conserver cette ligne';
+    keepBtn.addEventListener('click', () => keepDuplicateRow(row.id));
+
+    return [info, keepBtn];
+}
+
+/*
+ * Les lignes du groupe sont présentées comme dans les fiches d'école, avec
+ * les mêmes cellules (buildPersonnelRow). Leurs saisies ne sont pas écrites :
+ * savePersonnelField les dirige vers le brouillon de la ligne, et seul
+ * « Conserver cette ligne » les enregistre. Chaque ligne travaille sur une
+ * copie de l'enregistrement, pour que state.personnels reste intact si
+ * l'utilisateur renonce.
+ */
+function renderDuplicateGroup() {
+    const group = duplicateState.groups[duplicateState.index];
+    if (!group) {
+        closeDuplicateModal();
+        return;
+    }
+
+    showDuplicateError('');
+    duplicateState.drafts.clear();
+
+    document.getElementById('duplicate-modal-progress').textContent = duplicateState.groups.length > 1
+        ? 'Doublon ' + (duplicateState.index + 1) + ' sur ' + duplicateState.groups.length
+        : '';
+
+    const container = document.getElementById('duplicate-profiles');
+    container.textContent = '';
+    const formationsCount = countFormationsByRow();
+
+    const table = createPersonnelsTable();
+    const tbody = document.createElement('tbody');
+
+    group.rows.forEach((row, position) => {
+        duplicateState.drafts.set(row.id, {});
+        const copy = Object.assign({}, row);
+        tbody.appendChild(buildPersonnelRow(copy, null,
+            () => buildDuplicateActions(row, position, formationsCount.get(row.id) || 0)));
+    });
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+    refreshDuplicateHighlights();
+}
+
+/*
+ * Met en avant, d'une seule et même manière, tout ce qui diffère d'une ligne
+ * à l'autre — identité, poste, niveaux, décharges, précision — sans
+ * distinguer ce qui a déclenché la modale : un second code n'apprendrait rien
+ * de plus à l'utilisateur. Recalculé à chaque saisie, sur les valeurs
+ * affichées (ligne + brouillon) : une correction qui aligne les lignes
+ * efface aussitôt la mise en avant.
+ */
+function refreshDuplicateHighlights() {
+    const group = duplicateState.groups[duplicateState.index];
+    const container = document.getElementById('duplicate-profiles');
+    if (!group || !container) return;
+
+    const current = group.rows.map(row =>
+        Object.assign({}, row, duplicateState.drafts.get(row.id)));
+    const differing = new Set(ListePeMerge.differingFields(current));
+
+    container.querySelectorAll('.duplicate-field--conflict')
+        .forEach(td => td.classList.remove('duplicate-field--conflict'));
+
+    group.rows.forEach(row => {
+        differing.forEach(field => {
+            (DUPLICATE_DIFF_CELLS[field] || []).forEach(([rowClass, index]) => {
+                const tr = container.querySelector('tr.' + rowClass + '[data-personnel-id="' + row.id + '"]');
+                const td = tr && tr.children[index];
+                if (td) td.classList.add('duplicate-field--conflict');
+            });
+        });
+    });
+
+    const first = group.rows[0];
+    const ecoleRowId = getPersonnelEcoleRowId(first) || 0;
+    const ecoleLabel = ecoleRowId > 0
+        ? affectationLabel({ ecoleRowId, ecoleLabel: sanitizeText(first.Ecole) })
+        : 'sans école';
+    const labels = [...differing].map(f => DUPLICATE_FIELD_LABELS[f] || f);
+    document.getElementById('duplicate-modal-context').textContent =
+        [sanitizeText(first.Annee_scolaire), ecoleLabel].filter(Boolean).join(' · ')
+        + (labels.length ? ' — diffère : ' + labels.join(', ') : ' — les lignes concordent');
+}
+
+function openDuplicateModal() {
+    // Recalcul : les données ont pu changer depuis l'affichage du bandeau.
+    refreshDuplicateBanner();
+    if (!duplicateState.groups.length) {
+        showToast('Aucun doublon à résoudre.', 'success');
+        return;
+    }
+
+    duplicateState.index = 0;
+    document.getElementById('duplicate-modal-overlay').classList.remove('hidden');
+    renderDuplicateGroup();
+}
+
+function closeDuplicateModal() {
+    document.getElementById('duplicate-modal-overlay').classList.add('hidden');
+    document.getElementById('duplicate-profiles').textContent = '';
+    // Saisies abandonnées : les cellules de la modale n'existent plus.
+    duplicateState.drafts.clear();
+    showDuplicateError('');
+}
+
+// « Plus tard » : le groupe reste en l'état, on passe au suivant.
+function skipDuplicateGroup() {
+    if (duplicateState.index + 1 < duplicateState.groups.length) {
+        duplicateState.index += 1;
+        renderDuplicateGroup();
+        return;
+    }
+    closeDuplicateModal();
+}
+
+async function keepDuplicateRow(rowId) {
+    if (duplicateState.busy) return;
+
+    const group = duplicateState.groups[duplicateState.index];
+    const kept = group && group.rows.find(r => r.id === rowId);
+    if (!kept) return;
+
+    // Le mail est déjà contrôlé par sa cellule, comme dans les fiches
+    // d'école ; reste à ne pas conserver une ligne sans nom ni prénom.
+    const values = Object.assign({}, duplicateState.drafts.get(rowId));
+    const missing = DUPLICATE_REQUIRED_FIELDS.filter(field =>
+        !sanitizeText(field in values ? values[field] : kept[field]));
+    if (missing.length) {
+        showDuplicateError('Veuillez renseigner : '
+            + missing.map(f => DUPLICATE_FIELD_LABELS[f]).join(', ') + '.');
+        return;
+    }
+
+    const others = group.rows.filter(r => r.id !== rowId);
+    const actions = ListePeMerge.buildKeepActions(kept, values, others, state.formations);
+
+    duplicateState.busy = true;
+    showDuplicateError('');
+    try {
+        await grist.docApi.applyUserActions(actions);
+        showToast('Ligne conservée, ' + others.length + ' doublon'
+            + (others.length > 1 ? 's supprimés.' : ' supprimé.'), 'success');
+        closeDuplicateModal();
+        await loadAllData();
+    } catch (err) {
+        console.error('[Doublons] Échec de la résolution :', err);
+        showDuplicateError("Erreur lors de l'enregistrement.");
+    } finally {
+        duplicateState.busy = false;
+    }
+}
+
+function attachDuplicateListeners() {
+    if (state.listenersAttached.duplicates) return;
+
+    const overlay = document.getElementById('duplicate-modal-overlay');
+    const reviewBtn = document.getElementById('duplicate-review-btn');
+    if (!overlay || !reviewBtn) return;
+
+    reviewBtn.addEventListener('click', openDuplicateModal);
+    document.getElementById('duplicate-skip-btn')
+        .addEventListener('click', skipDuplicateGroup);
+
+    overlay.addEventListener('click', evt => {
+        if (evt.target === overlay) closeDuplicateModal();
+    });
+
+    document.addEventListener('keydown', evt => {
+        if (evt.key === 'Escape' && !overlay.classList.contains('hidden')) {
+            closeDuplicateModal();
+        }
+    });
+
+    state.listenersAttached.duplicates = true;
 }
 
 /* ==========================================================================

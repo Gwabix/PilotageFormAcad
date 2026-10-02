@@ -1269,6 +1269,121 @@ table.personnels-table input[type="checkbox"]:not(.niveau-checkbox input) {
 }
 
 /* ==========================================================================
+   Doublons en conflit : bandeau et modale de choix de la ligne à conserver.
+   Même teinte ambre que le contrôle de cohérence : rien n'est détruit tant
+   que l'utilisateur n'a pas choisi.
+   ========================================================================== */
+#duplicate-check {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #fff4e0;
+    border-bottom: 1px solid #b26a00;
+    color: #7a4a00;
+}
+
+#duplicate-check-text {
+    flex: 1 1 auto;
+}
+
+#duplicate-review-btn {
+    flex: 0 0 auto;
+    padding: 5px 14px;
+    border: 1px solid #b26a00;
+    border-radius: var(--radius);
+    background: #b26a00;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+#duplicate-review-btn:hover,
+#duplicate-review-btn:focus-visible {
+    background: #8f5500;
+    outline: none;
+}
+
+#duplicate-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 26, 35, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+/* Les lignes reprennent le tableau des fiches d'école (dix colonnes) : la
+   modale prend la largeur de l'écran, et le tableau défile s'il manque de
+   place plutôt que d'écraser ses colonnes. */
+#duplicate-modal {
+    width: min(1200px, 100%);
+}
+
+#duplicate-modal-intro {
+    margin: 8px 0 0 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+#duplicate-profiles {
+    margin-top: 12px;
+    overflow-x: auto;
+}
+
+#duplicate-profiles table.personnels-table {
+    min-width: 900px;
+}
+
+/* Cellule d'une donnée sur laquelle les lignes divergent. */
+#duplicate-profiles td.duplicate-field--conflict {
+    background: #ffe0e0c7;
+    box-shadow: inset 0 0 0 2px #d80000;
+    border-radius: 5px;
+}
+
+.duplicate-row-info {
+    margin-right: auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.duplicate-keep-btn {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.duplicate-keep-btn:hover,
+.duplicate-keep-btn:focus-visible {
+    background: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+}
+
+#duplicate-modal .modal-actions button.secondary {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+#duplicate-modal .modal-actions button.secondary:hover {
+    background: var(--color-bg);
+}
+
+/* ==========================================================================
    Modal de retrait de l'école / libération
    ========================================================================== */
 #quit-school-overlay {
